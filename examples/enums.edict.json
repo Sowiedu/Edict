@@ -1,0 +1,193 @@
+{
+    "kind": "module",
+    "id": "mod-enum-001",
+    "name": "enums",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "enum",
+            "id": "enum-shape-001",
+            "name": "Shape",
+            "variants": [
+                {
+                    "kind": "variant",
+                    "id": "var-circle-001",
+                    "name": "Circle",
+                    "fields": [
+                        {
+                            "kind": "field",
+                            "id": "field-radius-001",
+                            "name": "radius",
+                            "type": {
+                                "kind": "basic",
+                                "name": "Float"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "kind": "variant",
+                    "id": "var-rect-001",
+                    "name": "Rectangle",
+                    "fields": [
+                        {
+                            "kind": "field",
+                            "id": "field-w-001",
+                            "name": "width",
+                            "type": {
+                                "kind": "basic",
+                                "name": "Float"
+                            }
+                        },
+                        {
+                            "kind": "field",
+                            "id": "field-h-001",
+                            "name": "height",
+                            "type": {
+                                "kind": "basic",
+                                "name": "Float"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-area-001",
+            "name": "area",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-s-001",
+                    "name": "s",
+                    "type": {
+                        "kind": "named",
+                        "name": "Shape"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Float"
+            },
+            "contracts": [
+                {
+                    "kind": "post",
+                    "id": "post-area-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-post-001",
+                        "op": ">=",
+                        "left": {
+                            "kind": "ident",
+                            "id": "ident-result-001",
+                            "name": "result"
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "lit-zero-001",
+                            "value": 0.0,
+                            "type": {
+                                "kind": "basic",
+                                "name": "Float"
+                            }
+                        }
+                    }
+                }
+            ],
+            "body": [
+                {
+                    "kind": "match",
+                    "id": "match-shape-001",
+                    "target": {
+                        "kind": "ident",
+                        "id": "ident-s-001",
+                        "name": "s"
+                    },
+                    "arms": [
+                        {
+                            "kind": "arm",
+                            "id": "arm-circle-001",
+                            "pattern": {
+                                "kind": "constructor",
+                                "name": "Circle",
+                                "fields": [
+                                    {
+                                        "kind": "binding",
+                                        "name": "r"
+                                    }
+                                ]
+                            },
+                            "body": [
+                                {
+                                    "kind": "binop",
+                                    "id": "expr-pi-r2-001",
+                                    "op": "*",
+                                    "left": {
+                                        "kind": "literal",
+                                        "id": "lit-pi-001",
+                                        "value": 3.14159
+                                    },
+                                    "right": {
+                                        "kind": "binop",
+                                        "id": "expr-r2-001",
+                                        "op": "*",
+                                        "left": {
+                                            "kind": "ident",
+                                            "id": "ident-r1-001",
+                                            "name": "r"
+                                        },
+                                        "right": {
+                                            "kind": "ident",
+                                            "id": "ident-r2-001",
+                                            "name": "r"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "kind": "arm",
+                            "id": "arm-rect-001",
+                            "pattern": {
+                                "kind": "constructor",
+                                "name": "Rectangle",
+                                "fields": [
+                                    {
+                                        "kind": "binding",
+                                        "name": "w"
+                                    },
+                                    {
+                                        "kind": "binding",
+                                        "name": "h"
+                                    }
+                                ]
+                            },
+                            "body": [
+                                {
+                                    "kind": "binop",
+                                    "id": "expr-wh-001",
+                                    "op": "*",
+                                    "left": {
+                                        "kind": "ident",
+                                        "id": "ident-w-001",
+                                        "name": "w"
+                                    },
+                                    "right": {
+                                        "kind": "ident",
+                                        "id": "ident-h-001",
+                                        "name": "h"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

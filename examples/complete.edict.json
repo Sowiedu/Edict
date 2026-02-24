@@ -1,0 +1,472 @@
+{
+    "kind": "module",
+    "id": "mod-complete-001",
+    "name": "complete",
+    "imports": [
+        {
+            "kind": "import",
+            "id": "imp-std-001",
+            "module": "std",
+            "names": [
+                "print",
+                "map"
+            ]
+        }
+    ],
+    "definitions": [
+        {
+            "kind": "record",
+            "id": "rec-user-001",
+            "name": "User",
+            "fields": [
+                {
+                    "kind": "field",
+                    "id": "field-uname-001",
+                    "name": "name",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    }
+                },
+                {
+                    "kind": "field",
+                    "id": "field-age-001",
+                    "name": "age",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                },
+                {
+                    "kind": "field",
+                    "id": "field-email-001",
+                    "name": "email",
+                    "type": {
+                        "kind": "option",
+                        "inner": {
+                            "kind": "basic",
+                            "name": "String"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "kind": "enum",
+            "id": "enum-role-001",
+            "name": "Role",
+            "variants": [
+                {
+                    "kind": "variant",
+                    "id": "var-admin-001",
+                    "name": "Admin",
+                    "fields": []
+                },
+                {
+                    "kind": "variant",
+                    "id": "var-member-001",
+                    "name": "Member",
+                    "fields": [
+                        {
+                            "kind": "field",
+                            "id": "field-level-001",
+                            "name": "level",
+                            "type": {
+                                "kind": "basic",
+                                "name": "Int"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "kind": "variant",
+                    "id": "var-guest-001",
+                    "name": "Guest",
+                    "fields": []
+                }
+            ]
+        },
+        {
+            "kind": "const",
+            "id": "const-max-001",
+            "name": "MAX_LEVEL",
+            "type": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "value": {
+                "kind": "literal",
+                "id": "lit-max-001",
+                "value": 10
+            }
+        },
+        {
+            "kind": "type",
+            "id": "type-users-001",
+            "name": "UserList",
+            "definition": {
+                "kind": "array",
+                "element": {
+                    "kind": "named",
+                    "name": "User"
+                }
+            }
+        },
+        {
+            "kind": "fn",
+            "id": "fn-canEdit-001",
+            "name": "canEdit",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-role-001",
+                    "name": "role",
+                    "type": {
+                        "kind": "named",
+                        "name": "Role"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Bool"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "match",
+                    "id": "match-role-001",
+                    "target": {
+                        "kind": "ident",
+                        "id": "ident-role-001",
+                        "name": "role"
+                    },
+                    "arms": [
+                        {
+                            "kind": "arm",
+                            "id": "arm-admin-001",
+                            "pattern": {
+                                "kind": "constructor",
+                                "name": "Admin",
+                                "fields": []
+                            },
+                            "body": [
+                                {
+                                    "kind": "literal",
+                                    "id": "lit-true-ce-001",
+                                    "value": true
+                                }
+                            ]
+                        },
+                        {
+                            "kind": "arm",
+                            "id": "arm-member-001",
+                            "pattern": {
+                                "kind": "constructor",
+                                "name": "Member",
+                                "fields": [
+                                    {
+                                        "kind": "binding",
+                                        "name": "lvl"
+                                    }
+                                ]
+                            },
+                            "body": [
+                                {
+                                    "kind": "binop",
+                                    "id": "expr-lvl-gt-001",
+                                    "op": ">",
+                                    "left": {
+                                        "kind": "ident",
+                                        "id": "ident-lvl-001",
+                                        "name": "lvl"
+                                    },
+                                    "right": {
+                                        "kind": "literal",
+                                        "id": "lit-five-001",
+                                        "value": 5
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "kind": "arm",
+                            "id": "arm-guest-001",
+                            "pattern": {
+                                "kind": "wildcard"
+                            },
+                            "body": [
+                                {
+                                    "kind": "literal",
+                                    "id": "lit-false-ce-001",
+                                    "value": false
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-greet-comp-001",
+            "name": "greetUser",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-user-001",
+                    "name": "user",
+                    "type": {
+                        "kind": "named",
+                        "name": "User"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "String"
+            },
+            "contracts": [
+                {
+                    "kind": "pre",
+                    "id": "pre-age-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-age-gt-001",
+                        "op": ">",
+                        "left": {
+                            "kind": "access",
+                            "id": "acc-age-001",
+                            "target": {
+                                "kind": "ident",
+                                "id": "ident-user-pre-001",
+                                "name": "user"
+                            },
+                            "field": "age"
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "lit-zero-comp-001",
+                            "value": 0
+                        }
+                    }
+                }
+            ],
+            "body": [
+                {
+                    "kind": "let",
+                    "id": "let-greeting-001",
+                    "name": "greeting",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    },
+                    "value": {
+                        "kind": "literal",
+                        "id": "lit-hello-comp-001",
+                        "value": "Hello, "
+                    }
+                },
+                {
+                    "kind": "block",
+                    "id": "block-result-001",
+                    "body": [
+                        {
+                            "kind": "let",
+                            "id": "let-name-comp-001",
+                            "name": "userName",
+                            "value": {
+                                "kind": "access",
+                                "id": "acc-name-comp-001",
+                                "target": {
+                                    "kind": "ident",
+                                    "id": "ident-user-comp-001",
+                                    "name": "user"
+                                },
+                                "field": "name"
+                            }
+                        },
+                        {
+                            "kind": "ident",
+                            "id": "ident-uname-comp-001",
+                            "name": "userName"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-transform-001",
+            "name": "transformAll",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-items-001",
+                    "name": "items",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    }
+                },
+                {
+                    "kind": "param",
+                    "id": "param-fn-001",
+                    "name": "transformer",
+                    "type": {
+                        "kind": "fn_type",
+                        "params": [
+                            {
+                                "kind": "basic",
+                                "name": "Int"
+                            }
+                        ],
+                        "effects": [
+                            "pure"
+                        ],
+                        "returnType": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "array",
+                "element": {
+                    "kind": "basic",
+                    "name": "Int"
+                }
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "call",
+                    "id": "call-map-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-map-001",
+                        "name": "map"
+                    },
+                    "args": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-items-001",
+                            "name": "items"
+                        },
+                        {
+                            "kind": "ident",
+                            "id": "ident-trans-001",
+                            "name": "transformer"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-demo-lambda-001",
+            "name": "demoLambda",
+            "params": [],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "array",
+                "element": {
+                    "kind": "basic",
+                    "name": "Int"
+                }
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let",
+                    "id": "let-nums-001",
+                    "name": "nums",
+                    "value": {
+                        "kind": "array",
+                        "id": "arr-nums-001",
+                        "elements": [
+                            {
+                                "kind": "literal",
+                                "id": "lit-1-001",
+                                "value": 1
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-2-001",
+                                "value": 2
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-3-001",
+                                "value": 3
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "call",
+                    "id": "call-transform-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-transformAll-001",
+                        "name": "transformAll"
+                    },
+                    "args": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-nums-001",
+                            "name": "nums"
+                        },
+                        {
+                            "kind": "lambda",
+                            "id": "lambda-double-001",
+                            "params": [
+                                {
+                                    "kind": "param",
+                                    "id": "param-lx-001",
+                                    "name": "x",
+                                    "type": {
+                                        "kind": "basic",
+                                        "name": "Int"
+                                    }
+                                }
+                            ],
+                            "body": [
+                                {
+                                    "kind": "binop",
+                                    "id": "expr-double-001",
+                                    "op": "*",
+                                    "left": {
+                                        "kind": "ident",
+                                        "id": "ident-lx-001",
+                                        "name": "x"
+                                    },
+                                    "right": {
+                                        "kind": "literal",
+                                        "id": "lit-two-lam-001",
+                                        "value": 2
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

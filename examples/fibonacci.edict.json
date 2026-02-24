@@ -1,0 +1,139 @@
+{
+    "kind": "module",
+    "id": "mod-fib-001",
+    "name": "fibonacci",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-fib-001",
+            "name": "fib",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-n-001",
+                    "name": "n",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [
+                {
+                    "kind": "pre",
+                    "id": "pre-fib-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-pre-001",
+                        "op": ">=",
+                        "left": {
+                            "kind": "ident",
+                            "id": "expr-n-pre-001",
+                            "name": "n"
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "lit-zero-001",
+                            "value": 0
+                        }
+                    }
+                }
+            ],
+            "body": [
+                {
+                    "kind": "if",
+                    "id": "if-base-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-lte-001",
+                        "op": "<=",
+                        "left": {
+                            "kind": "ident",
+                            "id": "expr-n-001",
+                            "name": "n"
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "lit-one-001",
+                            "value": 1
+                        }
+                    },
+                    "then": [
+                        {
+                            "kind": "ident",
+                            "id": "expr-n-ret-001",
+                            "name": "n"
+                        }
+                    ],
+                    "else": [
+                        {
+                            "kind": "binop",
+                            "id": "expr-add-fib-001",
+                            "op": "+",
+                            "left": {
+                                "kind": "call",
+                                "id": "call-fib1-001",
+                                "fn": {
+                                    "kind": "ident",
+                                    "id": "ident-fib1-001",
+                                    "name": "fib"
+                                },
+                                "args": [
+                                    {
+                                        "kind": "binop",
+                                        "id": "expr-sub1-001",
+                                        "op": "-",
+                                        "left": {
+                                            "kind": "ident",
+                                            "id": "expr-n2-001",
+                                            "name": "n"
+                                        },
+                                        "right": {
+                                            "kind": "literal",
+                                            "id": "lit-one2-001",
+                                            "value": 1
+                                        }
+                                    }
+                                ]
+                            },
+                            "right": {
+                                "kind": "call",
+                                "id": "call-fib2-001",
+                                "fn": {
+                                    "kind": "ident",
+                                    "id": "ident-fib2-001",
+                                    "name": "fib"
+                                },
+                                "args": [
+                                    {
+                                        "kind": "binop",
+                                        "id": "expr-sub2-001",
+                                        "op": "-",
+                                        "left": {
+                                            "kind": "ident",
+                                            "id": "expr-n3-001",
+                                            "name": "n"
+                                        },
+                                        "right": {
+                                            "kind": "literal",
+                                            "id": "lit-two-001",
+                                            "value": 2
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

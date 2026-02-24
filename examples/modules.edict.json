@@ -1,0 +1,119 @@
+{
+    "kind": "module",
+    "id": "mod-imp-001",
+    "name": "modules",
+    "imports": [
+        {
+            "kind": "import",
+            "id": "imp-math-001",
+            "module": "math",
+            "names": [
+                "sqrt",
+                "pow"
+            ]
+        },
+        {
+            "kind": "import",
+            "id": "imp-io-001",
+            "module": "io",
+            "names": [
+                "print"
+            ]
+        }
+    ],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-hyp-001",
+            "name": "hypotenuse",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-a-imp-001",
+                    "name": "a",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Float"
+                    }
+                },
+                {
+                    "kind": "param",
+                    "id": "param-b-imp-001",
+                    "name": "b",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Float"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Float"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "call",
+                    "id": "call-sqrt-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-sqrt-001",
+                        "name": "sqrt"
+                    },
+                    "args": [
+                        {
+                            "kind": "binop",
+                            "id": "expr-sum-sq-001",
+                            "op": "+",
+                            "left": {
+                                "kind": "call",
+                                "id": "call-pow-a-001",
+                                "fn": {
+                                    "kind": "ident",
+                                    "id": "ident-pow-a-001",
+                                    "name": "pow"
+                                },
+                                "args": [
+                                    {
+                                        "kind": "ident",
+                                        "id": "ident-a-imp-001",
+                                        "name": "a"
+                                    },
+                                    {
+                                        "kind": "literal",
+                                        "id": "lit-two-imp-001",
+                                        "value": 2.0
+                                    }
+                                ]
+                            },
+                            "right": {
+                                "kind": "call",
+                                "id": "call-pow-b-001",
+                                "fn": {
+                                    "kind": "ident",
+                                    "id": "ident-pow-b-001",
+                                    "name": "pow"
+                                },
+                                "args": [
+                                    {
+                                        "kind": "ident",
+                                        "id": "ident-b-imp-001",
+                                        "name": "b"
+                                    },
+                                    {
+                                        "kind": "literal",
+                                        "id": "lit-two-imp-002",
+                                        "value": 2.0
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

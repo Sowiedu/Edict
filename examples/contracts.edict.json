@@ -1,0 +1,152 @@
+{
+    "kind": "module",
+    "id": "mod-con-001",
+    "name": "contracts",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-div-001",
+            "name": "safeDivide",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-num-001",
+                    "name": "numerator",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Float"
+                    }
+                },
+                {
+                    "kind": "param",
+                    "id": "param-den-001",
+                    "name": "denominator",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Float"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Float"
+            },
+            "contracts": [
+                {
+                    "kind": "pre",
+                    "id": "pre-nonzero-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-neq-001",
+                        "op": "!=",
+                        "left": {
+                            "kind": "ident",
+                            "id": "ident-den-001",
+                            "name": "denominator"
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "lit-zero-con-001",
+                            "value": 0.0,
+                            "type": {
+                                "kind": "basic",
+                                "name": "Float"
+                            }
+                        }
+                    }
+                },
+                {
+                    "kind": "pre",
+                    "id": "pre-positive-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-gt-den-001",
+                        "op": ">",
+                        "left": {
+                            "kind": "ident",
+                            "id": "ident-den-pre2-001",
+                            "name": "denominator"
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "lit-zero-con-004",
+                            "value": 0.0,
+                            "type": {
+                                "kind": "basic",
+                                "name": "Float"
+                            }
+                        }
+                    }
+                },
+                {
+                    "kind": "post",
+                    "id": "post-implies-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-impl-001",
+                        "op": "implies",
+                        "left": {
+                            "kind": "binop",
+                            "id": "expr-pos-num-001",
+                            "op": ">",
+                            "left": {
+                                "kind": "ident",
+                                "id": "ident-num-post-001",
+                                "name": "numerator"
+                            },
+                            "right": {
+                                "kind": "literal",
+                                "id": "lit-zero-con-002",
+                                "value": 0.0,
+                                "type": {
+                                    "kind": "basic",
+                                    "name": "Float"
+                                }
+                            }
+                        },
+                        "right": {
+                            "kind": "binop",
+                            "id": "expr-pos-res-001",
+                            "op": ">",
+                            "left": {
+                                "kind": "ident",
+                                "id": "ident-result-con-001",
+                                "name": "result"
+                            },
+                            "right": {
+                                "kind": "literal",
+                                "id": "lit-zero-con-003",
+                                "value": 0.0,
+                                "type": {
+                                    "kind": "basic",
+                                    "name": "Float"
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "body": [
+                {
+                    "kind": "binop",
+                    "id": "expr-div-001",
+                    "op": "/",
+                    "left": {
+                        "kind": "ident",
+                        "id": "ident-num-001",
+                        "name": "numerator"
+                    },
+                    "right": {
+                        "kind": "ident",
+                        "id": "ident-den2-001",
+                        "name": "denominator"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,94 @@
+{
+    "kind": "module",
+    "id": "mod-arith-001",
+    "name": "arithmetic",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-add-001",
+            "name": "add",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-a-001",
+                    "name": "a",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                },
+                {
+                    "kind": "param",
+                    "id": "param-b-001",
+                    "name": "b",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "binop",
+                    "id": "expr-add-001",
+                    "op": "+",
+                    "left": {
+                        "kind": "ident",
+                        "id": "expr-a-001",
+                        "name": "a"
+                    },
+                    "right": {
+                        "kind": "ident",
+                        "id": "expr-b-001",
+                        "name": "b"
+                    }
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-negate-001",
+            "name": "negate",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-x-001",
+                    "name": "x",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "unop",
+                    "id": "expr-neg-001",
+                    "op": "-",
+                    "operand": {
+                        "kind": "ident",
+                        "id": "expr-x-001",
+                        "name": "x"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,1304 @@
+{
+  "description": "A complete Edict program / module.",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "module"
+    },
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "imports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Import"
+      }
+    },
+    "definitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Definition"
+      }
+    }
+  },
+  "required": [
+    "definitions",
+    "id",
+    "imports",
+    "kind",
+    "name"
+  ],
+  "definitions": {
+    "Import": {
+      "description": "Import names from another module.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "import"
+        },
+        "id": {
+          "type": "string"
+        },
+        "module": {
+          "type": "string"
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "module",
+        "names"
+      ]
+    },
+    "Definition": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/FunctionDef"
+        },
+        {
+          "$ref": "#/definitions/TypeDef"
+        },
+        {
+          "$ref": "#/definitions/RecordDef"
+        },
+        {
+          "$ref": "#/definitions/EnumDef"
+        },
+        {
+          "$ref": "#/definitions/ConstDef"
+        }
+      ]
+    },
+    "FunctionDef": {
+      "description": "Function definition with effects, contracts, and body.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "fn"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Param"
+          }
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Effect"
+          }
+        },
+        "returnType": {
+          "$ref": "#/definitions/TypeExpr"
+        },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Contract"
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "body",
+        "contracts",
+        "effects",
+        "id",
+        "kind",
+        "name",
+        "params",
+        "returnType"
+      ]
+    },
+    "Param": {
+      "description": "Function parameter.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "param"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/TypeExpr"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "type"
+      ]
+    },
+    "TypeExpr": {
+      "description": "Union of all type expressions in Edict.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/BasicType"
+        },
+        {
+          "$ref": "#/definitions/ArrayType"
+        },
+        {
+          "$ref": "#/definitions/OptionType"
+        },
+        {
+          "$ref": "#/definitions/ResultType"
+        },
+        {
+          "$ref": "#/definitions/UnitType"
+        },
+        {
+          "$ref": "#/definitions/RefinedType"
+        },
+        {
+          "$ref": "#/definitions/FunctionType"
+        },
+        {
+          "$ref": "#/definitions/NamedType"
+        },
+        {
+          "$ref": "#/definitions/TupleType"
+        }
+      ]
+    },
+    "BasicType": {
+      "description": "Primitive types.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "basic"
+        },
+        "name": {
+          "enum": [
+            "Bool",
+            "Float",
+            "Int",
+            "String"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ]
+    },
+    "ArrayType": {
+      "description": "Homogeneous array type.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "array"
+        },
+        "element": {
+          "$ref": "#/definitions/TypeExpr"
+        }
+      },
+      "required": [
+        "element",
+        "kind"
+      ]
+    },
+    "OptionType": {
+      "description": "Optional value — None or Some(T).",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "option"
+        },
+        "inner": {
+          "$ref": "#/definitions/TypeExpr"
+        }
+      },
+      "required": [
+        "inner",
+        "kind"
+      ]
+    },
+    "ResultType": {
+      "description": "Result type for error handling. Interacts with the \"fails\" effect.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "result"
+        },
+        "ok": {
+          "$ref": "#/definitions/TypeExpr"
+        },
+        "err": {
+          "$ref": "#/definitions/TypeExpr"
+        }
+      },
+      "required": [
+        "err",
+        "kind",
+        "ok"
+      ]
+    },
+    "UnitType": {
+      "description": "Semantic unit type — compile-time enforcement, zero runtime cost.\nPrevents mixing incompatible units (e.g., currency<usd> + temp<celsius>).",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "unit_type"
+        },
+        "base": {
+          "enum": [
+            "Float",
+            "Int"
+          ],
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "base",
+        "kind",
+        "unit"
+      ]
+    },
+    "RefinedType": {
+      "description": "Refinement type — base type + logical predicate verified by Z3 (Phase 4).\nExample: { v: Int | v > 0 } is a positive integer.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "refined"
+        },
+        "id": {
+          "type": "string"
+        },
+        "base": {
+          "$ref": "#/definitions/TypeExpr"
+        },
+        "variable": {
+          "type": "string"
+        },
+        "predicate": {
+          "$ref": "#/definitions/Expression"
+        }
+      },
+      "required": [
+        "base",
+        "id",
+        "kind",
+        "predicate",
+        "variable"
+      ]
+    },
+    "Expression": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Literal"
+        },
+        {
+          "$ref": "#/definitions/Identifier"
+        },
+        {
+          "$ref": "#/definitions/BinaryOp"
+        },
+        {
+          "$ref": "#/definitions/UnaryOp"
+        },
+        {
+          "$ref": "#/definitions/Call"
+        },
+        {
+          "$ref": "#/definitions/IfExpr"
+        },
+        {
+          "$ref": "#/definitions/LetExpr"
+        },
+        {
+          "$ref": "#/definitions/MatchExpr"
+        },
+        {
+          "$ref": "#/definitions/ArrayExpr"
+        },
+        {
+          "$ref": "#/definitions/TupleExpr"
+        },
+        {
+          "$ref": "#/definitions/RecordExpr"
+        },
+        {
+          "$ref": "#/definitions/EnumConstructor"
+        },
+        {
+          "$ref": "#/definitions/FieldAccess"
+        },
+        {
+          "$ref": "#/definitions/LambdaExpr"
+        },
+        {
+          "$ref": "#/definitions/BlockExpr"
+        }
+      ]
+    },
+    "Literal": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "literal"
+        },
+        "id": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "type": {
+          "description": "Union of all type expressions in Edict.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/BasicType"
+            },
+            {
+              "$ref": "#/definitions/ArrayType"
+            },
+            {
+              "$ref": "#/definitions/OptionType"
+            },
+            {
+              "$ref": "#/definitions/ResultType"
+            },
+            {
+              "$ref": "#/definitions/UnitType"
+            },
+            {
+              "$ref": "#/definitions/RefinedType"
+            },
+            {
+              "$ref": "#/definitions/FunctionType"
+            },
+            {
+              "$ref": "#/definitions/NamedType"
+            },
+            {
+              "$ref": "#/definitions/TupleType"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "value"
+      ]
+    },
+    "FunctionType": {
+      "description": "Function type — for higher-order functions and lambdas.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "fn_type"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TypeExpr"
+          }
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Effect"
+          }
+        },
+        "returnType": {
+          "$ref": "#/definitions/TypeExpr"
+        }
+      },
+      "required": [
+        "effects",
+        "kind",
+        "params",
+        "returnType"
+      ]
+    },
+    "Effect": {
+      "description": "The 5 canonical effect categories.\nA function's signature includes which effects it may perform.",
+      "enum": [
+        "fails",
+        "io",
+        "pure",
+        "reads",
+        "writes"
+      ],
+      "type": "string"
+    },
+    "NamedType": {
+      "description": "Reference to a user-defined type (RecordDef or EnumDef) by name.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "named"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ]
+    },
+    "TupleType": {
+      "description": "Fixed-size heterogeneous tuple.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tuple"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TypeExpr"
+          }
+        }
+      },
+      "required": [
+        "elements",
+        "kind"
+      ]
+    },
+    "Identifier": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "ident"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name"
+      ]
+    },
+    "BinaryOp": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "binop"
+        },
+        "id": {
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/definitions/BinaryOperator"
+        },
+        "left": {
+          "$ref": "#/definitions/Expression"
+        },
+        "right": {
+          "$ref": "#/definitions/Expression"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "left",
+        "op",
+        "right"
+      ]
+    },
+    "BinaryOperator": {
+      "enum": [
+        "!=",
+        "%",
+        "*",
+        "+",
+        "-",
+        "/",
+        "<",
+        "<=",
+        "==",
+        ">",
+        ">=",
+        "and",
+        "implies",
+        "or"
+      ],
+      "type": "string"
+    },
+    "UnaryOp": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "unop"
+        },
+        "id": {
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/definitions/UnaryOperator"
+        },
+        "operand": {
+          "$ref": "#/definitions/Expression"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "op",
+        "operand"
+      ]
+    },
+    "UnaryOperator": {
+      "enum": [
+        "-",
+        "not"
+      ],
+      "type": "string"
+    },
+    "Call": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "call"
+        },
+        "id": {
+          "type": "string"
+        },
+        "fn": {
+          "$ref": "#/definitions/Expression"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "args",
+        "fn",
+        "id",
+        "kind"
+      ]
+    },
+    "IfExpr": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "if"
+        },
+        "id": {
+          "type": "string"
+        },
+        "condition": {
+          "$ref": "#/definitions/Expression"
+        },
+        "then": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        },
+        "else": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "condition",
+        "id",
+        "kind",
+        "then"
+      ]
+    },
+    "LetExpr": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "let"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "description": "Union of all type expressions in Edict.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/BasicType"
+            },
+            {
+              "$ref": "#/definitions/ArrayType"
+            },
+            {
+              "$ref": "#/definitions/OptionType"
+            },
+            {
+              "$ref": "#/definitions/ResultType"
+            },
+            {
+              "$ref": "#/definitions/UnitType"
+            },
+            {
+              "$ref": "#/definitions/RefinedType"
+            },
+            {
+              "$ref": "#/definitions/FunctionType"
+            },
+            {
+              "$ref": "#/definitions/NamedType"
+            },
+            {
+              "$ref": "#/definitions/TupleType"
+            }
+          ]
+        },
+        "value": {
+          "$ref": "#/definitions/Expression"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "value"
+      ]
+    },
+    "MatchExpr": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "match"
+        },
+        "id": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/definitions/Expression"
+        },
+        "arms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MatchArm"
+          }
+        }
+      },
+      "required": [
+        "arms",
+        "id",
+        "kind",
+        "target"
+      ]
+    },
+    "MatchArm": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "arm"
+        },
+        "id": {
+          "type": "string"
+        },
+        "pattern": {
+          "$ref": "#/definitions/Pattern"
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "body",
+        "id",
+        "kind",
+        "pattern"
+      ]
+    },
+    "Pattern": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/LiteralPattern"
+        },
+        {
+          "$ref": "#/definitions/WildcardPattern"
+        },
+        {
+          "$ref": "#/definitions/BindingPattern"
+        },
+        {
+          "$ref": "#/definitions/ConstructorPattern"
+        }
+      ]
+    },
+    "LiteralPattern": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "literal_pattern"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ]
+    },
+    "WildcardPattern": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "wildcard"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "BindingPattern": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "binding"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ]
+    },
+    "ConstructorPattern": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "constructor"
+        },
+        "name": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Pattern"
+          }
+        }
+      },
+      "required": [
+        "fields",
+        "kind",
+        "name"
+      ]
+    },
+    "ArrayExpr": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "elements",
+        "id",
+        "kind"
+      ]
+    },
+    "TupleExpr": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tuple_expr"
+        },
+        "id": {
+          "type": "string"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "elements",
+        "id",
+        "kind"
+      ]
+    },
+    "RecordExpr": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "record_expr"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FieldInit"
+          }
+        }
+      },
+      "required": [
+        "fields",
+        "id",
+        "kind",
+        "name"
+      ]
+    },
+    "FieldInit": {
+      "description": "Field initialization in record expressions and enum constructors.\nGives these inline objects a proper `kind` discriminator like every other AST node.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "field_init"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/definitions/Expression"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "value"
+      ]
+    },
+    "EnumConstructor": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "enum_constructor"
+        },
+        "id": {
+          "type": "string"
+        },
+        "enumName": {
+          "type": "string"
+        },
+        "variant": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FieldInit"
+          }
+        }
+      },
+      "required": [
+        "enumName",
+        "fields",
+        "id",
+        "kind",
+        "variant"
+      ]
+    },
+    "FieldAccess": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "access"
+        },
+        "id": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/definitions/Expression"
+        },
+        "field": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "id",
+        "kind",
+        "target"
+      ]
+    },
+    "LambdaExpr": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "lambda"
+        },
+        "id": {
+          "type": "string"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Param"
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "body",
+        "id",
+        "kind",
+        "params"
+      ]
+    },
+    "BlockExpr": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "block"
+        },
+        "id": {
+          "type": "string"
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "body",
+        "id",
+        "kind"
+      ]
+    },
+    "Contract": {
+      "description": "Pre/post contract on a function.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "post",
+            "pre"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "condition": {
+          "$ref": "#/definitions/Expression"
+        }
+      },
+      "required": [
+        "condition",
+        "id",
+        "kind"
+      ]
+    },
+    "TypeDef": {
+      "description": "Type alias definition.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "type"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "definition": {
+          "$ref": "#/definitions/TypeExpr"
+        }
+      },
+      "required": [
+        "definition",
+        "id",
+        "kind",
+        "name"
+      ]
+    },
+    "RecordDef": {
+      "description": "Record (struct) definition.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "record"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RecordField"
+          }
+        }
+      },
+      "required": [
+        "fields",
+        "id",
+        "kind",
+        "name"
+      ]
+    },
+    "RecordField": {
+      "description": "A field in a record definition.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "field"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/TypeExpr"
+        },
+        "defaultValue": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Literal"
+            },
+            {
+              "$ref": "#/definitions/Identifier"
+            },
+            {
+              "$ref": "#/definitions/BinaryOp"
+            },
+            {
+              "$ref": "#/definitions/UnaryOp"
+            },
+            {
+              "$ref": "#/definitions/Call"
+            },
+            {
+              "$ref": "#/definitions/IfExpr"
+            },
+            {
+              "$ref": "#/definitions/LetExpr"
+            },
+            {
+              "$ref": "#/definitions/MatchExpr"
+            },
+            {
+              "$ref": "#/definitions/ArrayExpr"
+            },
+            {
+              "$ref": "#/definitions/TupleExpr"
+            },
+            {
+              "$ref": "#/definitions/RecordExpr"
+            },
+            {
+              "$ref": "#/definitions/EnumConstructor"
+            },
+            {
+              "$ref": "#/definitions/FieldAccess"
+            },
+            {
+              "$ref": "#/definitions/LambdaExpr"
+            },
+            {
+              "$ref": "#/definitions/BlockExpr"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "type"
+      ]
+    },
+    "EnumDef": {
+      "description": "Enum (tagged union / sum type) definition.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "enum"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EnumVariant"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "variants"
+      ]
+    },
+    "EnumVariant": {
+      "description": "A variant of an enum. Fields are empty for unit variants (e.g., None).",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "variant"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RecordField"
+          }
+        }
+      },
+      "required": [
+        "fields",
+        "id",
+        "kind",
+        "name"
+      ]
+    },
+    "ConstDef": {
+      "description": "Constant definition.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "const"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/TypeExpr"
+        },
+        "value": {
+          "$ref": "#/definitions/Expression"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "type",
+        "value"
+      ]
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

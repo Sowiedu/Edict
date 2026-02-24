@@ -1,0 +1,173 @@
+{
+    "kind": "module",
+    "id": "mod-rec-001",
+    "name": "records",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "record",
+            "id": "rec-point-001",
+            "name": "Point",
+            "fields": [
+                {
+                    "kind": "field",
+                    "id": "field-x-001",
+                    "name": "x",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Float"
+                    }
+                },
+                {
+                    "kind": "field",
+                    "id": "field-y-001",
+                    "name": "y",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Float"
+                    }
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-dist-001",
+            "name": "distance",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-p-001",
+                    "name": "p",
+                    "type": {
+                        "kind": "named",
+                        "name": "Point"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Float"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let",
+                    "id": "let-px-001",
+                    "name": "px",
+                    "value": {
+                        "kind": "access",
+                        "id": "acc-x-001",
+                        "target": {
+                            "kind": "ident",
+                            "id": "ident-p-001",
+                            "name": "p"
+                        },
+                        "field": "x"
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-py-001",
+                    "name": "py",
+                    "value": {
+                        "kind": "access",
+                        "id": "acc-y-001",
+                        "target": {
+                            "kind": "ident",
+                            "id": "ident-p2-001",
+                            "name": "p"
+                        },
+                        "field": "y"
+                    }
+                },
+                {
+                    "kind": "binop",
+                    "id": "expr-add-sq-001",
+                    "op": "+",
+                    "left": {
+                        "kind": "binop",
+                        "id": "expr-sq-x-001",
+                        "op": "*",
+                        "left": {
+                            "kind": "ident",
+                            "id": "ident-px-001",
+                            "name": "px"
+                        },
+                        "right": {
+                            "kind": "ident",
+                            "id": "ident-px2-001",
+                            "name": "px"
+                        }
+                    },
+                    "right": {
+                        "kind": "binop",
+                        "id": "expr-sq-y-001",
+                        "op": "*",
+                        "left": {
+                            "kind": "ident",
+                            "id": "ident-py-001",
+                            "name": "py"
+                        },
+                        "right": {
+                            "kind": "ident",
+                            "id": "ident-py2-001",
+                            "name": "py"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-origin-001",
+            "name": "origin",
+            "params": [],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "named",
+                "name": "Point"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "record_expr",
+                    "id": "rec-expr-001",
+                    "name": "Point",
+                    "fields": [
+                        {
+                            "kind": "field_init",
+                            "name": "x",
+                            "value": {
+                                "kind": "literal",
+                                "id": "lit-x0-001",
+                                "value": 0.0,
+                                "type": {
+                                    "kind": "basic",
+                                    "name": "Float"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "field_init",
+                            "name": "y",
+                            "value": {
+                                "kind": "literal",
+                                "id": "lit-y0-001",
+                                "value": 0.0,
+                                "type": {
+                                    "kind": "basic",
+                                    "name": "Float"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

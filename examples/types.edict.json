@@ -1,0 +1,126 @@
+{
+    "kind": "module",
+    "id": "mod-types-001",
+    "name": "types",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "type",
+            "id": "type-usd-001",
+            "name": "USD",
+            "definition": {
+                "kind": "unit_type",
+                "base": "Float",
+                "unit": "usd"
+            }
+        },
+        {
+            "kind": "type",
+            "id": "type-eur-001",
+            "name": "EUR",
+            "definition": {
+                "kind": "unit_type",
+                "base": "Float",
+                "unit": "eur"
+            }
+        },
+        {
+            "kind": "type",
+            "id": "type-posint-001",
+            "name": "PositiveInt",
+            "definition": {
+                "kind": "refined",
+                "id": "refined-pos-001",
+                "base": {
+                    "kind": "basic",
+                    "name": "Int"
+                },
+                "variable": "v",
+                "predicate": {
+                    "kind": "binop",
+                    "id": "expr-gt-zero-001",
+                    "op": ">",
+                    "left": {
+                        "kind": "ident",
+                        "id": "ident-v-001",
+                        "name": "v"
+                    },
+                    "right": {
+                        "kind": "literal",
+                        "id": "lit-zero-typ-001",
+                        "value": 0
+                    }
+                }
+            }
+        },
+        {
+            "kind": "type",
+            "id": "type-pair-001",
+            "name": "IntPair",
+            "definition": {
+                "kind": "tuple",
+                "elements": [
+                    {
+                        "kind": "basic",
+                        "name": "Int"
+                    },
+                    {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                ]
+            }
+        },
+        {
+            "kind": "fn",
+            "id": "fn-mkpair-001",
+            "name": "makePair",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-a-typ-001",
+                    "name": "a",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                },
+                {
+                    "kind": "param",
+                    "id": "param-b-typ-001",
+                    "name": "b",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "named",
+                "name": "IntPair"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "tuple_expr",
+                    "id": "tup-expr-001",
+                    "elements": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-a-typ-001",
+                            "name": "a"
+                        },
+                        {
+                            "kind": "ident",
+                            "id": "ident-b-typ-001",
+                            "name": "b"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

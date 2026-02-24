@@ -1,0 +1,45 @@
+{
+    "kind": "module",
+    "id": "mod-hello-001",
+    "name": "hello",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-main-001",
+            "name": "main",
+            "params": [],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "effects": [
+                "io"
+            ],
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "call",
+                    "id": "call-print-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-print-001",
+                        "name": "print"
+                    },
+                    "args": [
+                        {
+                            "kind": "literal",
+                            "id": "lit-hello-001",
+                            "value": "Hello, World!"
+                        }
+                    ]
+                },
+                {
+                    "kind": "literal",
+                    "id": "lit-zero-001",
+                    "value": 0
+                }
+            ]
+        }
+    ]
+}

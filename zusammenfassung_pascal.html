@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eine neue Programmiersprache — aber nicht für Menschen</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-raised: #222632;
+      --border: #2e3346;
+      --text: #e4e6ef;
+      --text-muted: #8b90a5;
+      --accent: #6c7eff;
+      --accent-glow: rgba(108, 126, 255, 0.15);
+      --green: #4ade80;
+      --yellow: #facc15;
+      --red: #f87171;
+      --cyan: #22d3ee;
+      --orange: #fb923c;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 6rem;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 4rem 0 3rem;
+    }
+    .hero-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      background: var(--accent-glow);
+      border: 1px solid rgba(108, 126, 255, 0.25);
+      padding: 0.35rem 1rem;
+      border-radius: 100px;
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #e4e6ef 30%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    /* Dividers */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2.5rem 0;
+    }
+
+    /* Sections */
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    p { margin-bottom: 1rem; color: var(--text-muted); }
+    p strong, li strong { color: var(--text); }
+
+    /* Analogy card */
+    .analogy {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      font-style: italic;
+      color: var(--text-muted);
+      position: relative;
+      overflow: hidden;
+    }
+    .analogy::before {
+      content: '💡';
+      font-style: normal;
+      font-size: 1.5rem;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .analogy::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 4px; height: 100%;
+      background: var(--accent);
+      border-radius: 4px 0 0 4px;
+    }
+
+    /* Feature cards */
+    .features { display: flex; flex-direction: column; gap: 1rem; margin: 1.5rem 0; }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .feature-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    .feature-card h3 { margin-bottom: 0.35rem; }
+    .feature-card p { margin-bottom: 0; font-size: 0.92rem; }
+    .feature-highlight {
+      display: inline;
+      color: var(--green);
+      font-weight: 600;
+      font-style: normal;
+    }
+
+    /* Table */
+    .table-wrapper {
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    thead { background: var(--surface-raised); }
+    th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.65rem 1rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:last-child {
+      background: var(--accent-glow);
+    }
+    tr:last-child td {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* TLDR */
+    .tldr {
+      background: linear-gradient(135deg, rgba(108,126,255,0.08), rgba(34,211,238,0.06));
+      border: 1px solid rgba(108, 126, 255, 0.2);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-top: 2rem;
+    }
+    .tldr h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    .tldr p { color: var(--text); font-size: 1rem; }
+    .tldr p:last-child { margin-bottom: 0; }
+    .phase-tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: var(--surface);
+      color: var(--cyan);
+      border: 1px solid rgba(34,211,238,0.2);
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      margin-top: 0.5rem;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 1.6rem; }
+      .container { padding: 2rem 1rem 4rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="hero">
+      <span class="hero-badge">Forschungsprojekt 2026</span>
+      <h1>Eine neue Programmiersprache — aber nicht für Menschen</h1>
+      <p>Ein Überblick für Nicht-Programmierer darüber, was wir hier eigentlich machen und warum es wichtig ist.</p>
+    </div>
+
+    <hr>
+
+    <h2>Das Problem</h2>
+    <p>Du kennst ChatGPT, Claude und Co. — KI-Modelle, die auch Programmcode schreiben können. Das machen sie inzwischen richtig viel: Ein großer Teil aller neuen Software wird schon heute von KI mitgeschrieben oder komplett generiert.</p>
+    <p><strong>Das Kuriose dabei:</strong> Die Programmiersprachen, die diese KIs benutzen (Python, JavaScript, etc.), wurden alle für <em>Menschen</em> entworfen. Für menschliche Augen, menschliche Lesegewohnheiten, menschliche Tippfehler-Toleranz.</p>
+
+    <div class="analogy">
+      Das ist ungefähr so, als würde man einem Roboter-Chirurgen ein Skalpell geben, das für menschliche Hände geformt ist. Es funktioniert — aber es ist nicht optimal.
+    </div>
+
+    <hr>
+
+    <h2>Die Idee</h2>
+    <p><strong>Was wäre, wenn man eine Programmiersprache baut, die <em>ausschließlich</em> für KI-Agenten gedacht ist?</strong></p>
+    <p>Nicht zum Lesen für Menschen. Nicht zum Tippen auf einer Tastatur. Sondern optimiert für die Art, wie ein KI-Modell "denkt", Code erzeugt und Fehler vermeidet.</p>
+
+    <hr>
+
+    <h2>Was wir recherchiert haben</h2>
+    <p>Wir haben uns existierende Sprachen, Typsysteme und Verifikations-Ansätze angeschaut und die besten Ideen destilliert:</p>
+
+    <div class="features">
+
+      <div class="feature-card">
+        <span class="feature-icon">🔒</span>
+        <h3>Intelligente Datentypen</h3>
+        <p>Stell dir vor, der Computer weiß nicht nur "das ist eine Zahl", sondern auch "das ist ein Betrag in Euro" oder "das ist eine Temperatur in Celsius". Wenn die KI dann versehentlich Euro mit Kilogramm verrechnen will, sagt der Compiler sofort: <span class="feature-highlight">Stopp, das ergibt keinen Sinn.</span> So verhindert man eine ganze Kategorie von Fehlern, bevor das Programm überhaupt läuft.</p>
+      </div>
+
+      <div class="feature-card">
+        <span class="feature-icon">✅</span>
+        <h3>Eingebaute Versprechen (Verträge)</h3>
+        <p>Jede Funktion im Code muss explizit sagen: "Ich erwarte X als Eingabe" und "Ich verspreche Y als Ergebnis." Ein mathematischer Beweiser prüft automatisch, ob diese Versprechen eingehalten werden. Aktuelle Forschung zeigt: KIs können solche Spezifikationen schon mit ~98% Trefferquote selbst schreiben. Das heißt: <span class="feature-highlight">Die KI schreibt den Code UND den Beweis, dass er korrekt ist.</span></p>
+      </div>
+
+      <div class="feature-card">
+        <span class="feature-icon">⚡</span>
+        <h3>Effekt-System ("Was darf diese Funktion?")</h3>
+        <p>Jede Funktion deklariert, ob sie aufs Internet zugreift, Dateien schreibt oder schiefgehen kann. Das steht direkt in der Signatur. So weiß jeder sofort, was ein Code-Baustein tut — ohne reinschauen zu müssen.</p>
+      </div>
+
+      <div class="feature-card">
+        <span class="feature-icon">🧮</span>
+        <h3>Token-Effizienz ("Jedes Zeichen zählt")</h3>
+        <p>KI-Modelle haben ein begrenztes "Arbeitsfenster" (Kontextfenster). Jedes überflüssige Zeichen im Code verschwendet Platz. Unsere Sprache ist darauf optimiert, mit möglichst wenig Zeichen möglichst viel Bedeutung zu transportieren. Ziel: <span class="feature-highlight">&gt;50% weniger Platzverbrauch als Python.</span></p>
+      </div>
+
+      <div class="feature-card">
+        <span class="feature-icon">🏗️</span>
+        <h3>Code als Struktur, nicht als Text</h3>
+        <p>Für Menschen ist Code eine Textdatei. Für die KI ist es intern ein Syntaxbaum (wie ein Stammbaum, nur für Programmlogik). Unsere Sprache arbeitet direkt mit dieser Baumstruktur, was Syntaxfehler praktisch unmöglich macht.</p>
+      </div>
+
+    </div>
+
+    <hr>
+
+    <h2>Was ist daran neu?</h2>
+    <p>Einzelne Teile dieser Ideen gibt es schon — aber keines der existierenden Projekte bringt sie alle zusammen:</p>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Idee</th>
+            <th>Gibt's schon wo?</th>
+            <th>Was fehlt?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Intelligente Typen</td>
+            <td>F# (Microsoft)</td>
+            <td>Nicht für KI, nur für Physik-Einheiten</td>
+          </tr>
+          <tr>
+            <td>Automatische Beweise</td>
+            <td>Dafny (Microsoft)</td>
+            <td>Nicht KI-optimiert</td>
+          </tr>
+          <tr>
+            <td>Code als Baum</td>
+            <td>Unison</td>
+            <td>Inkompatibel mit allen anderen Tools</td>
+          </tr>
+          <tr>
+            <td>Token-optimierte Syntax</td>
+            <td>GlyphLang</td>
+            <td>Nur ein Nischenprojekt</td>
+          </tr>
+          <tr>
+            <td><strong>Alles zusammen</strong></td>
+            <td><strong>Niemand</strong></td>
+            <td>← Das ist unsere Lücke</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr>
+
+    <div class="tldr">
+      <h2>TL;DR — Kurzfassung</h2>
+      <p>Ich forsche daran, wie eine Programmiersprache aussehen müsste, die <strong>nicht für Programmierer, sondern für KI-Agenten</strong> gebaut ist. Eine Sprache, in der die KI weniger Fehler macht, sich selbst beweisen kann, dass ihr Code korrekt ist, und weniger "Denkkapazität" für unnötigen Boilerplate verschwendet.</p>
+      <p><strong>Es ist Grundlagenforschung</strong> — wir sind in der Phase, wo wir sammeln, was es gibt, was funktioniert, und was unsere eigene Innovation wäre. Der nächste Schritt wäre, einen ersten Prototyp zu designen.</p>
+      <span class="phase-tag">📍 Status: Recherche abgeschlossen → Design-Phase steht an</span>
+    </div>
+
+    <div class="footer">
+      Zusammenfassung erstellt am 15. Februar 2026
+    </div>
+
+  </div>
+</body>
+</html>

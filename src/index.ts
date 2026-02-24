@@ -1,0 +1,184 @@
+// =============================================================================
+// Edict Public API
+// =============================================================================
+
+// Phase 1 — Validation
+export { validate } from "./validator/validate.js";
+export type {
+    ValidationResult,
+    ValidationSuccess,
+    ValidationFailure,
+} from "./validator/validate.js";
+
+// Phase 2 — Name Resolution
+export { resolve } from "./resolver/resolve.js";
+export { Scope } from "./resolver/scope.js";
+export type { SymbolKind, SymbolInfo } from "./resolver/scope.js";
+export { levenshteinDistance, findCandidates } from "./resolver/levenshtein.js";
+
+// Phase 2 — Type Checking
+export { typeCheck } from "./checker/check.js";
+export { TypeEnv } from "./checker/type-env.js";
+export { typesEqual, isUnknown, formatType, resolveType } from "./checker/types-equal.js";
+
+// Phase 3 — Effect Checking
+export { effectCheck } from "./effects/effect-check.js";
+export { buildCallGraph, collectCalls } from "./effects/call-graph.js";
+export type { CallEdge, CallGraph } from "./effects/call-graph.js";
+
+// Phase 4 — Contract Verification
+export { contractVerify } from "./contracts/verify.js";
+export { getZ3, resetZ3 } from "./contracts/z3-context.js";
+export { translateExpr, translateExprList, createParamVariables } from "./contracts/translate.js";
+export type { TranslationContext, TranslationError } from "./contracts/translate.js";
+
+// Pipeline
+export { check } from "./check.js";
+export type { CheckResult } from "./check.js";
+
+// AST node types
+export type {
+    EdictModule,
+    Import,
+    Definition,
+    FunctionDef,
+    TypeDef,
+    RecordDef,
+    EnumDef,
+    ConstDef,
+    RecordField,
+    EnumVariant,
+    Param,
+    Contract,
+    Effect,
+    Expression,
+    Literal,
+    Identifier,
+    BinaryOp,
+    BinaryOperator,
+    UnaryOp,
+    UnaryOperator,
+    Call,
+    IfExpr,
+    LetExpr,
+    MatchExpr,
+    MatchArm,
+    Pattern,
+    LiteralPattern,
+    WildcardPattern,
+    BindingPattern,
+    ConstructorPattern,
+    ArrayExpr,
+    TupleExpr,
+    RecordExpr,
+    EnumConstructor,
+    FieldAccess,
+    LambdaExpr,
+    BlockExpr,
+    FieldInit,
+} from "./ast/nodes.js";
+
+// Type expressions
+export type {
+    TypeExpr,
+    BasicType,
+    ArrayType,
+    OptionType,
+    ResultType,
+    UnitType,
+    RefinedType,
+    FunctionType,
+    NamedType,
+    TupleType,
+} from "./ast/types.js";
+
+// Error types
+export type {
+    StructuredError,
+    DuplicateIdError,
+    UnknownNodeKindError,
+    MissingFieldError,
+    InvalidFieldTypeError,
+    InvalidEffectError,
+    InvalidOperatorError,
+    InvalidBasicTypeName,
+    ConflictingEffectsError,
+    // Phase 2
+    UndefinedReferenceError,
+    DuplicateDefinitionError,
+    UnknownRecordError,
+    UnknownEnumError,
+    UnknownVariantError,
+    TypeMismatchError,
+    ArityMismatchError,
+    NotAFunctionError,
+    UnknownFieldError,
+    MissingRecordFieldsError,
+    // Phase 3
+    EffectViolationError,
+    EffectInPureError,
+    // Phase 4
+    ContractFailureError,
+    VerificationTimeoutError,
+    UndecidablePredicateError,
+    PreconditionNotMetError,
+} from "./errors/structured-errors.js";
+
+// Error constructors — Phase 1
+export {
+    duplicateId,
+    unknownNodeKind,
+    missingField,
+    invalidFieldType,
+    invalidEffect,
+    invalidOperator,
+    invalidBasicTypeName,
+    conflictingEffects,
+} from "./errors/structured-errors.js";
+
+// Error constructors — Phase 2
+export {
+    undefinedReference,
+    duplicateDefinition,
+    unknownRecord,
+    unknownEnum,
+    unknownVariant,
+    typeMismatch,
+    arityMismatch,
+    notAFunction,
+    unknownField,
+    missingRecordFields,
+} from "./errors/structured-errors.js";
+
+// Error constructors — Phase 3
+export {
+    effectViolation,
+    effectInPure,
+} from "./errors/structured-errors.js";
+
+// Error constructors — Phase 4
+export {
+    contractFailure,
+    verificationTimeout,
+    undecidablePredicate,
+    preconditionNotMet,
+} from "./errors/structured-errors.js";
+
+// Phase 5 — Code generation
+export { compile } from "./codegen/codegen.js";
+export type {
+    CompileResult,
+    CompileSuccess,
+    CompileFailure,
+} from "./codegen/codegen.js";
+export { run } from "./codegen/runner.js";
+export type { RunResult } from "./codegen/runner.js";
+export { compileAndRun } from "./compile.js";
+export type {
+    CompileAndRunResult,
+    CompileAndRunSuccess,
+    CompileAndRunFailure,
+} from "./compile.js";
+export { StringTable } from "./codegen/string-table.js";
+export { BUILTIN_FUNCTIONS, isBuiltin, getBuiltin } from "./codegen/builtins.js";
+

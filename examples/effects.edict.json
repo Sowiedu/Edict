@@ -1,0 +1,149 @@
+{
+    "kind": "module",
+    "id": "mod-eff-001",
+    "name": "effects",
+    "imports": [
+        {
+            "kind": "import",
+            "id": "imp-http-001",
+            "module": "http",
+            "names": [
+                "http_get"
+            ]
+        }
+    ],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-pure-001",
+            "name": "pureAdd",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-a-eff-001",
+                    "name": "a",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "binop",
+                    "id": "expr-add-eff-001",
+                    "op": "+",
+                    "left": {
+                        "kind": "ident",
+                        "id": "ident-a-eff-001",
+                        "name": "a"
+                    },
+                    "right": {
+                        "kind": "literal",
+                        "id": "lit-one-eff-001",
+                        "value": 1
+                    }
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-io-001",
+            "name": "fetchData",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-url-eff-001",
+                    "name": "url",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    }
+                }
+            ],
+            "effects": [
+                "io",
+                "fails"
+            ],
+            "returnType": {
+                "kind": "result",
+                "ok": {
+                    "kind": "basic",
+                    "name": "String"
+                },
+                "err": {
+                    "kind": "basic",
+                    "name": "String"
+                }
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "call",
+                    "id": "call-http-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-httpget-001",
+                        "name": "http_get"
+                    },
+                    "args": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-url-eff-001",
+                            "name": "url"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-rw-001",
+            "name": "updateConfig",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-key-001",
+                    "name": "key",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    }
+                },
+                {
+                    "kind": "param",
+                    "id": "param-val-001",
+                    "name": "value",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    }
+                }
+            ],
+            "effects": [
+                "reads",
+                "writes"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Bool"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "literal",
+                    "id": "lit-true-001",
+                    "value": true
+                }
+            ]
+        }
+    ]
+}
