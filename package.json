@@ -1,10 +1,39 @@
 {
   "name": "edict",
   "version": "0.1.0",
-  "description": "Edict — An agent-first programming language. AST-first compiler pipeline.",
+  "description": "Edict — A programming language designed for AI agents. No parser, no syntax — agents produce AST directly as JSON. Statically typed, effect-tracked, contract-verified, compiled to WASM.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "keywords": [
+    "programming-language",
+    "ai-agents",
+    "compiler",
+    "webassembly",
+    "wasm",
+    "mcp",
+    "model-context-protocol",
+    "formal-verification",
+    "type-system",
+    "effect-system",
+    "json-ast",
+    "llm",
+    "z3",
+    "smt",
+    "contract-verification",
+    "ast",
+    "binaryen"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sowiedu/Edict.git"
+  },
+  "homepage": "https://github.com/Sowiedu/Edict#readme",
+  "bugs": {
+    "url": "https://github.com/Sowiedu/Edict/issues"
+  },
+  "author": "Sowiedu",
+  "license": "MIT",
   "scripts": {
     "build": "tsc",
     "test": "vitest run",

@@ -1,5 +1,10 @@
 # Edict
 
+[![CI](https://github.com/Sowiedu/Edict/actions/workflows/ci.yml/badge.svg)](https://github.com/Sowiedu/Edict/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-339933?logo=node.js)](https://nodejs.org)
+[![MCP](https://img.shields.io/badge/MCP-Compatible-8A2BE2)](https://modelcontextprotocol.io/)
+
 **A programming language designed for AI agents.** No parser. No syntax. Agents produce AST directly as JSON.
 
 Edict is a statically-typed, effect-tracked programming language where the canonical program format is a JSON AST. It's purpose-built so AI agents can write, verify, and execute programs through a structured pipeline — no text parsing, no human-readable syntax, no ambiguity.
@@ -182,6 +187,16 @@ Pre/post conditions are verified at compile time using Z3:
 
 Z3 either proves `unsat` (contract holds ✅) or returns `sat` with a concrete counterexample the agent can reason about.
 
+## Contributing
+
+We welcome contributions from agents and humans alike. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, coding standards, and the PR workflow.
+
+**Looking for a place to start?** Check issues labeled [`good first issue`](https://github.com/Sowiedu/Edict/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for the full development plan and [FEATURE_SPEC.md](FEATURE_SPEC.md) for the language specification.
+
 ## License
 
-MIT
+[MIT](LICENSE)
