@@ -1,0 +1,129 @@
+{
+    "kind": "module",
+    "id": "mod-dash-replace-001",
+    "name": "dash_replace",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-main-001",
+            "name": "main",
+            "params": [],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "effects": [
+                "io"
+            ],
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let",
+                    "id": "let-input-001",
+                    "name": "input",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    },
+                    "value": {
+                        "kind": "literal",
+                        "id": "lit-input-001",
+                        "value": "Hello \u2014 world \u2013 this is a test \u2014 with dashes \u2013 everywhere"
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-no-em-001",
+                    "name": "noEmDash",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-replace-em-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-replace-em-001",
+                            "name": "string_replace"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "ident-input-001",
+                                "name": "input"
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-em-dash-001",
+                                "value": "\u2014"
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-hyphen-001",
+                                "value": "-"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-result-001",
+                    "name": "result",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-replace-en-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-replace-en-001",
+                            "name": "string_replace"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "ident-no-em-001",
+                                "name": "noEmDash"
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-en-dash-001",
+                                "value": "\u2013"
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-hyphen-002",
+                                "value": "-"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "call",
+                    "id": "call-print-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-print-001",
+                        "name": "print"
+                    },
+                    "args": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-result-001",
+                            "name": "result"
+                        }
+                    ]
+                },
+                {
+                    "kind": "literal",
+                    "id": "lit-zero-001",
+                    "value": 0
+                }
+            ]
+        }
+    ]
+}

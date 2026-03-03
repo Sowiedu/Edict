@@ -32,7 +32,7 @@ describe("agent simulation: full loop", () => {
 
         // Agent also reads examples to learn patterns
         const examples = handleExamples();
-        expect(examples.count).toBe(10);
+        expect(examples.count).toBe(11);
 
         // ─────────────────────────────────────────────────────────
         // Step 2: Agent writes a program — but with a type error

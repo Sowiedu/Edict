@@ -39,6 +39,19 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
             wasmImport: ["host", "print"],
         },
     ],
+    [
+        "string_replace",
+        {
+            type: {
+                kind: "fn_type",
+                params: [STRING_TYPE, STRING_TYPE, STRING_TYPE],
+                effects: ["pure"],
+                returnType: STRING_TYPE,
+            },
+            effects: ["pure"],
+            wasmImport: ["host", "string_replace"],
+        },
+    ],
 ]);
 
 /**

@@ -280,6 +280,9 @@ export function compile(module: EdictModule): CompileResult {
         const heapStart = Math.max(8, Math.ceil(strings.totalBytes / 8) * 8);
         mod.addGlobal("__heap_ptr", binaryen.i32, true, mod.i32.const(heapStart));
 
+        // Global for passing dynamic string result lengths from host builtins
+        mod.addGlobal("__str_ret_len", binaryen.i32, true, mod.i32.const(0));
+
         // Pre-scan: build function signature registry
         const fnSigs = new Map<string, FunctionSig>();
         for (const def of module.definitions) {
@@ -291,16 +294,26 @@ export function compile(module: EdictModule): CompileResult {
             }
         }
 
-        // Import builtins
+        // Import builtins — compute WASM-level params from Edict signatures
+        // Each String param becomes two i32 values (ptr, len) at the WASM level
         for (const [name, builtin] of BUILTIN_FUNCTIONS) {
             const [importModule, importBase] = builtin.wasmImport;
-            // print(ptr: i32, len: i32) → i32
+            const wasmParams: binaryen.Type[] = [];
+            for (const param of builtin.type.params) {
+                if (param.kind === "basic" && param.name === "String") {
+                    wasmParams.push(binaryen.i32, binaryen.i32); // ptr, len
+                } else {
+                    wasmParams.push(edictTypeToWasm(param));
+                }
+            }
             mod.addFunctionImport(
                 name,
                 importModule,
                 importBase,
-                binaryen.createType([binaryen.i32, binaryen.i32]),
-                binaryen.i32,
+                wasmParams.length > 0
+                    ? binaryen.createType(wasmParams)
+                    : binaryen.none,
+                binaryen.i32, // all current builtins return i32 (ptr)
             );
         }
 
@@ -363,6 +376,33 @@ export function compile(module: EdictModule): CompileResult {
         if (mainDef) {
             mod.addFunctionExport("main", "main");
         }
+
+        // Export getter/setter functions for globals needed by host builtins.
+        // Mutable globals can't be directly exported in baseline WASM,
+        // so we use function wrappers instead.
+        mod.addFunction(
+            "__get_heap_ptr", binaryen.none, binaryen.i32, [],
+            mod.global.get("__heap_ptr", binaryen.i32),
+        );
+        mod.addFunctionExport("__get_heap_ptr", "__get_heap_ptr");
+
+        mod.addFunction(
+            "__set_heap_ptr", binaryen.createType([binaryen.i32]), binaryen.none, [],
+            mod.global.set("__heap_ptr", mod.local.get(0, binaryen.i32)),
+        );
+        mod.addFunctionExport("__set_heap_ptr", "__set_heap_ptr");
+
+        mod.addFunction(
+            "__get_str_ret_len", binaryen.none, binaryen.i32, [],
+            mod.global.get("__str_ret_len", binaryen.i32),
+        );
+        mod.addFunctionExport("__get_str_ret_len", "__get_str_ret_len");
+
+        mod.addFunction(
+            "__set_str_ret_len", binaryen.createType([binaryen.i32]), binaryen.none, [],
+            mod.global.set("__str_ret_len", mod.local.get(0, binaryen.i32)),
+        );
+        mod.addFunctionExport("__set_str_ret_len", "__set_str_ret_len");
 
         // Memory is already exported via setMemory's exportName parameter
 
@@ -653,32 +693,27 @@ function compileCall(
     const fnName = expr.fn.name;
     const builtin = BUILTIN_FUNCTIONS.get(fnName);
 
-    if (builtin && fnName === "print") {
-        // Special handling: print takes a single Edict String argument.
-        // At the WASM level, we need to pass (ptr, len).
-        const arg = expr.args[0]!;
+    // Special handling for builtins that take/return strings:
+    // Strings are (ptr, len) pairs at the WASM level.
+    if (builtin && (fnName === "print" || fnName === "string_replace")) {
+        const wasmArgs: binaryen.ExpressionRef[] = [];
 
-        if (arg.kind === "literal" && typeof arg.value === "string") {
-            // String literal — we know ptr and len at compile time
-            const interned = strings.intern(arg.value);
-            return mod.call(
-                "print",
-                [mod.i32.const(interned.offset), mod.i32.const(interned.length)],
-                binaryen.i32,
-            );
+        for (const arg of expr.args) {
+            if (arg.kind === "literal" && typeof arg.value === "string") {
+                // String literal — ptr and len known at compile time
+                const interned = strings.intern(arg.value);
+                wasmArgs.push(mod.i32.const(interned.offset));
+                wasmArgs.push(mod.i32.const(interned.length));
+            } else {
+                // Non-literal string arg — compile to get ptr,
+                // read __str_ret_len for the length
+                const ptrExpr = compileExpr(arg, mod, ctx, strings, fnSigs, errors);
+                wasmArgs.push(ptrExpr);
+                wasmArgs.push(mod.global.get("__str_ret_len", binaryen.i32));
+            }
         }
 
-        // For non-literal string args (e.g. variable), we compile the
-        // expression which gives us the ptr, but we need the length too.
-        // For now, this is a limitation — we'd need a proper string ABI.
-        // Fall through to generic call with just the ptr.
-        const ptrExpr = compileExpr(arg, mod, ctx, strings, fnSigs, errors);
-        // Pass ptr and 0 length as fallback (host can handle this)
-        return mod.call(
-            "print",
-            [ptrExpr, mod.i32.const(0)],
-            binaryen.i32,
-        );
+        return mod.call(fnName, wasmArgs, binaryen.i32);
     }
 
     // Generic function call
@@ -760,7 +795,21 @@ function compileLet(
 
     const index = ctx.addLocal(expr.name, wasmType, edictTypeName);
     const value = compileExpr(expr.value, mod, ctx, strings, fnSigs, errors);
-    return mod.local.set(index, value);
+    const localSet = mod.local.set(index, value);
+
+    // For String-type let bindings from literals, also set __str_ret_len
+    // so downstream string builtins can read the correct length.
+    // For calls to string-returning builtins, __str_ret_len is already set by the host.
+    const isStringType = expr.type?.kind === "basic" && expr.type.name === "String";
+    if (isStringType && expr.value.kind === "literal" && typeof expr.value.value === "string") {
+        const interned = strings.intern(expr.value.value);
+        return mod.block(null, [
+            localSet,
+            mod.global.set("__str_ret_len", mod.i32.const(interned.length)),
+        ], binaryen.none);
+    }
+
+    return localSet;
 }
 
 function compileBlock(

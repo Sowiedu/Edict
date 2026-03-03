@@ -63,6 +63,49 @@ export async function run(
                 outputParts.push(text);
                 return ptr;
             },
+            /**
+             * string_replace(hayPtr, hayLen, needlePtr, needleLen, replPtr, replLen) → i32
+             * Reads three strings from WASM memory, performs replaceAll,
+             * writes the result into WASM memory at __heap_ptr,
+             * advances __heap_ptr, sets __str_ret_len, and returns result ptr.
+             */
+            string_replace: (
+                hayPtr: number, hayLen: number,
+                needlePtr: number, needleLen: number,
+                replPtr: number, replLen: number,
+            ): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const decoder = new TextDecoder();
+                const encoder = new TextEncoder();
+
+                const haystack = decoder.decode(new Uint8Array(memoryBuffer, hayPtr, hayLen));
+                const needle = decoder.decode(new Uint8Array(memoryBuffer, needlePtr, needleLen));
+                const replacement = decoder.decode(new Uint8Array(memoryBuffer, replPtr, replLen));
+
+                const result = haystack.replaceAll(needle, replacement);
+                const encoded = encoder.encode(result);
+
+                // Read current heap pointer via exported getter
+                const getHeapPtr = instance.exports.__get_heap_ptr as () => number;
+                const setHeapPtr = instance.exports.__set_heap_ptr as (v: number) => void;
+                const setStrRetLen = instance.exports.__set_str_ret_len as (v: number) => void;
+
+                const resultPtr = getHeapPtr();
+
+                // Write result into WASM memory
+                const dest = new Uint8Array(memoryBuffer, resultPtr, encoded.length);
+                dest.set(encoded);
+
+                // Advance heap pointer (8-byte aligned)
+                setHeapPtr(resultPtr + Math.ceil(encoded.length / 8) * 8);
+
+                // Set __str_ret_len so callers can read the result length
+                setStrRetLen(encoded.length);
+
+                return resultPtr;
+            },
         },
     };
 

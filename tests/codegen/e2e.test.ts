@@ -121,5 +121,18 @@ describe("E2E — compileAndRun", () => {
         if (!result.ok) return;
         expect(result.returnValue).toBe(55);
     });
+
+    it("runs dash-replace.edict.json and replaces em/en dashes with hyphens", async () => {
+        const dashPath = path.resolve(__dirname, "../../examples/dash-replace.edict.json");
+        const ast = JSON.parse(fs.readFileSync(dashPath, "utf-8"));
+
+        const result = await compileAndRun(ast);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.output).toBe("Hello - world - this is a test - with dashes - everywhere");
+        expect(result.exitCode).toBe(0);
+        expect(result.returnValue).toBe(0);
+    });
 });
 
