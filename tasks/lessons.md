@@ -49,3 +49,11 @@
 - **Pattern**: `compileArmWithBinding` created the local *after* `compileArmBody` compiled the body → ident lookup failed
 - **Rule**: Pre-register all binding locals in a first pass before compiling any arm bodies in match expressions
 
+## Import type inference requires multi-pass for ordering dependencies
+- **Pattern**: `sqrt(add(pow(a,2), pow(b,2)))` — `pow` must be inferred before `sqrt`'s arg type resolves correctly
+- **Rule**: Run import signature inference in multiple passes (converge until stable) when imports call other imports
+
+## JSON cannot distinguish 2.0 from 2 — promote numeric literals across params
+- **Pattern**: `pow(a, 2.0)` serializes as `2` in JSON. `Number.isInteger(2) === true` → inferred as i32, but function expects f64
+- **Rule**: When inferring imported function signatures, if any param is f64, promote all numeric literal i32 params to f64 (Edict doesn't mix int/float params in one function)
+

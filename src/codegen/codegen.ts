@@ -39,6 +39,7 @@ export type CompileResult = CompileSuccess | CompileFailure;
 
 interface FunctionSig {
     returnType: binaryen.Type;
+    paramTypes?: binaryen.Type[];
 }
 
 // =============================================================================
@@ -285,6 +286,7 @@ export function compile(module: EdictModule): CompileResult {
             if (def.kind === "fn") {
                 fnSigs.set(def.name, {
                     returnType: edictTypeToWasm(def.returnType),
+                    paramTypes: def.params.map((p) => edictTypeToWasm(p.type)),
                 });
             }
         }
@@ -300,6 +302,36 @@ export function compile(module: EdictModule): CompileResult {
                 binaryen.createType([binaryen.i32, binaryen.i32]),
                 binaryen.i32,
             );
+        }
+
+        // Import module-level imports as WASM host imports
+        // Infer param/return types from call sites in the module's functions
+        const importedNames = new Set<string>();
+        for (const imp of module.imports) {
+            for (const name of imp.names) {
+                if (!BUILTIN_FUNCTIONS.has(name)) {
+                    importedNames.add(name);
+                }
+            }
+        }
+
+        if (importedNames.size > 0) {
+            // Scan function bodies for calls to imported names to infer types
+            const importSigs = inferImportSignatures(module, importedNames);
+            for (const [name, sig] of importSigs) {
+                const imp = module.imports.find(i => i.names.includes(name));
+                const importModule = imp ? imp.module : "host";
+                mod.addFunctionImport(
+                    name,
+                    importModule,
+                    name,
+                    sig.paramTypes.length > 0
+                        ? binaryen.createType(sig.paramTypes)
+                        : binaryen.none,
+                    sig.returnType,
+                );
+                fnSigs.set(name, { returnType: sig.returnType, paramTypes: sig.paramTypes });
+            }
         }
 
         // Compile const definitions as WASM globals
@@ -464,6 +496,12 @@ function compileExpr(
         case "access":
             return compileAccess(expr, mod, ctx, strings, fnSigs, errors);
 
+        case "array":
+            return compileArrayExpr(expr as Expression & { kind: "array" }, mod, ctx, strings, fnSigs, errors);
+
+        case "lambda":
+            return compileLambdaExpr(expr as Expression & { kind: "lambda" }, mod, ctx, strings, fnSigs, errors);
+
         default:
             errors.push(`unsupported expression kind: ${expr.kind}`);
             return mod.unreachable();
@@ -481,6 +519,10 @@ function compileLiteral(
         return mod.i32.const(val ? 1 : 0);
     }
     if (typeof val === "number") {
+        // Check type annotation first — 0.0 is integer in JS but Float in Edict
+        if (expr.type && expr.type.kind === "basic" && expr.type.name === "Float") {
+            return mod.f64.const(val);
+        }
         if (Number.isInteger(val)) {
             return mod.i32.const(val);
         }
@@ -640,7 +682,18 @@ function compileCall(
     }
 
     // Generic function call
-    const args = expr.args.map((a) => compileExpr(a, mod, ctx, strings, fnSigs, errors));
+    const args = expr.args.map((a, i) => {
+        const compiled = compileExpr(a, mod, ctx, strings, fnSigs, errors);
+        // Coerce i32→f64 if function expects f64 but arg infers to i32
+        const sig = fnSigs.get(fnName);
+        if (sig?.paramTypes && sig.paramTypes[i] === binaryen.f64) {
+            const argType = inferExprWasmType(a, ctx, fnSigs);
+            if (argType === binaryen.i32) {
+                return mod.f64.convert_s.i32(compiled);
+            }
+        }
+        return compiled;
+    });
     // Look up signature for correct return type
     const sig = fnSigs.get(fnName);
     const returnType = sig ? sig.returnType : binaryen.i32;
@@ -1118,6 +1171,281 @@ function compileAccess(
     } else {
         return mod.i32.load(fieldLayout.offset, 0, ptrExpr);
     }
+}
+
+// =============================================================================
+// Import signature inference (for module-level imports)
+// =============================================================================
+
+interface ImportSig {
+    paramTypes: binaryen.Type[];
+    returnType: binaryen.Type;
+}
+
+/**
+ * Scan function bodies for calls to imported names and infer WASM types
+ * from the function's declared param/return types at call sites.
+ */
+function inferImportSignatures(
+    module: EdictModule,
+    importedNames: Set<string>,
+): Map<string, ImportSig> {
+    const sigs = new Map<string, ImportSig>();
+
+    // Initialize with defaults
+    for (const name of importedNames) {
+        sigs.set(name, { paramTypes: [], returnType: binaryen.i32 });
+    }
+
+    // Multi-pass: run inference until stable (handles ordering deps like pow→sqrt)
+    for (let pass = 0; pass < 3; pass++) {
+        for (const def of module.definitions) {
+            if (def.kind !== "fn") continue;
+            inferFromExprs(def.body, def, sigs, importedNames);
+        }
+    }
+
+    return sigs;
+}
+
+function inferFromExprs(
+    exprs: Expression[],
+    enclosingFn: FunctionDef,
+    sigs: Map<string, ImportSig>,
+    importedNames: Set<string>,
+): void {
+    for (const expr of exprs) {
+        inferFromExpr(expr, enclosingFn, sigs, importedNames);
+    }
+}
+
+function inferFromExpr(
+    expr: Expression,
+    enclosingFn: FunctionDef,
+    sigs: Map<string, ImportSig>,
+    importedNames: Set<string>,
+): void {
+    if (expr.kind === "call" && expr.fn.kind === "ident" && importedNames.has(expr.fn.name)) {
+        const name = expr.fn.name;
+        // Infer param types from arguments
+        const paramTypes = expr.args.map(arg => inferTypeFromExpr(arg, enclosingFn, sigs));
+        // If any param is f64, promote all i32 numeric params to f64
+        // (JSON can't distinguish 2.0 from 2; Edict doesn't mix int/float in one function)
+        const hasFloat = paramTypes.some(t => t === binaryen.f64);
+        if (hasFloat) {
+            for (let j = 0; j < paramTypes.length; j++) {
+                if (paramTypes[j] === binaryen.i32 && expr.args[j]?.kind === "literal" &&
+                    typeof (expr.args[j] as Expression & { kind: "literal" }).value === "number") {
+                    paramTypes[j] = binaryen.f64;
+                }
+            }
+        }
+        // Infer return type from the enclosing function's return type
+        // (if this call is the last expression in the function body, it determines the return type)
+        const lastExprInBody = enclosingFn.body.length > 0
+            ? enclosingFn.body[enclosingFn.body.length - 1]
+            : null;
+        const returnType = isExprOrContains(lastExprInBody, expr)
+            ? edictTypeToWasm(enclosingFn.returnType)
+            : binaryen.i32;
+        sigs.set(name, { paramTypes, returnType });
+    }
+
+    // Recurse into sub-expressions
+    switch (expr.kind) {
+        case "binop": inferFromExpr(expr.left, enclosingFn, sigs, importedNames); inferFromExpr(expr.right, enclosingFn, sigs, importedNames); break;
+        case "unop": inferFromExpr(expr.operand, enclosingFn, sigs, importedNames); break;
+        case "call": inferFromExpr(expr.fn, enclosingFn, sigs, importedNames); for (const a of expr.args) inferFromExpr(a, enclosingFn, sigs, importedNames); break;
+        case "if": inferFromExpr(expr.condition, enclosingFn, sigs, importedNames); inferFromExprs(expr.then, enclosingFn, sigs, importedNames); if (expr.else) inferFromExprs(expr.else, enclosingFn, sigs, importedNames); break;
+        case "let": inferFromExpr(expr.value, enclosingFn, sigs, importedNames); break;
+        case "block": inferFromExprs(expr.body, enclosingFn, sigs, importedNames); break;
+        case "match": inferFromExpr(expr.target, enclosingFn, sigs, importedNames); for (const arm of expr.arms) inferFromExprs(arm.body, enclosingFn, sigs, importedNames); break;
+        case "lambda": inferFromExprs(expr.body, enclosingFn, sigs, importedNames); break;
+        case "array": for (const el of expr.elements) inferFromExpr(el, enclosingFn, sigs, importedNames); break;
+        case "record_expr": for (const f of expr.fields) inferFromExpr(f.value, enclosingFn, sigs, importedNames); break;
+        case "access": inferFromExpr(expr.target, enclosingFn, sigs, importedNames); break;
+        default: break;
+    }
+}
+
+/**
+ * Infer the WASM type of an expression from its AST structure.
+ * Used during import signature inference (before we have a FunctionContext).
+ */
+function inferTypeFromExpr(
+    expr: Expression,
+    enclosingFn: FunctionDef,
+    sigs?: Map<string, ImportSig>,
+): binaryen.Type {
+    if (expr.kind === "literal") {
+        if (expr.type) return edictTypeToWasm(expr.type);
+        if (typeof expr.value === "number" && !Number.isInteger(expr.value)) return binaryen.f64;
+        return binaryen.i32;
+    }
+    if (expr.kind === "ident") {
+        const param = enclosingFn.params.find(p => p.name === expr.name);
+        if (param) return edictTypeToWasm(param.type);
+        return binaryen.i32;
+    }
+    if (expr.kind === "binop") {
+        // Arithmetic result type follows left operand
+        const cmpOps = ["==", "!=", "<", ">", "<=", ">=", "and", "or", "implies"];
+        if (cmpOps.includes(expr.op)) return binaryen.i32;
+        return inferTypeFromExpr(expr.left, enclosingFn, sigs);
+    }
+    if (expr.kind === "call" && expr.fn.kind === "ident") {
+        // Check inferred import sigs first, then fn defs
+        if (sigs?.has(expr.fn.name)) {
+            return sigs.get(expr.fn.name)!.returnType;
+        }
+        // Check enclosing module's function definitions
+        return binaryen.i32;
+    }
+    return binaryen.i32;
+}
+
+/**
+ * Check if target expression is or contains the needle (by reference).
+ */
+function isExprOrContains(target: Expression | null | undefined, needle: Expression): boolean {
+    if (!target) return false;
+    if (target === needle) return true;
+    switch (target.kind) {
+        case "call": return target.args.some(a => isExprOrContains(a, needle)) || isExprOrContains(target.fn, needle);
+        case "binop": return isExprOrContains(target.left, needle) || isExprOrContains(target.right, needle);
+        case "unop": return isExprOrContains(target.operand, needle);
+        default: return false;
+    }
+}
+
+// =============================================================================
+// Array expression compilation
+// =============================================================================
+
+function compileArrayExpr(
+    expr: Expression & { kind: "array" },
+    mod: binaryen.Module,
+    ctx: FunctionContext,
+    strings: StringTable,
+    fnSigs: Map<string, FunctionSig>,
+    errors: string[],
+): binaryen.ExpressionRef {
+    const elements = expr.elements;
+    // Layout: [length: i32] [elem0: i32] [elem1: i32] ...
+    const headerSize = 4; // i32 for length
+    const elemSize = 4;   // i32 per element
+    const totalSize = headerSize + elements.length * elemSize;
+
+    const ptrIndex = ctx.addLocal(`__array_ptr_${expr.id}`, binaryen.i32);
+
+    const setPtr = mod.local.set(ptrIndex, mod.global.get("__heap_ptr", binaryen.i32));
+    const incrementHeap = mod.global.set(
+        "__heap_ptr",
+        mod.i32.add(
+            mod.local.get(ptrIndex, binaryen.i32),
+            mod.i32.const(totalSize),
+        ),
+    );
+
+    // Store length at offset 0
+    const storeLength = mod.i32.store(
+        0, 0,
+        mod.local.get(ptrIndex, binaryen.i32),
+        mod.i32.const(elements.length),
+    );
+
+    // Store each element
+    const stores: binaryen.ExpressionRef[] = [];
+    for (let i = 0; i < elements.length; i++) {
+        const valueExpr = compileExpr(elements[i]!, mod, ctx, strings, fnSigs, errors);
+        stores.push(
+            mod.i32.store(
+                headerSize + i * elemSize,
+                0,
+                mod.local.get(ptrIndex, binaryen.i32),
+                valueExpr,
+            ),
+        );
+    }
+
+    return mod.block(null, [
+        setPtr,
+        incrementHeap,
+        storeLength,
+        ...stores,
+        mod.local.get(ptrIndex, binaryen.i32), // return pointer
+    ], binaryen.i32);
+}
+
+// =============================================================================
+// Lambda expression compilation
+// =============================================================================
+
+// Counter for generating unique lambda function names
+let lambdaCounter = 0;
+
+function compileLambdaExpr(
+    expr: Expression & { kind: "lambda" },
+    mod: binaryen.Module,
+    ctx: FunctionContext,
+    strings: StringTable,
+    fnSigs: Map<string, FunctionSig>,
+    errors: string[],
+): binaryen.ExpressionRef {
+    // Compile as a module-level helper function with a generated name
+    const lambdaName = `__lambda_${lambdaCounter++}`;
+
+    const params = expr.params.map((p) => ({
+        name: p.name,
+        wasmType: edictTypeToWasm(p.type),
+    }));
+
+    const lambdaCtx = new FunctionContext(
+        params.map(p => ({ name: p.name, wasmType: p.wasmType })),
+        ctx.constGlobals,
+        ctx.recordLayouts,
+        ctx.enumLayouts,
+    );
+
+    const paramTypes = params.map(p => p.wasmType);
+    const paramType = paramTypes.length > 0
+        ? binaryen.createType(paramTypes)
+        : binaryen.none;
+
+    // Infer return type from last body expression
+    let returnType = binaryen.i32;
+    if (expr.returnType) {
+        returnType = edictTypeToWasm(expr.returnType);
+    } else if (expr.body.length > 0) {
+        returnType = inferExprWasmType(expr.body[expr.body.length - 1]!, lambdaCtx, fnSigs);
+    }
+
+    // Compile body
+    const bodyExprs = expr.body.map((e, i) => {
+        const compiled = compileExpr(e, mod, lambdaCtx, strings, fnSigs, errors);
+        if (i < expr.body.length - 1 && e.kind !== "let") {
+            return mod.drop(compiled);
+        }
+        return compiled;
+    });
+
+    let body: binaryen.ExpressionRef;
+    if (bodyExprs.length === 0) {
+        body = mod.nop();
+    } else if (bodyExprs.length === 1) {
+        body = bodyExprs[0]!;
+    } else {
+        body = mod.block(null, bodyExprs, returnType);
+    }
+
+    mod.addFunction(lambdaName, paramType, returnType, lambdaCtx.varTypes, body);
+    fnSigs.set(lambdaName, { returnType, paramTypes: paramTypes });
+
+    // Return the function index as an i32 (for indirect calls / function references)
+    // For now, we add it to a table so it can be called indirectly
+    // Use a simple approach: return an i32 identifier that the caller can use
+    // The function is registered; callers that use it via direct name will resolve it
+    return mod.i32.const(lambdaCounter - 1);
 }
 
 // =============================================================================
