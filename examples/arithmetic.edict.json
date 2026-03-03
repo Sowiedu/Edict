@@ -89,6 +89,43 @@
                     }
                 }
             ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-main-001",
+            "name": "main",
+            "params": [],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "call",
+                    "id": "call-add-main-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-add-main-001",
+                        "name": "add"
+                    },
+                    "args": [
+                        {
+                            "kind": "literal",
+                            "id": "lit-3-001",
+                            "value": 3
+                        },
+                        {
+                            "kind": "literal",
+                            "id": "lit-4-001",
+                            "value": 4
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }

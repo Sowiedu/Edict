@@ -134,6 +134,38 @@
                     ]
                 }
             ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-main-001",
+            "name": "main",
+            "params": [],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "call",
+                    "id": "call-fib-main-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-fib-main-001",
+                        "name": "fib"
+                    },
+                    "args": [
+                        {
+                            "kind": "literal",
+                            "id": "lit-ten-001",
+                            "value": 10
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }
