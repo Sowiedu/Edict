@@ -19,6 +19,7 @@ export interface BuiltinFunction {
 const STRING_TYPE: TypeExpr = { kind: "basic", name: "String" };
 const INT_TYPE: TypeExpr = { kind: "basic", name: "Int" };
 const FLOAT_TYPE: TypeExpr = { kind: "basic", name: "Float" };
+const BOOL_TYPE: TypeExpr = { kind: "basic", name: "Bool" };
 
 /**
  * All built-in functions.
@@ -52,6 +53,97 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
             },
             effects: ["pure"],
             wasmImport: ["host", "string_replace"],
+        },
+    ],
+    // =========================================================================
+    // String builtins — pure, string handling needed
+    // =========================================================================
+    [
+        "string_length",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "string_length"],
+        },
+    ],
+    [
+        "substring",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, INT_TYPE, INT_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "substring"],
+        },
+    ],
+    [
+        "string_concat",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "string_concat"],
+        },
+    ],
+    [
+        "string_indexOf",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "string_indexOf"],
+        },
+    ],
+    [
+        "toUpperCase",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "toUpperCase"],
+        },
+    ],
+    [
+        "toLowerCase",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "toLowerCase"],
+        },
+    ],
+    [
+        "string_trim",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "string_trim"],
+        },
+    ],
+    [
+        "string_startsWith",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "string_startsWith"],
+        },
+    ],
+    [
+        "string_endsWith",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "string_endsWith"],
+        },
+    ],
+    [
+        "string_contains",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "string_contains"],
+        },
+    ],
+    [
+        "string_repeat",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, INT_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "string_repeat"],
         },
     ],
     // =========================================================================

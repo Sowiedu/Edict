@@ -714,27 +714,44 @@ function compileCall(
     const fnName = expr.fn.name;
     const builtin = BUILTIN_FUNCTIONS.get(fnName);
 
-    // Special handling for builtins that take/return strings:
-    // Strings are (ptr, len) pairs at the WASM level.
-    if (builtin && (fnName === "print" || fnName === "string_replace")) {
-        const wasmArgs: binaryen.ExpressionRef[] = [];
+    // Special handling for builtins that take String params:
+    // Strings are (ptr, len) pairs at the WASM level, so String args must
+    // be expanded. Check whether this builtin has any String params.
+    if (builtin) {
+        const hasStringParam = builtin.type.params.some(
+            p => p.kind === "basic" && p.name === "String",
+        );
+        if (hasStringParam) {
+            const wasmArgs: binaryen.ExpressionRef[] = [];
 
-        for (const arg of expr.args) {
-            if (arg.kind === "literal" && typeof arg.value === "string") {
-                // String literal — ptr and len known at compile time
-                const interned = strings.intern(arg.value);
-                wasmArgs.push(mod.i32.const(interned.offset));
-                wasmArgs.push(mod.i32.const(interned.length));
-            } else {
-                // Non-literal string arg — compile to get ptr,
-                // read __str_ret_len for the length
-                const ptrExpr = compileExpr(arg, mod, ctx, strings, fnSigs, errors);
-                wasmArgs.push(ptrExpr);
-                wasmArgs.push(mod.global.get("__str_ret_len", binaryen.i32));
+            for (let i = 0; i < expr.args.length; i++) {
+                const arg = expr.args[i]!;
+                const paramType = builtin.type.params[i];
+                const isStringParam = paramType?.kind === "basic" && paramType.name === "String";
+
+                if (isStringParam) {
+                    if (arg.kind === "literal" && typeof arg.value === "string") {
+                        // String literal — ptr and len known at compile time
+                        const interned = strings.intern(arg.value);
+                        wasmArgs.push(mod.i32.const(interned.offset));
+                        wasmArgs.push(mod.i32.const(interned.length));
+                    } else {
+                        // Non-literal string arg — compile to get ptr,
+                        // read __str_ret_len for the length
+                        const ptrExpr = compileExpr(arg, mod, ctx, strings, fnSigs, errors);
+                        wasmArgs.push(ptrExpr);
+                        wasmArgs.push(mod.global.get("__str_ret_len", binaryen.i32));
+                    }
+                } else {
+                    // Non-string param — compile normally
+                    wasmArgs.push(compileExpr(arg, mod, ctx, strings, fnSigs, errors));
+                }
             }
-        }
 
-        return mod.call(fnName, wasmArgs, binaryen.i32);
+            const sig = fnSigs.get(fnName);
+            const returnType = sig ? sig.returnType : binaryen.i32;
+            return mod.call(fnName, wasmArgs, returnType);
+        }
     }
 
     // Generic function call

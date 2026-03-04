@@ -47,6 +47,28 @@ export async function run(
 ): Promise<RunResult> {
     const outputParts: string[] = [];
 
+    // Late-bound references — set after instantiation
+    let instance: WebAssembly.Instance;
+
+    /**
+     * Write a string result into WASM memory at __heap_ptr,
+     * advance __heap_ptr (8-byte aligned), set __str_ret_len, and return ptr.
+     */
+    function writeStringResult(str: string, encoder: TextEncoder): number {
+        const encoded = encoder.encode(str);
+        const memoryBuffer = (instance.exports.memory as WebAssembly.Memory).buffer;
+        const getHeapPtr = instance.exports.__get_heap_ptr as () => number;
+        const setHeapPtr = instance.exports.__set_heap_ptr as (v: number) => void;
+        const setStrRetLen = instance.exports.__set_str_ret_len as (v: number) => void;
+
+        const resultPtr = getHeapPtr();
+        const dest = new Uint8Array(memoryBuffer, resultPtr, encoded.length);
+        dest.set(encoded);
+        setHeapPtr(resultPtr + Math.ceil(encoded.length / 8) * 8);
+        setStrRetLen(encoded.length);
+        return resultPtr;
+    }
+
     const importObject = {
         host: {
             /**
@@ -85,26 +107,113 @@ export async function run(
                 const replacement = decoder.decode(new Uint8Array(memoryBuffer, replPtr, replLen));
 
                 const result = haystack.replaceAll(needle, replacement);
-                const encoded = encoder.encode(result);
-
-                // Read current heap pointer via exported getter
-                const getHeapPtr = instance.exports.__get_heap_ptr as () => number;
-                const setHeapPtr = instance.exports.__set_heap_ptr as (v: number) => void;
-                const setStrRetLen = instance.exports.__set_str_ret_len as (v: number) => void;
-
-                const resultPtr = getHeapPtr();
-
-                // Write result into WASM memory
-                const dest = new Uint8Array(memoryBuffer, resultPtr, encoded.length);
-                dest.set(encoded);
-
-                // Advance heap pointer (8-byte aligned)
-                setHeapPtr(resultPtr + Math.ceil(encoded.length / 8) * 8);
-
-                // Set __str_ret_len so callers can read the result length
-                setStrRetLen(encoded.length);
-
-                return resultPtr;
+                return writeStringResult(result, encoder);
+            },
+            // =================================================================
+            // String builtins
+            // =================================================================
+            string_length: (ptr: number, len: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const str = new TextDecoder().decode(new Uint8Array(memoryBuffer, ptr, len));
+                return str.length;
+            },
+            substring: (ptr: number, len: number, start: number, end: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const str = new TextDecoder().decode(new Uint8Array(memoryBuffer, ptr, len));
+                const result = str.substring(start, end);
+                return writeStringResult(result, new TextEncoder());
+            },
+            string_concat: (
+                aPtr: number, aLen: number,
+                bPtr: number, bLen: number,
+            ): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const decoder = new TextDecoder();
+                const a = decoder.decode(new Uint8Array(memoryBuffer, aPtr, aLen));
+                const b = decoder.decode(new Uint8Array(memoryBuffer, bPtr, bLen));
+                return writeStringResult(a + b, new TextEncoder());
+            },
+            string_indexOf: (
+                hayPtr: number, hayLen: number,
+                needlePtr: number, needleLen: number,
+            ): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const decoder = new TextDecoder();
+                const haystack = decoder.decode(new Uint8Array(memoryBuffer, hayPtr, hayLen));
+                const needle = decoder.decode(new Uint8Array(memoryBuffer, needlePtr, needleLen));
+                return haystack.indexOf(needle);
+            },
+            toUpperCase: (ptr: number, len: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const str = new TextDecoder().decode(new Uint8Array(memoryBuffer, ptr, len));
+                return writeStringResult(str.toUpperCase(), new TextEncoder());
+            },
+            toLowerCase: (ptr: number, len: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const str = new TextDecoder().decode(new Uint8Array(memoryBuffer, ptr, len));
+                return writeStringResult(str.toLowerCase(), new TextEncoder());
+            },
+            string_trim: (ptr: number, len: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const str = new TextDecoder().decode(new Uint8Array(memoryBuffer, ptr, len));
+                return writeStringResult(str.trim(), new TextEncoder());
+            },
+            string_startsWith: (
+                strPtr: number, strLen: number,
+                prefixPtr: number, prefixLen: number,
+            ): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const decoder = new TextDecoder();
+                const str = decoder.decode(new Uint8Array(memoryBuffer, strPtr, strLen));
+                const prefix = decoder.decode(new Uint8Array(memoryBuffer, prefixPtr, prefixLen));
+                return str.startsWith(prefix) ? 1 : 0;
+            },
+            string_endsWith: (
+                strPtr: number, strLen: number,
+                suffixPtr: number, suffixLen: number,
+            ): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const decoder = new TextDecoder();
+                const str = decoder.decode(new Uint8Array(memoryBuffer, strPtr, strLen));
+                const suffix = decoder.decode(new Uint8Array(memoryBuffer, suffixPtr, suffixLen));
+                return str.endsWith(suffix) ? 1 : 0;
+            },
+            string_contains: (
+                hayPtr: number, hayLen: number,
+                needlePtr: number, needleLen: number,
+            ): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const decoder = new TextDecoder();
+                const haystack = decoder.decode(new Uint8Array(memoryBuffer, hayPtr, hayLen));
+                const needle = decoder.decode(new Uint8Array(memoryBuffer, needlePtr, needleLen));
+                return haystack.includes(needle) ? 1 : 0;
+            },
+            string_repeat: (ptr: number, len: number, count: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const str = new TextDecoder().decode(new Uint8Array(memoryBuffer, ptr, len));
+                return writeStringResult(str.repeat(count), new TextEncoder());
             },
             // =================================================================
             // Math builtins
@@ -120,7 +229,7 @@ export async function run(
         },
     };
 
-    const { instance } = await WebAssembly.instantiate(wasm, importObject);
+    ({ instance } = await WebAssembly.instantiate(wasm, importObject));
 
     let returnValue: number | undefined;
     let exitCode = 0;
