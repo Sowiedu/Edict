@@ -245,6 +245,18 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
             }
         }
 
+        // HOF support: function table for indirect calls (call_indirect)
+        // Pre-assign table indices to user-defined functions.
+        // Lambdas will be appended during compilation.
+        const tableFunctions: string[] = [];
+        const fnTableIndices = new Map<string, number>();
+        for (const def of module.definitions) {
+            if (def.kind === "fn") {
+                fnTableIndices.set(def.name, tableFunctions.length);
+                tableFunctions.push(def.name);
+            }
+        }
+
         // Import builtins — compute WASM-level params from Edict signatures
         // Each String param becomes two i32 values (ptr, len) at the WASM level
         for (const [name, builtin] of BUILTIN_FUNCTIONS) {
@@ -316,8 +328,17 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         // Compile each function
         for (const def of module.definitions) {
             if (def.kind === "fn") {
-                compileFunction(def, mod, strings, fnSigs, constGlobals, recordLayouts, enumLayouts, errors);
+                compileFunction(def, mod, strings, fnSigs, constGlobals, recordLayouts, enumLayouts, errors, fnTableIndices, tableFunctions);
             }
+        }
+
+        // Build function table for indirect calls (call_indirect)
+        // This must happen after all functions (including lambdas) are compiled
+        if (tableFunctions.length > 0) {
+            mod.addTable("__fn_table", tableFunctions.length, tableFunctions.length);
+            mod.addActiveElementSegment(
+                "__fn_table", "__fn_elems", tableFunctions, mod.i32.const(0),
+            );
         }
 
         // Export the "main" function if it exists
@@ -395,6 +416,8 @@ function compileFunction(
     recordLayouts: Map<string, RecordLayout>,
     enumLayouts: Map<string, EnumLayout>,
     errors: StructuredError[],
+    fnTableIndices: Map<string, number> = new Map(),
+    tableFunctions: string[] = [],
 ): void {
     const params = fn.params.map((p) => ({
         name: p.name,
@@ -408,6 +431,8 @@ function compileFunction(
         constGlobals,
         recordLayouts,
         enumLayouts,
+        fnTableIndices,
+        tableFunctions,
     );
 
     const returnType = edictTypeToWasm(fn.returnType);
@@ -549,7 +574,12 @@ function compileIdent(
     if (globalType !== undefined) {
         return mod.global.get(expr.name, globalType);
     }
-    // Could be a function reference — return unreachable for now
+    // Check function table — return the function's table index as i32
+    // This enables `let f = myFunc` to store a function reference
+    const tableIndex = ctx.fnTableIndices.get(expr.name);
+    if (tableIndex !== undefined) {
+        return mod.i32.const(tableIndex);
+    }
     return mod.unreachable();
 }
 
@@ -642,72 +672,95 @@ function compileCall(
     fnSigs: Map<string, FunctionSig>,
     errors: StructuredError[],
 ): binaryen.ExpressionRef {
-    // The fn expression should be an ident for direct calls
-    if (expr.fn.kind !== "ident") {
-        errors.push(wasmValidationError("indirect calls not yet supported"));
-        return mod.unreachable();
-    }
+    // Determine if this is a direct call (fn is ident resolving to a known function)
+    // or an indirect call (fn is a variable, lambda, or expression)
+    const isDirectCall = expr.fn.kind === "ident"
+        && !ctx.getLocal(expr.fn.name)  // Not a local variable holding a fn ref
+        && (fnSigs.has(expr.fn.name) || BUILTIN_FUNCTIONS.has(expr.fn.name));
 
-    const fnName = expr.fn.name;
-    const builtin = BUILTIN_FUNCTIONS.get(fnName);
+    if (isDirectCall && expr.fn.kind === "ident") {
+        // === Direct call path (optimized, no call_indirect overhead) ===
+        const fnName = expr.fn.name;
+        const builtin = BUILTIN_FUNCTIONS.get(fnName);
 
-    // Special handling for builtins that take String params:
-    // Strings are (ptr, len) pairs at the WASM level, so String args must
-    // be expanded. Check whether this builtin has any String params.
-    if (builtin) {
-        const hasStringParam = builtin.type.params.some(
-            p => p.kind === "basic" && p.name === "String",
-        );
-        if (hasStringParam) {
-            const wasmArgs: binaryen.ExpressionRef[] = [];
+        // Special handling for builtins that take String params:
+        // Strings are (ptr, len) pairs at the WASM level, so String args must
+        // be expanded. Check whether this builtin has any String params.
+        if (builtin) {
+            const hasStringParam = builtin.type.params.some(
+                p => p.kind === "basic" && p.name === "String",
+            );
+            if (hasStringParam) {
+                const wasmArgs: binaryen.ExpressionRef[] = [];
 
-            for (let i = 0; i < expr.args.length; i++) {
-                const arg = expr.args[i]!;
-                const paramType = builtin.type.params[i];
-                const isStringParam = paramType?.kind === "basic" && paramType.name === "String";
+                for (let i = 0; i < expr.args.length; i++) {
+                    const arg = expr.args[i]!;
+                    const paramType = builtin.type.params[i];
+                    const isStringParam = paramType?.kind === "basic" && paramType.name === "String";
 
-                if (isStringParam) {
-                    if (arg.kind === "literal" && typeof arg.value === "string") {
-                        // String literal — ptr and len known at compile time
-                        const interned = strings.intern(arg.value);
-                        wasmArgs.push(mod.i32.const(interned.offset));
-                        wasmArgs.push(mod.i32.const(interned.length));
+                    if (isStringParam) {
+                        if (arg.kind === "literal" && typeof arg.value === "string") {
+                            // String literal — ptr and len known at compile time
+                            const interned = strings.intern(arg.value);
+                            wasmArgs.push(mod.i32.const(interned.offset));
+                            wasmArgs.push(mod.i32.const(interned.length));
+                        } else {
+                            // Non-literal string arg — compile to get ptr,
+                            // read __str_ret_len for the length
+                            const ptrExpr = compileExpr(arg, mod, ctx, strings, fnSigs, errors);
+                            wasmArgs.push(ptrExpr);
+                            wasmArgs.push(mod.global.get("__str_ret_len", binaryen.i32));
+                        }
                     } else {
-                        // Non-literal string arg — compile to get ptr,
-                        // read __str_ret_len for the length
-                        const ptrExpr = compileExpr(arg, mod, ctx, strings, fnSigs, errors);
-                        wasmArgs.push(ptrExpr);
-                        wasmArgs.push(mod.global.get("__str_ret_len", binaryen.i32));
+                        // Non-string param — compile normally
+                        wasmArgs.push(compileExpr(arg, mod, ctx, strings, fnSigs, errors));
                     }
-                } else {
-                    // Non-string param — compile normally
-                    wasmArgs.push(compileExpr(arg, mod, ctx, strings, fnSigs, errors));
+                }
+
+                const sig = fnSigs.get(fnName);
+                const returnType = sig ? sig.returnType : binaryen.i32;
+                return mod.call(fnName, wasmArgs, returnType);
+            }
+        }
+
+        // Generic direct function call
+        const args = expr.args.map((a, i) => {
+            const compiled = compileExpr(a, mod, ctx, strings, fnSigs, errors);
+            // Coerce i32→f64 if function expects f64 but arg infers to i32
+            const sig = fnSigs.get(fnName);
+            if (sig?.paramTypes && sig.paramTypes[i] === binaryen.f64) {
+                const argType = inferExprWasmType(a, ctx, fnSigs);
+                if (argType === binaryen.i32) {
+                    return mod.f64.convert_s.i32(compiled);
                 }
             }
-
-            const sig = fnSigs.get(fnName);
-            const returnType = sig ? sig.returnType : binaryen.i32;
-            return mod.call(fnName, wasmArgs, returnType);
-        }
+            return compiled;
+        });
+        // Look up signature for correct return type
+        const sig = fnSigs.get(fnName);
+        const returnType = sig ? sig.returnType : binaryen.i32;
+        return mod.call(fnName, args, returnType);
     }
 
-    // Generic function call
-    const args = expr.args.map((a, i) => {
-        const compiled = compileExpr(a, mod, ctx, strings, fnSigs, errors);
-        // Coerce i32→f64 if function expects f64 but arg infers to i32
-        const sig = fnSigs.get(fnName);
-        if (sig?.paramTypes && sig.paramTypes[i] === binaryen.f64) {
-            const argType = inferExprWasmType(a, ctx, fnSigs);
-            if (argType === binaryen.i32) {
-                return mod.f64.convert_s.i32(compiled);
-            }
-        }
-        return compiled;
-    });
-    // Look up signature for correct return type
-    const sig = fnSigs.get(fnName);
-    const returnType = sig ? sig.returnType : binaryen.i32;
-    return mod.call(fnName, args, returnType);
+    // === Indirect call path (call_indirect via function table) ===
+    // The fn expression evaluates to a table index (i32)
+    const target = compileExpr(expr.fn, mod, ctx, strings, fnSigs, errors);
+
+    // Compile arguments
+    const args = expr.args.map(a =>
+        compileExpr(a, mod, ctx, strings, fnSigs, errors),
+    );
+
+    // Determine the WASM type signature for call_indirect:
+    // - params: infer from compiled argument types
+    // - result: infer from the overall call expression type
+    const argWasmTypes = expr.args.map(a => inferExprWasmType(a, ctx, fnSigs));
+    const paramType = argWasmTypes.length > 0
+        ? binaryen.createType(argWasmTypes)
+        : binaryen.none;
+    const resultType = inferExprWasmType(expr as Expression, ctx, fnSigs);
+
+    return mod.call_indirect("__fn_table", target, args, paramType, resultType);
 }
 
 function compileIf(
@@ -1429,6 +1482,8 @@ function compileLambdaExpr(
         ctx.constGlobals,
         ctx.recordLayouts,
         ctx.enumLayouts,
+        ctx.fnTableIndices,
+        ctx.tableFunctions,
     );
 
     const paramTypes = params.map(p => p.wasmType);
@@ -1463,11 +1518,13 @@ function compileLambdaExpr(
     mod.addFunction(lambdaName, paramType, returnType, lambdaCtx.varTypes, body);
     fnSigs.set(lambdaName, { returnType, paramTypes: paramTypes });
 
-    // Return the function index as an i32 (for indirect calls / function references)
-    // For now, we add it to a table so it can be called indirectly
-    // Use a simple approach: return an i32 identifier that the caller can use
-    // The function is registered; callers that use it via direct name will resolve it
-    return mod.i32.const(lambdaCounter - 1);
+    // Register lambda in the function table for indirect calls
+    // The table is built after all functions are compiled
+    const tableIndex = ctx.tableFunctions.length;
+    ctx.fnTableIndices.set(lambdaName, tableIndex);
+    ctx.tableFunctions.push(lambdaName);
+
+    return mod.i32.const(tableIndex);
 }
 
 function compileStringInterp(

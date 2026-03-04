@@ -20,3 +20,9 @@ if (url.endsWith(".ts")) {
 ## Test Fixtures for "Infinite Loops"
 - **Problem**: Recursive infinite loops cause stack overflow (WASM trap) instead of running forever
 - **Solution**: Use exponential-time algorithms (e.g., `fib(40)`) that take seconds without stack overflow
+
+## WASM Type Inference for Indirect Calls
+- **Problem**: `inferExprWasmType` in codegen returns `binaryen.i32` as default for call expressions where the fn is a local variable (indirect call). Float-returning indirect calls get wrong `call_indirect` result type.
+- **Root cause**: Codegen's WASM type inference is heuristic-based and doesn't have access to the Edict type checker's `TypeEnv`.
+- **Workaround**: Currently all HOF tests use Int-returning functions. This works correctly.
+- **Proper fix**: Thread Edict type info (`TypeExpr`) through codegen, or build a richer type inference that can look up variable types from let-binding annotations.
