@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/Sowiedu/Edict/compare/v1.2.0...v1.3.0) (2026-03-04)
+
+
+### Features
+
+* add end-to-end agent loop smoke test (closes [#4](https://github.com/Sowiedu/Edict/issues/4)) ([c06bfeb](https://github.com/Sowiedu/Edict/commit/c06bfeb9e0809f76a4503e1efb4f35fd0fc9037a))
+* add execution sandbox limits (timeout, memory cap) ([851873b](https://github.com/Sowiedu/Edict/commit/851873b585cfec05428fc4d19a776faed8415e24)), closes [#37](https://github.com/Sowiedu/Edict/issues/37)
+* add MCP prompt templates for agent bootstrapping (closes [#40](https://github.com/Sowiedu/Edict/issues/40)) ([a5880a2](https://github.com/Sowiedu/Edict/commit/a5880a2b51d2378e2ad8e3da8a6c1fbb752cab62))
+* add mutual recursion tests and example program (closes [#36](https://github.com/Sowiedu/Edict/issues/36)) ([ee4637b](https://github.com/Sowiedu/Edict/commit/ee4637b3914f70c5d5dfe8dabf6b545bbe7e9c84))
+* **codegen:** implement higher-order functions via WASM function tables ([#33](https://github.com/Sowiedu/Edict/issues/33)) ([6d8407d](https://github.com/Sowiedu/Edict/commit/6d8407dcc778240c430eea3a06954c62af916b45))
+* implement closures — lambda expressions capture outer scope ([#34](https://github.com/Sowiedu/Edict/issues/34)) ([4ba5a18](https://github.com/Sowiedu/Edict/commit/4ba5a1835273eade30f14275211ed587a5883399))
+* validate generated WASM binaries with structured errors ([215a429](https://github.com/Sowiedu/Edict/commit/215a4299d74b0883fd2f2d173bb384c594f5e192)), closes [#51](https://github.com/Sowiedu/Edict/issues/51)
+
 ## [1.2.0](https://github.com/Sowiedu/Edict/compare/v1.1.0...v1.2.0) (2026-03-04)
 
 
