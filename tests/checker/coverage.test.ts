@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { typeCheck } from "../../src/checker/check.js";
-import { typesEqual, isUnknown, formatType } from "../../src/checker/types-equal.js";
+import { typesEqual, isUnknown } from "../../src/checker/types-equal.js";
 import { TypeEnv } from "../../src/checker/type-env.js";
 import type { EdictModule } from "../../src/ast/nodes.js";
 import type { TypeExpr } from "../../src/ast/types.js";
@@ -190,22 +190,7 @@ describe("isUnknown", () => {
     });
 });
 
-// =============================================================================
-// formatType
-// =============================================================================
-describe("formatType", () => {
-    it("formats all type kinds", () => {
-        expect(formatType({ kind: "basic", name: "Int" })).toBe("Int");
-        expect(formatType({ kind: "array", element: { kind: "basic", name: "Int" } })).toBe("Array<Int>");
-        expect(formatType({ kind: "option", inner: { kind: "basic", name: "Int" } })).toBe("Option<Int>");
-        expect(formatType({ kind: "result", ok: { kind: "basic", name: "Int" }, err: { kind: "basic", name: "String" } })).toBe("Result<Int, String>");
-        expect(formatType({ kind: "unit_type", base: "Float", unit: "usd" })).toBe("Float<usd>");
-        expect(formatType({ kind: "fn_type", params: [{ kind: "basic", name: "Int" }], effects: [], returnType: { kind: "basic", name: "Bool" } })).toBe("(Int) -> Bool");
-        expect(formatType({ kind: "named", name: "Foo" })).toBe("Foo");
-        expect(formatType({ kind: "tuple", elements: [{ kind: "basic", name: "Int" }, { kind: "basic", name: "String" }] })).toBe("(Int, String)");
-        expect(formatType({ kind: "refined", id: "r", base: { kind: "basic", name: "Int" }, variable: "v", predicate: { kind: "literal", id: "l", value: true } })).toBe("{v: Int | ...}");
-    });
-});
+
 
 // =============================================================================
 // Checker edge cases

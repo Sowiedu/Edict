@@ -85,7 +85,7 @@ describe("invalid programs", () => {
     it("rejects module with non-array imports", () => {
         expectErrors(
             { kind: "module", id: "m1", name: "test", imports: "bad", definitions: [] },
-            { error: "invalid_field_type", field: "imports", expected: "array" },
+            { error: "invalid_field_type", field: "imports", expectedFormat: "array" },
         );
     });
 
@@ -107,7 +107,7 @@ describe("invalid programs", () => {
                 imports: [{ kind: "import", id: "i1", module: "a", names: [42] }],
                 definitions: [],
             },
-            { error: "invalid_field_type", field: "names[0]", expected: "string" },
+            { error: "invalid_field_type", field: "names[0]", expectedFormat: "string" },
         );
     });
 
@@ -776,7 +776,7 @@ describe("invalid programs", () => {
             {
                 kind: "module", id: "m1", name: 42, imports: [], definitions: [],
             },
-            { error: "invalid_field_type", field: "name", expected: "string", actual: "number" },
+            { error: "invalid_field_type", field: "name", expectedFormat: "string", actualFormat: "number" },
         );
     });
 
@@ -843,7 +843,7 @@ describe("invalid programs", () => {
         expect(errors).toHaveLength(1);
         expect(errors[0]).toMatchObject({
             error: "invalid_field_type",
-            expected: "object",
+            expectedFormat: "object",
         });
     });
 
@@ -854,7 +854,7 @@ describe("invalid programs", () => {
         expect(errors).toHaveLength(1);
         expect(errors[0]).toMatchObject({
             error: "invalid_field_type",
-            expected: "object",
+            expectedFormat: "object",
         });
     });
 

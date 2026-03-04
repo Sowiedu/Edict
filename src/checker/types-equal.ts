@@ -90,28 +90,3 @@ export function isUnknown(type: TypeExpr): boolean {
     return type.kind === "named" && type.name === "unknown";
 }
 
-/**
- * Format a TypeExpr as a human-readable string for error messages.
- */
-export function formatType(type: TypeExpr): string {
-    switch (type.kind) {
-        case "basic":
-            return type.name;
-        case "array":
-            return `Array<${formatType(type.element)}>`;
-        case "option":
-            return `Option<${formatType(type.inner)}>`;
-        case "result":
-            return `Result<${formatType(type.ok)}, ${formatType(type.err)}>`;
-        case "unit_type":
-            return `${type.base}<${type.unit}>`;
-        case "fn_type":
-            return `(${type.params.map(formatType).join(", ")}) -> ${formatType(type.returnType)}`;
-        case "named":
-            return type.name;
-        case "tuple":
-            return `(${type.elements.map(formatType).join(", ")})`;
-        case "refined":
-            return `{${type.variable}: ${formatType(type.base)} | ...}`;
-    }
-}

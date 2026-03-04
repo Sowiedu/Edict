@@ -26,7 +26,7 @@ import {
     missingRecordFields,
 } from "../errors/structured-errors.js";
 import { TypeEnv } from "./type-env.js";
-import { typesEqual, isUnknown, formatType, resolveType } from "./types-equal.js";
+import { typesEqual, isUnknown, resolveType } from "./types-equal.js";
 import { BUILTIN_FUNCTIONS } from "../codegen/builtins.js";
 
 const UNKNOWN_TYPE: TypeExpr = { kind: "named", name: "unknown" };
@@ -271,10 +271,10 @@ function inferBinop(
     // Logical operators: and, or, implies
     if (op === "and" || op === "or" || op === "implies") {
         if (!isBool(leftType)) {
-            errors.push(typeMismatch(expr.id, "Bool", formatType(leftType), `left operand of '${op}'`));
+            errors.push(typeMismatch(expr.id, BOOL_TYPE, leftType));
         }
         if (!isBool(rightType)) {
-            errors.push(typeMismatch(expr.id, "Bool", formatType(rightType), `right operand of '${op}'`));
+            errors.push(typeMismatch(expr.id, BOOL_TYPE, rightType));
         }
         return BOOL_TYPE;
     }
@@ -282,7 +282,7 @@ function inferBinop(
     // Comparison operators: ==, !=, <, >, <=, >=
     if (op === "==" || op === "!=" || op === "<" || op === ">" || op === "<=" || op === ">=") {
         if (!typesEqual(leftType, rightType, env)) {
-            errors.push(typeMismatch(expr.id, formatType(leftType), formatType(rightType), `operands of '${op}' must have the same type`));
+            errors.push(typeMismatch(expr.id, leftType, rightType));
         }
         return BOOL_TYPE;
     }
@@ -293,25 +293,25 @@ function inferBinop(
         if (isString(leftType) && isString(rightType)) return STRING_TYPE;
         if (isNumeric(leftType, env) && isNumeric(rightType, env)) {
             if (!typesEqual(leftType, rightType, env)) {
-                errors.push(typeMismatch(expr.id, formatType(leftType), formatType(rightType), `operands of '+' must have the same numeric type`));
+                errors.push(typeMismatch(expr.id, leftType, rightType));
                 return UNKNOWN_TYPE;
             }
             return leftType;
         }
-        errors.push(typeMismatch(expr.id, "numeric or String", formatType(leftType), `operands of '+' must be numeric or String`));
+        errors.push(typeMismatch(expr.id, UNKNOWN_TYPE, leftType)); // Unknown since both numeric/String are valid expected
         return UNKNOWN_TYPE;
     }
 
     // -, *, /, % — numeric only
     if (isNumeric(leftType, env) && isNumeric(rightType, env)) {
         if (!typesEqual(leftType, rightType, env)) {
-            errors.push(typeMismatch(expr.id, formatType(leftType), formatType(rightType), `operands of '${op}' must have the same numeric type`));
+            errors.push(typeMismatch(expr.id, leftType, rightType));
             return UNKNOWN_TYPE;
         }
         return leftType;
     }
 
-    errors.push(typeMismatch(expr.id, "numeric", formatType(leftType), `operands of '${op}' must be numeric`));
+    errors.push(typeMismatch(expr.id, UNKNOWN_TYPE, leftType)); // Expected numeric
     return UNKNOWN_TYPE;
 }
 
@@ -325,14 +325,14 @@ function inferUnop(
 
     if (expr.op === "not") {
         if (!isBool(operandType)) {
-            errors.push(typeMismatch(expr.id, "Bool", formatType(operandType), "operand of 'not'"));
+            errors.push(typeMismatch(expr.id, BOOL_TYPE, operandType));
         }
         return BOOL_TYPE;
     }
 
     // Unary -
     if (!isNumeric(operandType, env)) {
-        errors.push(typeMismatch(expr.id, "numeric", formatType(operandType), "operand of unary '-'"));
+        errors.push(typeMismatch(expr.id, UNKNOWN_TYPE, operandType)); // expected numeric
         return UNKNOWN_TYPE;
     }
     return operandType;
@@ -352,7 +352,7 @@ function inferCall(
 
     const resolved = resolveType(fnType, env);
     if (resolved.kind !== "fn_type") {
-        errors.push(notAFunction(expr.id, formatType(fnType)));
+        errors.push(notAFunction(expr.id, fnType));
         // Still infer arg types for error propagation
         for (const arg of expr.args) inferExpr(arg, env, errors);
         return UNKNOWN_TYPE;
@@ -392,7 +392,7 @@ function inferIf(
         const elseType = inferExprList(expr.else, env.child(), errors);
         if (!isUnknown(thenType) && !isUnknown(elseType)) {
             if (!typesEqual(thenType, elseType, env)) {
-                errors.push(typeMismatch(expr.id, formatType(thenType), formatType(elseType), "if/else branches must have the same type"));
+                errors.push(typeMismatch(expr.id, thenType, elseType));
             }
         }
         return thenType;
@@ -434,7 +434,7 @@ function inferMatch(
             resultType = bodyType;
         } else if (!isUnknown(resultType) && !isUnknown(bodyType)) {
             if (!typesEqual(resultType, bodyType, env)) {
-                errors.push(typeMismatch(arm.id, formatType(resultType), formatType(bodyType), "all match arms must have the same type"));
+                errors.push(typeMismatch(arm.id, resultType, bodyType));
             }
         }
     }
@@ -461,7 +461,7 @@ function inferPattern(
             const litType = inferLiteralPatternType(pattern.value);
             if (!isUnknown(targetType) && !isUnknown(litType)) {
                 if (!typesEqual(litType, targetType, rootEnv)) {
-                    errors.push(typeMismatch(null, formatType(targetType), formatType(litType), "literal pattern type must match target"));
+                    errors.push(typeMismatch(null, targetType, litType));
                 }
             }
             break;
@@ -528,7 +528,7 @@ function inferArray(
         const elType = inferExpr(expr.elements[i]!, env, errors);
         if (!isUnknown(firstType) && !isUnknown(elType)) {
             if (!typesEqual(firstType, elType, env)) {
-                errors.push(typeMismatch(expr.elements[i]!.id, formatType(firstType), formatType(elType), `array element ${i + 1} must match first element type`));
+                errors.push(typeMismatch(expr.elements[i]!.id, firstType, elType));
             }
         }
     }
@@ -656,13 +656,13 @@ function inferAccess(
 
     const resolved = resolveType(targetType, env);
     if (resolved.kind !== "named") {
-        errors.push(typeMismatch(expr.id, "record type", formatType(targetType), "field access requires a record"));
+        errors.push(typeMismatch(expr.id, UNKNOWN_TYPE, targetType)); // expected record type
         return UNKNOWN_TYPE;
     }
 
     const def = env.lookupTypeDef(resolved.name);
     if (!def || def.kind !== "record") {
-        errors.push(typeMismatch(expr.id, "record type", formatType(targetType), "field access requires a record"));
+        errors.push(typeMismatch(expr.id, UNKNOWN_TYPE, targetType)); // expected record type
         return UNKNOWN_TYPE;
     }
 
@@ -708,11 +708,11 @@ function checkExpectedType(
     nodeId: string | null,
     env: TypeEnv,
     errors: StructuredError[],
-    hint?: string,
+    _hint?: string, // Hint removed from signature as per rules
 ): void {
     if (isUnknown(actual) || isUnknown(expected)) return;
     if (!typesEqual(actual, expected, env)) {
-        errors.push(typeMismatch(nodeId, formatType(expected), formatType(actual), hint));
+        errors.push(typeMismatch(nodeId, expected, actual));
     }
 }
 
