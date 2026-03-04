@@ -1,6 +1,6 @@
 {
   "name": "edict-lang",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Edict — A programming language designed for AI agents. No parser, no syntax — agents produce AST directly as JSON. Statically typed, effect-tracked, contract-verified, compiled to WASM.",
   "type": "module",
   "bin": {
