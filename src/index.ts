@@ -76,6 +76,7 @@ export type {
     LambdaExpr,
     BlockExpr,
     FieldInit,
+    StringInterp,
 } from "./ast/nodes.js";
 
 // Type expressions

@@ -855,6 +855,9 @@ export function validateExpression(
         case "block":
             validateBlockExpr(node, path, errors, idTracker);
             break;
+        case "string_interp":
+            validateStringInterp(node, path, errors, idTracker);
+            break;
         default:
             errors.push(unknownNodeKind(path, kind, [...VALID_EXPRESSION_KINDS]));
     }
@@ -1334,6 +1337,27 @@ function validateBlockExpr(
     if (body) {
         for (let i = 0; i < body.length; i++) {
             validateExpression(body[i], `${path}.body[${i}]`, errors, idTracker);
+        }
+    }
+}
+
+function validateStringInterp(
+    node: AnyNode,
+    path: string,
+    errors: StructuredError[],
+    idTracker: IdTracker,
+): void {
+    trackId(node, path, errors, idTracker);
+
+    const parts = requireArray(node, "parts", path, errors);
+    if (parts) {
+        for (let i = 0; i < parts.length; i++) {
+            validateExpression(
+                parts[i],
+                `${path}.parts[${i}]`,
+                errors,
+                idTracker,
+            );
         }
     }
 }

@@ -417,6 +417,10 @@ function resolveExpression(
         case "block":
             resolveExpressionList(expr.body, scope.child(), errors);
             break;
+
+        case "string_interp":
+            for (const part of expr.parts) resolveExpression(part, scope, errors);
+            break;
     }
 }
 

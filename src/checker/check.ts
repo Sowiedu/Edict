@@ -238,6 +238,9 @@ function inferExpr(
 
         case "block":
             return inferExprList(expr.body, env.child(), errors);
+
+        case "string_interp":
+            return inferStringInterp(expr, env, errors);
     }
 }
 
@@ -739,6 +742,18 @@ function inferLambda(
         effects: [],
         returnType: bodyType,
     } satisfies FunctionType;
+}
+
+function inferStringInterp(
+    expr: Expression & { kind: "string_interp" },
+    env: TypeEnv,
+    errors: StructuredError[],
+): TypeExpr {
+    for (const part of expr.parts) {
+        const partType = inferExpr(part, env, errors);
+        checkExpectedType(partType, STRING_TYPE, part.id, env, errors);
+    }
+    return STRING_TYPE;
 }
 
 // =============================================================================

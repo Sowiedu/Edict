@@ -181,7 +181,8 @@ export type Expression =
     | EnumConstructor
     | FieldAccess
     | LambdaExpr
-    | BlockExpr;
+    | BlockExpr
+    | StringInterp;
 
 export interface Literal {
     kind: "literal";
@@ -368,6 +369,16 @@ export interface BlockExpr {
     body: Expression[];
 }
 
+/**
+ * String interpolation — desugars to string_concat chains at compile time.
+ * All parts must evaluate to String.
+ */
+export interface StringInterp {
+    kind: "string_interp";
+    id: string;
+    parts: Expression[];
+}
+
 // =============================================================================
 // Valid kind values — used by the validator
 // =============================================================================
@@ -396,6 +407,7 @@ export const VALID_EXPRESSION_KINDS = [
     "access",
     "lambda",
     "block",
+    "string_interp",
 ] as const;
 
 export const VALID_TYPE_KINDS = [

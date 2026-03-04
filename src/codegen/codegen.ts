@@ -140,6 +140,8 @@ function inferExprWasmType(
         case "enum_constructor":
         case "record_expr":
             return binaryen.i32; // heap pointer
+        case "string_interp":
+            return binaryen.i32; // string pointer
         case "access": {
             let recordTypeName: string | undefined;
             if (expr.target.kind === "ident") {
@@ -562,6 +564,9 @@ function compileExpr(
 
         case "lambda":
             return compileLambdaExpr(expr as Expression & { kind: "lambda" }, mod, ctx, strings, fnSigs, errors);
+
+        case "string_interp":
+            return compileStringInterp(expr as Expression & { kind: "string_interp" }, mod, ctx, strings, fnSigs, errors);
 
         default:
             errors.push(`unsupported expression kind: ${(expr as any).kind}`);
@@ -1533,6 +1538,91 @@ function compileLambdaExpr(
     return mod.i32.const(lambdaCounter - 1);
 }
 
+function compileStringInterp(
+    expr: Expression & { kind: "string_interp" },
+    mod: binaryen.Module,
+    ctx: FunctionContext,
+    strings: StringTable,
+    fnSigs: Map<string, FunctionSig>,
+    errors: string[],
+): binaryen.ExpressionRef {
+    const parts = expr.parts;
+
+    // Edge case: no parts → empty string
+    if (parts.length === 0) {
+        const empty = strings.intern("");
+        // Set __str_ret_len so downstream consumers read correct length
+        return mod.block(null, [
+            mod.global.set("__str_ret_len", mod.i32.const(empty.length)),
+            mod.i32.const(empty.offset),
+        ], binaryen.i32);
+    }
+
+    // Single part → compile directly (no concat needed)
+    // For string literals, must also set __str_ret_len
+    if (parts.length === 1) {
+        const part = parts[0]!;
+        if (part.kind === "literal" && typeof part.value === "string") {
+            const interned = strings.intern(part.value);
+            return mod.block(null, [
+                mod.global.set("__str_ret_len", mod.i32.const(interned.length)),
+                mod.i32.const(interned.offset),
+            ], binaryen.i32);
+        }
+        // Non-literal — __str_ret_len already set by callee
+        return compileExpr(part, mod, ctx, strings, fnSigs, errors);
+    }
+
+    // Helper: compile a part and return [ptrExpr, lenExpr]
+    function compilePart(part: Expression): [binaryen.ExpressionRef, binaryen.ExpressionRef] {
+        if (part.kind === "literal" && typeof part.value === "string") {
+            const interned = strings.intern(part.value);
+            return [mod.i32.const(interned.offset), mod.i32.const(interned.length)];
+        }
+        const ptrExpr = compileExpr(part, mod, ctx, strings, fnSigs, errors);
+        return [ptrExpr, mod.global.get("__str_ret_len", binaryen.i32)];
+    }
+
+    // Left-fold: concat(concat(concat(parts[0], parts[1]), parts[2]), ...)
+    // Must save intermediate results to temp locals to prevent __str_ret_len clobbering.
+    const stmts: binaryen.ExpressionRef[] = [];
+
+    // Compile first part, save ptr+len to temp locals
+    const [ptr0, len0] = compilePart(parts[0]!);
+    const accPtrIdx = ctx.addLocal(`__interp_ptr_${expr.id}`, binaryen.i32);
+    const accLenIdx = ctx.addLocal(`__interp_len_${expr.id}`, binaryen.i32);
+    stmts.push(mod.local.set(accPtrIdx, ptr0));
+    stmts.push(mod.local.set(accLenIdx, len0));
+
+    // For each subsequent part, concat with accumulator
+    for (let i = 1; i < parts.length; i++) {
+        const [partPtr, partLen] = compilePart(parts[i]!);
+
+        // Save part ptr+len to temp locals (partLen may reference __str_ret_len
+        // which gets overwritten by the concat call)
+        const tmpPartPtrIdx = ctx.addLocal(`__interp_p${i}_ptr_${expr.id}`, binaryen.i32);
+        const tmpPartLenIdx = ctx.addLocal(`__interp_p${i}_len_${expr.id}`, binaryen.i32);
+        stmts.push(mod.local.set(tmpPartPtrIdx, partPtr));
+        stmts.push(mod.local.set(tmpPartLenIdx, partLen));
+
+        // Call string_concat(accPtr, accLen, partPtr, partLen)
+        const concatResult = mod.call("string_concat", [
+            mod.local.get(accPtrIdx, binaryen.i32),
+            mod.local.get(accLenIdx, binaryen.i32),
+            mod.local.get(tmpPartPtrIdx, binaryen.i32),
+            mod.local.get(tmpPartLenIdx, binaryen.i32),
+        ], binaryen.i32);
+
+        // Save result ptr and new __str_ret_len
+        stmts.push(mod.local.set(accPtrIdx, concatResult));
+        stmts.push(mod.local.set(accLenIdx, mod.global.get("__str_ret_len", binaryen.i32)));
+    }
+
+    // Return the final accumulated pointer
+    stmts.push(mod.local.get(accPtrIdx, binaryen.i32));
+    return mod.block(null, stmts, binaryen.i32);
+}
+
 // =============================================================================
 // String literal collector (pre-scan)
 // =============================================================================
@@ -1596,6 +1686,11 @@ function collectStringExpr(expr: Expression, strings: StringTable): void {
             break;
         case "access":
             collectStringExpr(expr.target, strings);
+            break;
+        case "string_interp":
+            for (const part of expr.parts) {
+                collectStringExpr(part, strings);
+            }
             break;
         // ident, array, tuple_expr, enum_constructor
         // — no string literals directly

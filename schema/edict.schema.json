@@ -368,6 +368,9 @@
         },
         {
           "$ref": "#/definitions/BlockExpr"
+        },
+        {
+          "$ref": "#/definitions/StringInterp"
         }
       ]
     },
@@ -1063,6 +1066,30 @@
         "kind"
       ]
     },
+    "StringInterp": {
+      "description": "String interpolation — desugars to string_concat chains at compile time.\nAll parts must evaluate to String.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "string_interp"
+        },
+        "id": {
+          "type": "string"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "parts"
+      ]
+    },
     "Contract": {
       "description": "Pre/post contract on a function.",
       "type": "object",
@@ -1203,6 +1230,9 @@
             },
             {
               "$ref": "#/definitions/BlockExpr"
+            },
+            {
+              "$ref": "#/definitions/StringInterp"
             }
           ]
         }
