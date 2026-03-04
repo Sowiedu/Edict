@@ -12,6 +12,7 @@ import { validate } from "../validator/validate.js";
 import { check } from "../check.js";
 import { compile } from "../codegen/codegen.js";
 import { run } from "../codegen/runner.js";
+import type { RunLimits } from "../codegen/runner.js";
 import { BUILTIN_FUNCTIONS } from "../codegen/builtins.js";
 import type { StructuredError } from "../errors/structured-errors.js";
 import { applyPatches, type AstPatch } from "../patch/apply.js";
@@ -90,6 +91,8 @@ export interface RunResult {
     output: string;
     exitCode: number;
     returnValue?: number;
+    error?: "execution_timeout" | "execution_oom";
+    limitInfo?: { timeoutMs?: number; maxMemoryMb?: number };
 }
 
 export interface VersionResult {
@@ -156,13 +159,15 @@ export async function handleCompile(ast: unknown): Promise<CompileResult> {
     return { ok: true, wasm: base64 };
 }
 
-export async function handleRun(wasmBase64: string): Promise<RunResult> {
+export async function handleRun(wasmBase64: string, limits?: RunLimits): Promise<RunResult> {
     const wasmBytes = new Uint8Array(Buffer.from(wasmBase64, "base64"));
-    const result = await run(wasmBytes);
+    const result = await run(wasmBytes, "main", limits);
     return {
         output: result.output,
         exitCode: result.exitCode,
         returnValue: result.returnValue,
+        error: result.error,
+        limitInfo: result.limitInfo,
     };
 }
 
@@ -217,6 +222,8 @@ export function handleVersion(): VersionResult {
         limits: {
             z3TimeoutMs: 5000,
             maxModules: 1,
+            executionTimeoutMs: 5000,
+            maxMemoryMb: 1,
         },
     };
 }

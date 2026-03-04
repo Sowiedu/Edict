@@ -171,9 +171,10 @@ export type {
     CompileResult,
     CompileSuccess,
     CompileFailure,
+    CompileOptions,
 } from "./codegen/codegen.js";
-export { run } from "./codegen/runner.js";
-export type { RunResult } from "./codegen/runner.js";
+export { run, runDirect } from "./codegen/runner.js";
+export type { RunResult, RunLimits } from "./codegen/runner.js";
 export { compileAndRun } from "./compile.js";
 export type {
     CompileAndRunResult,

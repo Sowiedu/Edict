@@ -216,8 +216,10 @@ describe("handleRun", () => {
         expect(result.output).toContain("Hello, World!");
     });
 
-    it("invalid base64 → error", async () => {
-        await expect(handleRun("not-valid-wasm-base64===")).rejects.toThrow();
+    it("invalid base64 → error result", async () => {
+        const result = await handleRun("not-valid-wasm-base64===");
+        expect(result.exitCode).toBe(1);
+        expect(result.output.length).toBeGreaterThan(0);
     });
 });
 

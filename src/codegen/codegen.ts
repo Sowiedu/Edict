@@ -33,6 +33,12 @@ export interface CompileFailure {
 
 export type CompileResult = CompileSuccess | CompileFailure;
 
+/** Options for WASM code generation */
+export interface CompileOptions {
+    /** Maximum WASM memory pages (64KB each). Default: 16 (= 1MB) */
+    maxMemoryPages?: number;
+}
+
 // =============================================================================
 // Function signature registry (for cross-function call return types)
 // =============================================================================
@@ -238,10 +244,11 @@ class FunctionContext {
 // Compiler
 // =============================================================================
 
-export function compile(module: EdictModule): CompileResult {
+export function compile(module: EdictModule, options?: CompileOptions): CompileResult {
     const mod = new binaryen.Module();
     const strings = new StringTable();
     const errors: string[] = [];
+    const maxPages = options?.maxMemoryPages ?? 16;
 
     try {
         // Pre-scan: intern all string literals
@@ -257,7 +264,7 @@ export function compile(module: EdictModule): CompileResult {
         // Setup memory with string data segments
         const segments = strings.toMemorySegments(mod);
         const pages = Math.max(1, Math.ceil(strings.totalBytes / 65536));
-        mod.setMemory(pages, 16, "memory", segments);
+        mod.setMemory(pages, maxPages, "memory", segments);
 
         // Build RecordLayout registry
         const recordLayouts = new Map<string, RecordLayout>();

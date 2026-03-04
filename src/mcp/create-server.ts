@@ -152,13 +152,17 @@ export function createEdictServer(): McpServer {
     // edict_run — Run a base64 encoded WASM module and return its output
     server.tool(
         "edict_run",
-        "Execute a compiled WebAssembly module (provided as base64) using the Edict runtime host. Returns standard output and exit code.",
+        "Execute a compiled WebAssembly module (provided as base64) using the Edict runtime host. Returns standard output, exit code, and any sandbox limit errors. Supports optional execution limits (timeout, memory).",
         {
             wasmBase64: z.string().describe("The base64 encoded WebAssembly module to execute"),
+            limits: z.object({
+                timeoutMs: z.number().optional().describe("Max execution time in milliseconds (default: 5000, min: 100)"),
+                maxMemoryMb: z.number().optional().describe("Max WASM memory in MB (compile-time limit, default: 1)"),
+            }).optional().describe("Optional execution sandbox limits"),
         },
-        async ({ wasmBase64 }) => {
+        async ({ wasmBase64, limits }) => {
             try {
-                const result = await handleRun(wasmBase64);
+                const result = await handleRun(wasmBase64, limits);
                 return {
                     content: [
                         {
