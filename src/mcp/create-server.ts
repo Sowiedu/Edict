@@ -12,6 +12,12 @@ import {
     handlePatch,
     handleErrorCatalog,
 } from "./handlers.js";
+import {
+    promptWriteProgram,
+    promptFixError,
+    promptAddContracts,
+    promptReviewAst,
+} from "./prompts.js";
 
 // =============================================================================
 // Server setup
@@ -309,6 +315,50 @@ export function createEdictServer(): McpServer {
                     },
                 ],
             };
+        },
+    );
+
+    // =============================================================================
+    // Prompts
+    // =============================================================================
+
+    server.prompt(
+        "write_program",
+        "System prompt for writing a new Edict program from a task description. Includes minimal schema, example, and builtin list.",
+        { task: z.string().describe("Description of what the program should do") },
+        async ({ task }) => {
+            const result = promptWriteProgram(task);
+            return result;
+        },
+    );
+
+    server.prompt(
+        "fix_error",
+        "Prompt for fixing a structured Edict compiler error. Includes error taxonomy and fix strategy.",
+        { error: z.string().describe("The structured error JSON from the compiler") },
+        async ({ error }) => {
+            const result = promptFixError(error);
+            return result;
+        },
+    );
+
+    server.prompt(
+        "add_contracts",
+        "Prompt for adding pre/postcondition contracts to existing Edict functions for Z3 formal verification.",
+        { ast: z.string().describe("The Edict JSON AST to add contracts to") },
+        async ({ ast }) => {
+            const result = promptAddContracts(ast);
+            return result;
+        },
+    );
+
+    server.prompt(
+        "review_ast",
+        "Prompt for reviewing an Edict AST for quality issues (unused variables, missing effects, dead code, etc.).",
+        { ast: z.string().describe("The Edict JSON AST to review") },
+        async ({ ast }) => {
+            const result = promptReviewAst(ast);
+            return result;
         },
     );
 
