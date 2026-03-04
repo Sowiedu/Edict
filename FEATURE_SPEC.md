@@ -662,7 +662,7 @@ Phase 1 is complete when:
 - [x] 10 example programs defined as JSON ASTs covering all node types
 - [x] Unit tests for every AST node type — valid and invalid inputs
 - [x] 100% statement/line/function coverage on the validator (97.5% branch)
-- [ ] One end-to-end smoke test: give an LLM the schema, have it produce a valid AST, validate it
+- [x] One end-to-end smoke test: give an LLM the schema, have it produce a valid AST, validate it
 
 ---
 
