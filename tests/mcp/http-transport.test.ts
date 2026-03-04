@@ -6,7 +6,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import express from "express";
 import crypto from "node:crypto";
 import { Server } from "node:http";
-import { createEdictServer } from "../../src/mcp/server.js";
+import { createEdictServer } from "../../src/mcp/create-server.js";
 
 describe("HTTP/SSE Transport", () => {
     let app: express.Express;

@@ -19,10 +19,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
+      - name: Test
+        run: npm run test
+        
       - name: Build
         run: npm run build
         
       - name: Publish to npm
+        if: secrets.NPM_TOKEN != ''
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

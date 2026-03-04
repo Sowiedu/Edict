@@ -180,6 +180,17 @@ export interface FieldLayout {
     wasmType: binaryen.Type;
 }
 
+export interface EnumVariantLayout {
+    name: string;
+    tag: number;
+    fields: FieldLayout[];
+    totalSize: number;
+}
+
+export interface EnumLayout {
+    variants: EnumVariantLayout[];
+}
+
 export interface RecordLayout {
     fields: FieldLayout[];
     totalSize: number;
@@ -543,7 +554,7 @@ function compileExpr(
             return compileLambdaExpr(expr as Expression & { kind: "lambda" }, mod, ctx, strings, fnSigs, errors);
 
         default:
-            errors.push(`unsupported expression kind: ${expr.kind}`);
+            errors.push(`unsupported expression kind: ${(expr as any).kind}`);
             return mod.unreachable();
     }
 }
@@ -845,7 +856,7 @@ function compileMatch(
     } else if (expr.target.kind === "call") {
         // Can't easily infer return named type yet without a type env here,
         // but let's be pragmatic if it's annotated
-    } else if (expr.target.type && expr.target.type.kind === "named") {
+    } else if ("type" in expr.target && expr.target.type && expr.target.type.kind === "named") {
         targetEdictTypeName = expr.target.type.name;
     }
 
@@ -1463,9 +1474,7 @@ function compileLambdaExpr(
 
     // Infer return type from last body expression
     let returnType = binaryen.i32;
-    if (expr.returnType) {
-        returnType = edictTypeToWasm(expr.returnType);
-    } else if (expr.body.length > 0) {
+    if (expr.body.length > 0) {
         returnType = inferExprWasmType(expr.body[expr.body.length - 1]!, lambdaCtx, fnSigs);
     }
 
