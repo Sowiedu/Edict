@@ -5,6 +5,7 @@
 // for an agent to self-repair. No human-readable strings.
 
 import type { Effect } from "../ast/nodes.js";
+import type { TypeExpr } from "../ast/types.js";
 
 /**
  * Union of all compiler errors (Phase 1–4).
@@ -63,7 +64,7 @@ export interface MissingFieldError {
     path: string;
     nodeId: string | null;
     field: string;
-    expectedType: string;
+    expectedFormat: string;
 }
 
 export interface InvalidFieldTypeError {
@@ -71,8 +72,8 @@ export interface InvalidFieldTypeError {
     path: string;
     nodeId: string | null;
     field: string;
-    expected: string;
-    actual: string;
+    expectedFormat: string;
+    actualFormat: string;
 }
 
 export interface InvalidEffectError {
@@ -103,7 +104,7 @@ export interface ConflictingEffectsError {
     error: "conflicting_effects";
     path: string;
     nodeId: string | null;
-    message: string;
+    effectsFound: string[];
 }
 
 // =============================================================================
@@ -153,9 +154,8 @@ export interface UnknownVariantError {
 export interface TypeMismatchError {
     error: "type_mismatch";
     nodeId: string | null;
-    expected: string;
-    actual: string;
-    hint?: string;
+    expected: TypeExpr;
+    actual: TypeExpr;
 }
 
 export interface ArityMismatchError {
@@ -168,7 +168,7 @@ export interface ArityMismatchError {
 export interface NotAFunctionError {
     error: "not_a_function";
     nodeId: string | null;
-    actualType: string;
+    actualType: TypeExpr;
 }
 
 export interface UnknownFieldError {
@@ -210,19 +210,19 @@ export function missingField(
     path: string,
     nodeId: string | null,
     field: string,
-    expectedType: string,
+    expectedFormat: string,
 ): MissingFieldError {
-    return { error: "missing_field", path, nodeId, field, expectedType };
+    return { error: "missing_field", path, nodeId, field, expectedFormat };
 }
 
 export function invalidFieldType(
     path: string,
     nodeId: string | null,
     field: string,
-    expected: string,
-    actual: string,
+    expectedFormat: string,
+    actualFormat: string,
 ): InvalidFieldTypeError {
-    return { error: "invalid_field_type", path, nodeId, field, expected, actual };
+    return { error: "invalid_field_type", path, nodeId, field, expectedFormat, actualFormat };
 }
 
 export function invalidEffect(
@@ -261,9 +261,9 @@ export function invalidBasicTypeName(
 export function conflictingEffects(
     path: string,
     nodeId: string | null,
-    message: string,
+    effectsFound: string[],
 ): ConflictingEffectsError {
-    return { error: "conflicting_effects", path, nodeId, message };
+    return { error: "conflicting_effects", path, nodeId, effectsFound };
 }
 
 // =============================================================================
@@ -313,13 +313,10 @@ export function unknownVariant(
 
 export function typeMismatch(
     nodeId: string | null,
-    expected: string,
-    actual: string,
-    hint?: string,
+    expected: TypeExpr,
+    actual: TypeExpr,
 ): TypeMismatchError {
-    const err: TypeMismatchError = { error: "type_mismatch", nodeId, expected, actual };
-    if (hint !== undefined) err.hint = hint;
-    return err;
+    return { error: "type_mismatch", nodeId, expected, actual };
 }
 
 export function arityMismatch(
@@ -332,7 +329,7 @@ export function arityMismatch(
 
 export function notAFunction(
     nodeId: string | null,
-    actualType: string,
+    actualType: TypeExpr,
 ): NotAFunctionError {
     return { error: "not_a_function", nodeId, actualType };
 }

@@ -168,7 +168,7 @@ function validateEffectsArray(
             conflictingEffects(
                 `${path}.effects`,
                 nodeId,
-                "\"pure\" cannot be combined with other effects",
+                effects as string[],
             ),
         );
     }
