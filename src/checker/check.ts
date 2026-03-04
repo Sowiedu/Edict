@@ -30,12 +30,7 @@ import { findCandidates } from "../resolver/levenshtein.js";
 import { TypeEnv } from "./type-env.js";
 import { typesEqual, isUnknown, resolveType } from "./types-equal.js";
 import { BUILTIN_FUNCTIONS } from "../codegen/builtins.js";
-
-const UNKNOWN_TYPE: TypeExpr = { kind: "named", name: "unknown" };
-const INT_TYPE: TypeExpr = { kind: "basic", name: "Int" };
-const FLOAT_TYPE: TypeExpr = { kind: "basic", name: "Float" };
-const STRING_TYPE: TypeExpr = { kind: "basic", name: "String" };
-const BOOL_TYPE: TypeExpr = { kind: "basic", name: "Bool" };
+import { UNKNOWN_TYPE, INT_TYPE, FLOAT_TYPE, STRING_TYPE, BOOL_TYPE } from "../ast/type-constants.js";
 
 /**
  * Entry point: type-check a validated + resolved Edict module.
@@ -136,10 +131,10 @@ function checkFunction(
             const postEnv = fnEnv.child();
             postEnv.bind("result", fn.returnType);
             const condType = inferExpr(contract.condition, postEnv, errors);
-            checkExpectedType(condType, BOOL_TYPE, contract.id, fnEnv, errors, "post-contract condition must be Bool");
+            checkExpectedType(condType, BOOL_TYPE, contract.id, fnEnv, errors);
         } else {
             const condType = inferExpr(contract.condition, fnEnv, errors);
-            checkExpectedType(condType, BOOL_TYPE, contract.id, fnEnv, errors, "pre-contract condition must be Bool");
+            checkExpectedType(condType, BOOL_TYPE, contract.id, fnEnv, errors);
         }
     }
 
@@ -148,7 +143,7 @@ function checkFunction(
 
     // Check return type
     if (bodyType && !isUnknown(bodyType) && !isUnknown(resolveType(fn.returnType, fnEnv))) {
-        checkExpectedType(bodyType, fn.returnType, fn.id, fnEnv, errors, "function body type must match return type");
+        checkExpectedType(bodyType, fn.returnType, fn.id, fnEnv, errors);
     }
 }
 
@@ -158,7 +153,7 @@ function checkConst(
     errors: StructuredError[],
 ): void {
     const valType = inferExpr(def.value, env, errors);
-    checkExpectedType(valType, def.type, def.id, env, errors, "const value must match declared type");
+    checkExpectedType(valType, def.type, def.id, env, errors);
 }
 
 // =============================================================================
@@ -372,7 +367,7 @@ function inferCall(
     const checkCount = Math.min(expr.args.length, resolved.params.length);
     for (let i = 0; i < checkCount; i++) {
         const argType = inferExpr(expr.args[i]!, env, errors);
-        checkExpectedType(argType, resolved.params[i]!, expr.args[i]!.id, env, errors, `argument ${i + 1}`);
+        checkExpectedType(argType, resolved.params[i]!, expr.args[i]!.id, env, errors);
     }
 
     // Infer remaining surplus args
@@ -389,7 +384,7 @@ function inferIf(
     errors: StructuredError[],
 ): TypeExpr {
     const condType = inferExpr(expr.condition, env, errors);
-    checkExpectedType(condType, BOOL_TYPE, expr.id, env, errors, "if condition must be Bool");
+    checkExpectedType(condType, BOOL_TYPE, expr.id, env, errors);
 
     const thenType = inferExprList(expr.then, env.child(), errors);
 
@@ -415,7 +410,7 @@ function inferLet(
     const valType = inferExpr(expr.value, env, errors);
 
     if (expr.type) {
-        checkExpectedType(valType, expr.type, expr.id, env, errors, "let value must match type annotation");
+        checkExpectedType(valType, expr.type, expr.id, env, errors);
         return expr.type;
     }
 
@@ -557,7 +552,7 @@ function inferRecordExpr(
 ): TypeExpr {
     const def = env.lookupTypeDef(expr.name);
     if (!def) {
-        const cands = collectTypeDefNames(env, "record");
+        const cands = env.allTypeDefNames("record");
         const suggestion: FixSuggestion | undefined = cands.length > 0
             ? { nodeId: expr.id, field: "name", value: findCandidates(expr.name, cands)[0] ?? cands[0] }
             : undefined;
@@ -567,7 +562,7 @@ function inferRecordExpr(
         return UNKNOWN_TYPE;
     }
     if (def.kind !== "record") {
-        const cands = collectTypeDefNames(env, "record");
+        const cands = env.allTypeDefNames("record");
         const suggestion: FixSuggestion | undefined = cands.length > 0
             ? { nodeId: expr.id, field: "name", value: findCandidates(expr.name, cands)[0] ?? cands[0] }
             : undefined;
@@ -610,7 +605,7 @@ function inferRecordExpr(
         }
 
         const valType = inferExpr(fieldInit.value, env, errors);
-        checkExpectedType(valType, fieldDef.type, expr.id, env, errors, `field '${fieldInit.name}'`);
+        checkExpectedType(valType, fieldDef.type, expr.id, env, errors);
     }
 
     return { kind: "named", name: expr.name };
@@ -623,7 +618,7 @@ function inferEnumConstructor(
 ): TypeExpr {
     const def = env.lookupTypeDef(expr.enumName);
     if (!def) {
-        const cands = collectTypeDefNames(env, "enum");
+        const cands = env.allTypeDefNames("enum");
         const suggestion: FixSuggestion | undefined = cands.length > 0
             ? { nodeId: expr.id, field: "enumName", value: findCandidates(expr.enumName, cands)[0] ?? cands[0] }
             : undefined;
@@ -632,7 +627,7 @@ function inferEnumConstructor(
         return UNKNOWN_TYPE;
     }
     if (def.kind !== "enum") {
-        const cands = collectTypeDefNames(env, "enum");
+        const cands = env.allTypeDefNames("enum");
         const suggestion: FixSuggestion | undefined = cands.length > 0
             ? { nodeId: expr.id, field: "enumName", value: findCandidates(expr.enumName, cands)[0] ?? cands[0] }
             : undefined;
@@ -680,7 +675,7 @@ function inferEnumConstructor(
             continue;
         }
         const valType = inferExpr(fieldInit.value, env, errors);
-        checkExpectedType(valType, fieldDef.type, expr.id, env, errors, `field '${fieldInit.name}'`);
+        checkExpectedType(valType, fieldDef.type, expr.id, env, errors);
     }
 
     return { kind: "named", name: expr.enumName };
@@ -766,7 +761,6 @@ function checkExpectedType(
     nodeId: string | null,
     env: TypeEnv,
     errors: StructuredError[],
-    _hint?: string, // Hint removed from signature as per rules
 ): void {
     if (isUnknown(actual) || isUnknown(expected)) return;
     if (!typesEqual(actual, expected, env)) {
@@ -805,9 +799,3 @@ function inferLiteralPatternType(value: number | string | boolean): TypeExpr {
     return UNKNOWN_TYPE;
 }
 
-/**
- * Collect known type definition names of a specific kind (for error candidates).
- */
-function collectTypeDefNames(env: TypeEnv, kind: "record" | "enum"): string[] {
-    return env.allTypeDefNames(kind);
-}

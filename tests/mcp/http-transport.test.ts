@@ -108,7 +108,7 @@ describe("HTTP/SSE Transport", () => {
         expect(versionResult.content).toBeDefined();
         if (versionResult.content[0].type === "text") {
             const data = JSON.parse(versionResult.content[0].text);
-            expect(data.version).toBe("0.1.0");
+            expect(data.version).toMatch(/^\d+\.\d+\.\d+/);
             expect(data.features).toBeDefined();
         }
 

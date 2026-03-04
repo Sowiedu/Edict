@@ -40,7 +40,7 @@ async function main(): Promise<void> {
         app.use(express.json({ limit: "50mb" }));
 
         app.post("/mcp", async (req: express.Request, res: express.Response) => {
-            console.log("POST /mcp body:", req.body, "headers:", req.headers);
+
             try {
                 let transport: StreamableHTTPServerTransport;
                 const sessionId = req.headers["mcp-session-id"] as string | undefined;
@@ -114,9 +114,7 @@ async function main(): Promise<void> {
             }
         });
 
-        const serverInstance = app.listen(port, () => {
-            console.log(`Edict MCP HTTP server listening on port ${port}`);
-        });
+        const serverInstance = app.listen(port);
 
         // Graceful shutdown
         process.on("SIGINT", () => {

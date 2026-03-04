@@ -27,6 +27,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..", "..");
 const schemaPath = resolve(projectRoot, "schema", "edict.schema.json");
 const examplesDir = resolve(projectRoot, "examples");
+const packageJsonPath = resolve(projectRoot, "package.json");
 
 // =============================================================================
 // Cached assets (loaded once at startup)
@@ -35,6 +36,7 @@ const examplesDir = resolve(projectRoot, "examples");
 let cachedSchema: string | null = null;
 let cachedMinimalSchema: unknown | null = null;
 let cachedExamples: { name: string; ast: unknown }[] | null = null;
+let cachedVersion: string | null = null;
 
 function loadSchema(): string {
     if (!cachedSchema) {
@@ -206,10 +208,12 @@ export function handleErrorCatalog(): ErrorCatalog {
 }
 
 export function handleVersion(): VersionResult {
-    // Note: We could read the version from package.json dynamically,
-    // but for the MCP server it's safer to hardcode the API version it thinks it serves.
+    if (!cachedVersion) {
+        const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+        cachedVersion = pkg.version ?? "0.0.0";
+    }
     return {
-        version: "0.1.0",
+        version: cachedVersion,
         schemaVersion: "1.0",
         builtins: Array.from(BUILTIN_FUNCTIONS.keys()),
         features: {

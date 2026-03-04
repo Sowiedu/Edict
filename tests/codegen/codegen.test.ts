@@ -53,7 +53,7 @@ function mkModule(
 describe("compile — success cases", () => {
     it("compiles a function returning integer literal", () => {
         const mod = mkModule([mkFn("main", [mkLiteral(42)])]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -73,7 +73,7 @@ describe("compile — success cases", () => {
                 },
             ]),
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -83,7 +83,7 @@ describe("compile — success cases", () => {
 
     it("compiles boolean literal as i32", () => {
         const mod = mkModule([mkFn("main", [mkLiteral(true)])]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -136,7 +136,7 @@ describe("compile — success cases", () => {
                 },
             ]),
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -163,7 +163,7 @@ describe("compile — success cases", () => {
 
     it("exports main function", () => {
         const mod = mkModule([mkFn("main", [mkLiteral(0)])]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -200,7 +200,7 @@ describe("compile — success cases", () => {
                 { effects: ["io"] },
             ),
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -233,7 +233,7 @@ describe("compile — success cases", () => {
                 },
             ]),
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -242,7 +242,7 @@ describe("compile — success cases", () => {
 
     it("exports memory", () => {
         const mod = mkModule([mkFn("main", [mkLiteral(0)])]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -255,7 +255,7 @@ describe("compile — edge cases", () => {
         const mod = mkModule([
             mkFn("main", [], { returnType: { kind: "unit_type" } }),
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -273,7 +273,7 @@ describe("compile — edge cases", () => {
 
     it("does not export non-main functions", () => {
         const mod = mkModule([mkFn("helper", [mkLiteral(0)])]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.wat).not.toContain("(export \"helper\"");
@@ -443,7 +443,7 @@ describe("compile — float operations", () => {
                 },
             ], { returnType: { kind: "basic", name: "Float" } }),
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.wat).toContain("f64");
@@ -602,7 +602,7 @@ describe("compile — const definitions", () => {
                 }
             ], { returnType: { kind: "named", name: "Point" } }),
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.wat).toContain("global.get $__heap_ptr");
@@ -621,7 +621,7 @@ describe("compile — const definitions", () => {
                 }
             ])
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.wat).toContain("global.get $__heap_ptr");
@@ -647,7 +647,7 @@ describe("compile — const definitions", () => {
                 }
             ])
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.wat).toContain("global.get $__heap_ptr");
@@ -696,7 +696,7 @@ describe("compile — const definitions", () => {
                 }
             ])
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.wat).toContain("i32.load"); // Load tag to match
@@ -728,7 +728,7 @@ describe("compile — const definitions", () => {
                 }
             ]),
         ]);
-        const result = compile(mod);
+        const result = compile(mod, { emitWat: true });
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.wat).toContain("i32.load");

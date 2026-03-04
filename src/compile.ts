@@ -6,6 +6,7 @@
 import { check, type CheckResult } from "./check.js";
 import { compile, type CompileResult } from "./codegen/codegen.js";
 import { run, type RunResult } from "./codegen/runner.js";
+import type { StructuredError } from "./errors/structured-errors.js";
 
 export interface CompileAndRunSuccess extends RunResult {
     ok: true;
@@ -14,7 +15,7 @@ export interface CompileAndRunSuccess extends RunResult {
 export interface CompileAndRunFailure {
     ok: false;
     phase: "check" | "compile";
-    errors: string[];
+    errors: StructuredError[];
 }
 
 export type CompileAndRunResult = CompileAndRunSuccess | CompileAndRunFailure;
@@ -33,9 +34,7 @@ export async function compileAndRun(ast: unknown): Promise<CompileAndRunResult> 
         return {
             ok: false,
             phase: "check",
-            errors: checkResult.errors.map(
-                (e) => JSON.stringify(e),
-            ),
+            errors: checkResult.errors,
         };
     }
 

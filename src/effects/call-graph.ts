@@ -97,6 +97,10 @@ export function collectCalls(exprs: Expression[]): CallEdge[] {
                 walk(expr.target);
                 break;
 
+            case "string_interp":
+                for (const part of expr.parts) walk(part);
+                break;
+
             case "lambda":
                 // Opaque — do not recurse into lambda body
                 break;
@@ -138,7 +142,7 @@ export function buildCallGraph(module: EdictModule): {
             name,
             params: [],
             returnType: builtin.type.returnType,
-            effects: [...builtin.effects],
+            effects: [...builtin.type.effects],
             contracts: [],
             body: [],
         } as FunctionDef);

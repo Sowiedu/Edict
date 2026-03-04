@@ -16,38 +16,24 @@ import type { TypeExpr } from "../ast/types.js";
 import { StringTable } from "./string-table.js";
 import { BUILTIN_FUNCTIONS } from "./builtins.js";
 import { type StructuredError, wasmValidationError } from "../errors/structured-errors.js";
+import { collectStrings } from "./collect-strings.js";
+import {
+    type CompileResult,
+    type CompileSuccess,
+    type CompileFailure,
+    type CompileOptions,
+    type FunctionSig,
+    type LocalEntry,
+    type FieldLayout,
+    type EnumVariantLayout,
+    type EnumLayout,
+    type RecordLayout,
+    FunctionContext,
+} from "./types.js";
 
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface CompileSuccess {
-    ok: true;
-    wasm: Uint8Array;
-    wat: string; // WAT text for debugging
-}
-
-export interface CompileFailure {
-    ok: false;
-    errors: StructuredError[];
-}
-
-export type CompileResult = CompileSuccess | CompileFailure;
-
-/** Options for WASM code generation */
-export interface CompileOptions {
-    /** Maximum WASM memory pages (64KB each). Default: 16 (= 1MB) */
-    maxMemoryPages?: number;
-}
-
-// =============================================================================
-// Function signature registry (for cross-function call return types)
-// =============================================================================
-
-interface FunctionSig {
-    returnType: binaryen.Type;
-    paramTypes?: binaryen.Type[];
-}
+// Re-export types for backwards compatibility
+export type { CompileResult, CompileSuccess, CompileFailure, CompileOptions };
+export type { FieldLayout, EnumVariantLayout, EnumLayout, RecordLayout };
 
 // =============================================================================
 // Edict → WASM type mapping
@@ -173,73 +159,7 @@ function inferExprWasmType(
     }
 }
 
-// =============================================================================
-// Compiler context (per-function)
-// =============================================================================
 
-interface LocalEntry {
-    index: number;
-    type: binaryen.Type;
-    edictTypeName?: string;
-}
-
-export interface FieldLayout {
-    name: string;
-    offset: number;
-    wasmType: binaryen.Type;
-}
-
-export interface EnumVariantLayout {
-    name: string;
-    tag: number;
-    fields: FieldLayout[];
-    totalSize: number;
-}
-
-export interface EnumLayout {
-    variants: EnumVariantLayout[];
-}
-
-export interface RecordLayout {
-    fields: FieldLayout[];
-    totalSize: number;
-}
-
-class FunctionContext {
-    private nextIndex: number;
-    private locals = new Map<string, LocalEntry>();
-    readonly varTypes: binaryen.Type[] = [];
-    readonly constGlobals: Map<string, binaryen.Type>;
-    readonly recordLayouts: Map<string, RecordLayout>;
-    readonly enumLayouts: Map<string, EnumLayout>;
-
-    constructor(
-        params: { name: string; wasmType: binaryen.Type; edictTypeName?: string }[],
-        constGlobals: Map<string, binaryen.Type> = new Map(),
-        recordLayouts: Map<string, RecordLayout> = new Map(),
-        enumLayouts: Map<string, EnumLayout> = new Map(),
-    ) {
-        this.nextIndex = 0;
-        this.constGlobals = constGlobals;
-        this.recordLayouts = recordLayouts;
-        this.enumLayouts = enumLayouts;
-        for (const p of params) {
-            this.locals.set(p.name, { index: this.nextIndex, type: p.wasmType, edictTypeName: p.edictTypeName });
-            this.nextIndex++;
-        }
-    }
-
-    getLocal(name: string): LocalEntry | undefined {
-        return this.locals.get(name);
-    }
-
-    addLocal(name: string, type: binaryen.Type, edictTypeName?: string): number {
-        const index = this.nextIndex++;
-        this.locals.set(name, { index, type, edictTypeName });
-        this.varTypes.push(type);
-        return index;
-    }
-}
 
 // =============================================================================
 // Compiler
@@ -258,7 +178,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
                 collectStrings(def.body, strings);
             }
             if (def.kind === "const") {
-                collectStringExpr(def.value, strings);
+                collectStrings([def.value], strings);
             }
         }
 
@@ -450,10 +370,10 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         // Optimize
         mod.optimize();
 
-        const wat = mod.emitText();
+        const wat = options?.emitWat ? mod.emitText() : undefined;
         const wasm = mod.emitBinary();
 
-        return { ok: true, wasm, wat };
+        return { ok: true, wasm, ...(wat ? { wat } : {}) };
     } catch (e) {
         errors.push(wasmValidationError(e instanceof Error ? e.message : String(e)));
         return { ok: false, errors };
@@ -1633,78 +1553,4 @@ function compileStringInterp(
     // Return the final accumulated pointer
     stmts.push(mod.local.get(accPtrIdx, binaryen.i32));
     return mod.block(null, stmts, binaryen.i32);
-}
-
-// =============================================================================
-// String literal collector (pre-scan)
-// =============================================================================
-
-function collectStrings(exprs: Expression[], strings: StringTable): void {
-    for (const expr of exprs) {
-        collectStringExpr(expr, strings);
-    }
-}
-
-function collectStringExpr(expr: Expression, strings: StringTable): void {
-    switch (expr.kind) {
-        case "literal":
-            if (typeof expr.value === "string") {
-                strings.intern(expr.value);
-            }
-            break;
-        case "binop":
-            collectStringExpr(expr.left, strings);
-            collectStringExpr(expr.right, strings);
-            break;
-        case "unop":
-            collectStringExpr(expr.operand, strings);
-            break;
-        case "call":
-            collectStringExpr(expr.fn, strings);
-            for (const arg of expr.args) collectStringExpr(arg, strings);
-            break;
-        case "if":
-            collectStringExpr(expr.condition, strings);
-            collectStrings(expr.then, strings);
-            if (expr.else) collectStrings(expr.else, strings);
-            break;
-        case "let":
-            collectStringExpr(expr.value, strings);
-            break;
-        case "block":
-            collectStrings(expr.body, strings);
-            break;
-        case "match":
-            collectStringExpr(expr.target, strings);
-            for (const arm of expr.arms) collectStrings(arm.body, strings);
-            break;
-        case "lambda":
-            collectStrings(expr.body, strings);
-            break;
-        case "record_expr":
-            for (const field of expr.fields) {
-                collectStringExpr(field.value, strings);
-            }
-            break;
-        case "tuple_expr":
-            for (const el of expr.elements) {
-                collectStringExpr(el, strings);
-            }
-            break;
-        case "enum_constructor":
-            for (const field of expr.fields) {
-                collectStringExpr(field.value, strings);
-            }
-            break;
-        case "access":
-            collectStringExpr(expr.target, strings);
-            break;
-        case "string_interp":
-            for (const part of expr.parts) {
-                collectStringExpr(part, strings);
-            }
-            break;
-        // ident, array, tuple_expr, enum_constructor
-        // — no string literals directly
-    }
 }

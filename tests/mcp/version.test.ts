@@ -6,7 +6,8 @@ describe("handleVersion", () => {
     it("returns correctly structured capability information", () => {
         const result = handleVersion();
 
-        expect(result.version).toBe("0.1.0");
+        expect(typeof result.version).toBe("string");
+        expect(result.version).toMatch(/^\d+\.\d+\.\d+/);
         expect(result.schemaVersion).toBe("1.0");
         expect(Array.isArray(result.builtins)).toBe(true);
         expect(typeof result.features).toBe("object");

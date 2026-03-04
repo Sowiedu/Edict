@@ -4,23 +4,15 @@
 // These are not defined in user code. The resolver and type checker
 // register them automatically. The codegen imports them from the host.
 
-import type { TypeExpr, FunctionType } from "../ast/types.js";
-import type { Effect } from "../ast/nodes.js";
+import type { FunctionType } from "../ast/types.js";
+import { INT_TYPE, FLOAT_TYPE, STRING_TYPE, BOOL_TYPE, ARRAY_INT_TYPE } from "../ast/type-constants.js";
 
 export interface BuiltinFunction {
-    /** Edict-level function type signature */
+    /** Edict-level function type signature (includes effects, params, returnType) */
     type: FunctionType;
-    /** Which effects this builtin performs */
-    effects: Effect[];
     /** WASM import: [module, base] names */
     wasmImport: [string, string];
 }
-
-const STRING_TYPE: TypeExpr = { kind: "basic", name: "String" };
-const INT_TYPE: TypeExpr = { kind: "basic", name: "Int" };
-const FLOAT_TYPE: TypeExpr = { kind: "basic", name: "Float" };
-const BOOL_TYPE: TypeExpr = { kind: "basic", name: "Bool" };
-const ARRAY_INT_TYPE: TypeExpr = { kind: "array", element: INT_TYPE };
 
 /**
  * All built-in functions.
@@ -39,7 +31,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
                 effects: ["io"],
                 returnType: STRING_TYPE,
             },
-            effects: ["io"],
             wasmImport: ["host", "print"],
         },
     ],
@@ -52,7 +43,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
                 effects: ["pure"],
                 returnType: STRING_TYPE,
             },
-            effects: ["pure"],
             wasmImport: ["host", "string_replace"],
         },
     ],
@@ -63,7 +53,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "string_length",
         {
             type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "string_length"],
         },
     ],
@@ -71,7 +60,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "substring",
         {
             type: { kind: "fn_type", params: [STRING_TYPE, INT_TYPE, INT_TYPE], effects: ["pure"], returnType: STRING_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "substring"],
         },
     ],
@@ -79,7 +67,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "string_concat",
         {
             type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "string_concat"],
         },
     ],
@@ -87,7 +74,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "string_indexOf",
         {
             type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "string_indexOf"],
         },
     ],
@@ -95,7 +81,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "toUpperCase",
         {
             type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "toUpperCase"],
         },
     ],
@@ -103,7 +88,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "toLowerCase",
         {
             type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "toLowerCase"],
         },
     ],
@@ -111,7 +95,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "string_trim",
         {
             type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "string_trim"],
         },
     ],
@@ -119,7 +102,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "string_startsWith",
         {
             type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "string_startsWith"],
         },
     ],
@@ -127,7 +109,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "string_endsWith",
         {
             type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "string_endsWith"],
         },
     ],
@@ -135,7 +116,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "string_contains",
         {
             type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "string_contains"],
         },
     ],
@@ -143,7 +123,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "string_repeat",
         {
             type: { kind: "fn_type", params: [STRING_TYPE, INT_TYPE], effects: ["pure"], returnType: STRING_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "string_repeat"],
         },
     ],
@@ -154,7 +133,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "abs",
         {
             type: { kind: "fn_type", params: [INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "abs"],
         },
     ],
@@ -162,7 +140,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "min",
         {
             type: { kind: "fn_type", params: [INT_TYPE, INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "min"],
         },
     ],
@@ -170,7 +147,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "max",
         {
             type: { kind: "fn_type", params: [INT_TYPE, INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "max"],
         },
     ],
@@ -178,7 +154,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "pow",
         {
             type: { kind: "fn_type", params: [INT_TYPE, INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "pow"],
         },
     ],
@@ -186,7 +161,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "sqrt",
         {
             type: { kind: "fn_type", params: [FLOAT_TYPE], effects: ["pure"], returnType: FLOAT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "sqrt"],
         },
     ],
@@ -194,7 +168,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "floor",
         {
             type: { kind: "fn_type", params: [FLOAT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "floor"],
         },
     ],
@@ -202,7 +175,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "ceil",
         {
             type: { kind: "fn_type", params: [FLOAT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "ceil"],
         },
     ],
@@ -210,7 +182,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "round",
         {
             type: { kind: "fn_type", params: [FLOAT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "round"],
         },
     ],
@@ -221,7 +192,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "intToString",
         {
             type: { kind: "fn_type", params: [INT_TYPE], effects: ["pure"], returnType: STRING_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "intToString"],
         },
     ],
@@ -229,7 +199,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "floatToString",
         {
             type: { kind: "fn_type", params: [FLOAT_TYPE], effects: ["pure"], returnType: STRING_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "floatToString"],
         },
     ],
@@ -237,7 +206,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "boolToString",
         {
             type: { kind: "fn_type", params: [BOOL_TYPE], effects: ["pure"], returnType: STRING_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "boolToString"],
         },
     ],
@@ -245,7 +213,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "floatToInt",
         {
             type: { kind: "fn_type", params: [FLOAT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "floatToInt"],
         },
     ],
@@ -253,7 +220,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "intToFloat",
         {
             type: { kind: "fn_type", params: [INT_TYPE], effects: ["pure"], returnType: FLOAT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "intToFloat"],
         },
     ],
@@ -264,7 +230,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_length",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_length"],
         },
     ],
@@ -272,7 +237,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_get",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_get"],
         },
     ],
@@ -280,7 +244,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_set",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE, INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_set"],
         },
     ],
@@ -288,7 +251,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_push",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_push"],
         },
     ],
@@ -296,7 +258,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_pop",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_pop"],
         },
     ],
@@ -304,7 +265,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_concat",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE, ARRAY_INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_concat"],
         },
     ],
@@ -312,7 +272,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_slice",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE, INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_slice"],
         },
     ],
@@ -320,7 +279,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_isEmpty",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_isEmpty"],
         },
     ],
@@ -328,7 +286,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_contains",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_contains"],
         },
     ],
@@ -336,7 +293,6 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         "array_reverse",
         {
             type: { kind: "fn_type", params: [ARRAY_INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
-            effects: ["pure"],
             wasmImport: ["host", "array_reverse"],
         },
     ],
