@@ -69,6 +69,26 @@ export async function run(
         return resultPtr;
     }
 
+    /**
+     * Allocate a new array on the WASM heap: [length: i32][elem0: i32]...
+     * Advances __heap_ptr (8-byte aligned) and returns the new array pointer.
+     */
+    function writeArrayResult(elements: number[]): number {
+        const memoryBuffer = (instance.exports.memory as WebAssembly.Memory).buffer;
+        const getHeapPtr = instance.exports.__get_heap_ptr as () => number;
+        const setHeapPtr = instance.exports.__set_heap_ptr as (v: number) => void;
+
+        const totalSize = 4 + elements.length * 4; // header + elements
+        const resultPtr = getHeapPtr();
+        const view = new DataView(memoryBuffer);
+        view.setInt32(resultPtr, elements.length, true); // write length
+        for (let i = 0; i < elements.length; i++) {
+            view.setInt32(resultPtr + 4 + i * 4, elements[i]!, true);
+        }
+        setHeapPtr(resultPtr + Math.ceil(totalSize / 8) * 8);
+        return resultPtr;
+    }
+
     const importObject = {
         host: {
             /**
@@ -226,6 +246,139 @@ export async function run(
             floor: (x: number): number => (Math.floor(x) | 0),
             ceil: (x: number): number => (Math.ceil(x) | 0),
             round: (x: number): number => (Math.round(x) | 0),
+            // =================================================================
+            // Type conversion builtins
+            // =================================================================
+            intToString: (value: number): number => {
+                return writeStringResult(String(value), new TextEncoder());
+            },
+            floatToString: (value: number): number => {
+                return writeStringResult(String(value), new TextEncoder());
+            },
+            boolToString: (value: number): number => {
+                return writeStringResult(value ? "true" : "false", new TextEncoder());
+            },
+            floatToInt: (value: number): number => (Math.trunc(value) | 0),
+            intToFloat: (value: number): number => value,
+            // =================================================================
+            // Array builtins — operate on [length: i32][elem0: i32][elem1: i32]...
+            // =================================================================
+            array_length: (arrPtr: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                return view.getInt32(arrPtr, true);
+            },
+            array_get: (arrPtr: number, index: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const length = view.getInt32(arrPtr, true);
+                if (index < 0 || index >= length) return 0; // safe default for OOB
+                return view.getInt32(arrPtr + 4 + index * 4, true);
+            },
+            array_set: (arrPtr: number, index: number, value: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const length = view.getInt32(arrPtr, true);
+                // Copy all elements into a new array with the updated value
+                const elems: number[] = [];
+                for (let i = 0; i < length; i++) {
+                    elems.push(i === index ? value : view.getInt32(arrPtr + 4 + i * 4, true));
+                }
+                return writeArrayResult(elems);
+            },
+            array_push: (arrPtr: number, value: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const length = view.getInt32(arrPtr, true);
+                const elems: number[] = [];
+                for (let i = 0; i < length; i++) {
+                    elems.push(view.getInt32(arrPtr + 4 + i * 4, true));
+                }
+                elems.push(value);
+                return writeArrayResult(elems);
+            },
+            array_pop: (arrPtr: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const length = view.getInt32(arrPtr, true);
+                if (length === 0) return writeArrayResult([]);
+                const elems: number[] = [];
+                for (let i = 0; i < length - 1; i++) {
+                    elems.push(view.getInt32(arrPtr + 4 + i * 4, true));
+                }
+                return writeArrayResult(elems);
+            },
+            array_concat: (aPtr: number, bPtr: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const aLen = view.getInt32(aPtr, true);
+                const bLen = view.getInt32(bPtr, true);
+                const elems: number[] = [];
+                for (let i = 0; i < aLen; i++) {
+                    elems.push(view.getInt32(aPtr + 4 + i * 4, true));
+                }
+                for (let i = 0; i < bLen; i++) {
+                    elems.push(view.getInt32(bPtr + 4 + i * 4, true));
+                }
+                return writeArrayResult(elems);
+            },
+            array_slice: (arrPtr: number, start: number, end: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const length = view.getInt32(arrPtr, true);
+                // Clamp indices to [0, length]
+                const s = Math.max(0, Math.min(start, length));
+                const e = Math.max(s, Math.min(end, length));
+                const elems: number[] = [];
+                for (let i = s; i < e; i++) {
+                    elems.push(view.getInt32(arrPtr + 4 + i * 4, true));
+                }
+                return writeArrayResult(elems);
+            },
+            array_isEmpty: (arrPtr: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                return view.getInt32(arrPtr, true) === 0 ? 1 : 0;
+            },
+            array_contains: (arrPtr: number, value: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const length = view.getInt32(arrPtr, true);
+                for (let i = 0; i < length; i++) {
+                    if (view.getInt32(arrPtr + 4 + i * 4, true) === value) return 1;
+                }
+                return 0;
+            },
+            array_reverse: (arrPtr: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const length = view.getInt32(arrPtr, true);
+                const elems: number[] = [];
+                for (let i = length - 1; i >= 0; i--) {
+                    elems.push(view.getInt32(arrPtr + 4 + i * 4, true));
+                }
+                return writeArrayResult(elems);
+            },
         },
     };
 

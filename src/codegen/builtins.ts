@@ -20,6 +20,7 @@ const STRING_TYPE: TypeExpr = { kind: "basic", name: "String" };
 const INT_TYPE: TypeExpr = { kind: "basic", name: "Int" };
 const FLOAT_TYPE: TypeExpr = { kind: "basic", name: "Float" };
 const BOOL_TYPE: TypeExpr = { kind: "basic", name: "Bool" };
+const ARRAY_INT_TYPE: TypeExpr = { kind: "array", element: INT_TYPE };
 
 /**
  * All built-in functions.
@@ -211,6 +212,132 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
             type: { kind: "fn_type", params: [FLOAT_TYPE], effects: ["pure"], returnType: INT_TYPE },
             effects: ["pure"],
             wasmImport: ["host", "round"],
+        },
+    ],
+    // =========================================================================
+    // Type conversion builtins — pure, cross-type conversion
+    // =========================================================================
+    [
+        "intToString",
+        {
+            type: { kind: "fn_type", params: [INT_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "intToString"],
+        },
+    ],
+    [
+        "floatToString",
+        {
+            type: { kind: "fn_type", params: [FLOAT_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "floatToString"],
+        },
+    ],
+    [
+        "boolToString",
+        {
+            type: { kind: "fn_type", params: [BOOL_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "boolToString"],
+        },
+    ],
+    [
+        "floatToInt",
+        {
+            type: { kind: "fn_type", params: [FLOAT_TYPE], effects: ["pure"], returnType: INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "floatToInt"],
+        },
+    ],
+    [
+        "intToFloat",
+        {
+            type: { kind: "fn_type", params: [INT_TYPE], effects: ["pure"], returnType: FLOAT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "intToFloat"],
+        },
+    ],
+    // =========================================================================
+    // Array builtins — pure, operate on heap-allocated [length][elem0][elem1]...
+    // =========================================================================
+    [
+        "array_length",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_length"],
+        },
+    ],
+    [
+        "array_get",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_get"],
+        },
+    ],
+    [
+        "array_set",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE, INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_set"],
+        },
+    ],
+    [
+        "array_push",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_push"],
+        },
+    ],
+    [
+        "array_pop",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_pop"],
+        },
+    ],
+    [
+        "array_concat",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE, ARRAY_INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_concat"],
+        },
+    ],
+    [
+        "array_slice",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE, INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_slice"],
+        },
+    ],
+    [
+        "array_isEmpty",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_isEmpty"],
+        },
+    ],
+    [
+        "array_contains",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE, INT_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_contains"],
+        },
+    ],
+    [
+        "array_reverse",
+        {
+            type: { kind: "fn_type", params: [ARRAY_INT_TYPE], effects: ["pure"], returnType: ARRAY_INT_TYPE },
+            effects: ["pure"],
+            wasmImport: ["host", "array_reverse"],
         },
     ],
 ]);
