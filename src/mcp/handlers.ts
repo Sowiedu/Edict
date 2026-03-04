@@ -84,7 +84,7 @@ export interface CheckResult {
 export interface CompileResult {
     ok: boolean;
     wasm?: string; // base64
-    errors?: StructuredError[] | string[];
+    errors?: StructuredError[];
 }
 
 export interface RunResult {

@@ -37,6 +37,8 @@ const ALL_ERROR_TYPES = [
     "verification_timeout",
     "undecidable_predicate",
     "precondition_not_met",
+    // Phase 5 — Codegen
+    "wasm_validation_error",
     // Patch errors
     "patch_node_not_found",
     "patch_invalid_field",
@@ -80,7 +82,7 @@ describe("handleErrorCatalog", () => {
     });
 
     it("every entry has a valid pipeline_stage", () => {
-        const validStages = ["validator", "resolver", "type_checker", "effect_checker", "contract_verifier", "patch"];
+        const validStages = ["validator", "resolver", "type_checker", "effect_checker", "contract_verifier", "codegen", "patch"];
         for (const entry of catalog.errors) {
             expect(validStages, `invalid pipeline_stage: ${entry.pipeline_stage} for ${entry.type}`).toContain(entry.pipeline_stage);
         }
@@ -137,6 +139,10 @@ describe("handleErrorCatalog", () => {
         const contractErrors = stageMap.get("contract_verifier") || [];
         expect(contractErrors).toContain("contract_failure");
         expect(contractErrors).toContain("precondition_not_met");
+
+        // Codegen errors
+        const codegenErrors = stageMap.get("codegen") || [];
+        expect(codegenErrors).toContain("wasm_validation_error");
 
         // Patch errors
         const patchErrors = stageMap.get("patch") || [];

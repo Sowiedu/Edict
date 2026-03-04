@@ -15,6 +15,7 @@ import type {
 import type { TypeExpr } from "../ast/types.js";
 import { StringTable } from "./string-table.js";
 import { BUILTIN_FUNCTIONS } from "./builtins.js";
+import { type StructuredError, wasmValidationError } from "../errors/structured-errors.js";
 
 // =============================================================================
 // Types
@@ -28,7 +29,7 @@ export interface CompileSuccess {
 
 export interface CompileFailure {
     ok: false;
-    errors: string[];
+    errors: StructuredError[];
 }
 
 export type CompileResult = CompileSuccess | CompileFailure;
@@ -247,7 +248,7 @@ class FunctionContext {
 export function compile(module: EdictModule, options?: CompileOptions): CompileResult {
     const mod = new binaryen.Module();
     const strings = new StringTable();
-    const errors: string[] = [];
+    const errors: StructuredError[] = [];
     const maxPages = options?.maxMemoryPages ?? 16;
 
     try {
@@ -437,8 +438,12 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         // Memory is already exported via setMemory's exportName parameter
 
         // Validate
+        if (errors.length > 0) {
+            return { ok: false, errors };
+        }
+
         if (!mod.validate()) {
-            errors.push("binaryen validation failed");
+            errors.push(wasmValidationError("binaryen validation failed"));
             return { ok: false, errors };
         }
 
@@ -450,7 +455,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
 
         return { ok: true, wasm, wat };
     } catch (e) {
-        errors.push(e instanceof Error ? e.message : String(e));
+        errors.push(wasmValidationError(e instanceof Error ? e.message : String(e)));
         return { ok: false, errors };
     } finally {
         mod.dispose();
@@ -469,7 +474,7 @@ function compileFunction(
     constGlobals: Map<string, binaryen.Type>,
     recordLayouts: Map<string, RecordLayout>,
     enumLayouts: Map<string, EnumLayout>,
-    errors: string[],
+    errors: StructuredError[],
 ): void {
     const params = fn.params.map((p) => ({
         name: p.name,
@@ -524,7 +529,7 @@ function compileExpr(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     switch (expr.kind) {
         case "literal":
@@ -576,7 +581,7 @@ function compileExpr(
             return compileStringInterp(expr as Expression & { kind: "string_interp" }, mod, ctx, strings, fnSigs, errors);
 
         default:
-            errors.push(`unsupported expression kind: ${(expr as any).kind}`);
+            errors.push(wasmValidationError(`unsupported expression kind: ${(expr as any).kind}`));
             return mod.unreachable();
     }
 }
@@ -634,7 +639,7 @@ function compileBinop(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const left = compileExpr(expr.left, mod, ctx, strings, fnSigs, errors);
     const right = compileExpr(expr.right, mod, ctx, strings, fnSigs, errors);
@@ -655,7 +660,7 @@ function compileBinop(
             return isFloat ? mod.f64.div(left, right) : mod.i32.div_s(left, right);
         case "%":
             if (isFloat) {
-                errors.push(`modulo (%) not supported for Float`);
+                errors.push(wasmValidationError(`modulo (%) not supported for Float`));
                 return mod.unreachable();
             }
             return mod.i32.rem_s(left, right);
@@ -679,7 +684,7 @@ function compileBinop(
             // A implies B ≡ (not A) or B
             return mod.i32.or(mod.i32.eqz(left), right);
         default:
-            errors.push(`unsupported binop: ${expr.op}`);
+            errors.push(wasmValidationError(`unsupported binop: ${expr.op}`));
             return mod.unreachable();
     }
 }
@@ -690,7 +695,7 @@ function compileUnop(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const operand = compileExpr(expr.operand, mod, ctx, strings, fnSigs, errors);
     const opType = inferExprWasmType(expr.operand, ctx, fnSigs);
@@ -704,7 +709,7 @@ function compileUnop(
         case "not":
             return mod.i32.eqz(operand);
         default:
-            errors.push(`unsupported unop: ${expr.op}`);
+            errors.push(wasmValidationError(`unsupported unop: ${expr.op}`));
             return mod.unreachable();
     }
 }
@@ -715,11 +720,11 @@ function compileCall(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     // The fn expression should be an ident for direct calls
     if (expr.fn.kind !== "ident") {
-        errors.push("indirect calls not yet supported");
+        errors.push(wasmValidationError("indirect calls not yet supported"));
         return mod.unreachable();
     }
 
@@ -791,7 +796,7 @@ function compileIf(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const cond = compileExpr(expr.condition, mod, ctx, strings, fnSigs, errors);
 
@@ -828,7 +833,7 @@ function compileLet(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const wasmType = expr.type
         ? edictTypeToWasm(expr.type)
@@ -868,7 +873,7 @@ function compileBlock(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const bodyExprs = expr.body.map((e) =>
         compileExpr(e, mod, ctx, strings, fnSigs, errors),
@@ -885,7 +890,7 @@ function compileMatch(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     // Attempt to determine the Edict type name of the target for enum matching
     let targetEdictTypeName: string | undefined;
@@ -936,7 +941,7 @@ function compileMatch(
                 // String/float literal patterns — compare i32 representation
                 if (typeof val === "number") {
                     // Float literal pattern — not yet supported in i32 mode
-                    errors.push(`float literal patterns not yet supported in match`);
+                    errors.push(wasmValidationError(`float literal patterns not yet supported in match`));
                     return null;
                 }
                 if (typeof val === "string") {
@@ -960,15 +965,15 @@ function compileMatch(
                         if (variantLayout) {
                             tagValue = variantLayout.tag;
                         } else {
-                            errors.push(`unknown variant ${pattern.name} for enum ${targetEdictTypeName}`);
+                            errors.push(wasmValidationError(`unknown variant ${pattern.name} for enum ${targetEdictTypeName}`));
                             return null;
                         }
                     } else {
-                        errors.push(`unknown enum ${targetEdictTypeName}`);
+                        errors.push(wasmValidationError(`unknown enum ${targetEdictTypeName}`));
                         return null;
                     }
                 } else {
-                    errors.push(`cannot infer enum type for match target ${expr.id}`);
+                    errors.push(wasmValidationError(`cannot infer enum type for match target ${expr.id}`));
                     return null;
                 }
 
@@ -1012,7 +1017,7 @@ function compileMatch(
                                     });
                                 }
                             } else if (subPattern.kind !== "wildcard") {
-                                errors.push(`nested patterns inside constructor patterns not yet supported`);
+                                errors.push(wasmValidationError(`nested patterns inside constructor patterns not yet supported`));
                             }
                         }
                         constructorFieldBindings.set(i, fieldBindings);
@@ -1072,11 +1077,11 @@ function compileRecordExpr(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const layout = ctx.recordLayouts.get(expr.name);
     if (!layout) {
-        errors.push(`unknown record type: ${expr.name}`);
+        errors.push(wasmValidationError(`unknown record type: ${expr.name}`));
         return mod.unreachable();
     }
 
@@ -1099,7 +1104,7 @@ function compileRecordExpr(
     for (const fieldInit of expr.fields) {
         const fieldLayout = layout.fields.find((f) => f.name === fieldInit.name);
         if (!fieldLayout) {
-            errors.push(`unknown field '${fieldInit.name}' on record '${expr.name}'`);
+            errors.push(wasmValidationError(`unknown field '${fieldInit.name}' on record '${expr.name}'`));
             continue;
         }
 
@@ -1138,7 +1143,7 @@ function compileTupleExpr(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const totalSize = expr.elements.length * 8;
     const ptrIndex = ctx.addLocal(`__tuple_ptr_${expr.id}`, binaryen.i32);
@@ -1177,17 +1182,17 @@ function compileEnumConstructor(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const enumLayout = ctx.enumLayouts.get(expr.enumName);
     if (!enumLayout) {
-        errors.push(`Enum layout not found for ${expr.enumName}`);
+        errors.push(wasmValidationError(`Enum layout not found for ${expr.enumName}`));
         return mod.unreachable();
     }
 
     const variantLayout = enumLayout.variants.find(v => v.name === expr.variant);
     if (!variantLayout) {
-        errors.push(`Variant layout not found for ${expr.enumName}.${expr.variant}`);
+        errors.push(wasmValidationError(`Variant layout not found for ${expr.enumName}.${expr.variant}`));
         return mod.unreachable();
     }
 
@@ -1232,7 +1237,7 @@ function compileAccess(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     let recordTypeName: string | undefined;
 
@@ -1247,19 +1252,19 @@ function compileAccess(
     }
 
     if (!recordTypeName) {
-        errors.push(`cannot resolve record type for field access '${expr.field}'`);
+        errors.push(wasmValidationError(`cannot resolve record type for field access '${expr.field}'`));
         return mod.unreachable();
     }
 
     const layout = ctx.recordLayouts.get(recordTypeName);
     if (!layout) {
-        errors.push(`unknown record type: ${recordTypeName}`);
+        errors.push(wasmValidationError(`unknown record type: ${recordTypeName}`));
         return mod.unreachable();
     }
 
     const fieldLayout = layout.fields.find((f) => f.name === expr.field);
     if (!fieldLayout) {
-        errors.push(`unknown field '${expr.field}' on record '${recordTypeName}'`);
+        errors.push(wasmValidationError(`unknown field '${expr.field}' on record '${recordTypeName}'`));
         return mod.unreachable();
     }
 
@@ -1427,7 +1432,7 @@ function compileArrayExpr(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const elements = expr.elements;
     // Layout: [length: i32] [elem0: i32] [elem1: i32] ...
@@ -1489,7 +1494,7 @@ function compileLambdaExpr(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     // Compile as a module-level helper function with a generated name
     const lambdaName = `__lambda_${lambdaCounter++}`;
@@ -1551,7 +1556,7 @@ function compileStringInterp(
     ctx: FunctionContext,
     strings: StringTable,
     fnSigs: Map<string, FunctionSig>,
-    errors: string[],
+    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     const parts = expr.parts;
 

@@ -55,7 +55,9 @@ export type StructuredError =
     | PatchNodeNotFoundError
     | PatchInvalidFieldError
     | PatchIndexOutOfRangeError
-    | PatchDeleteNotInArrayError;
+    | PatchDeleteNotInArrayError
+    // Phase 5 — Codegen errors
+    | WasmValidationError;
 
 // =============================================================================
 // Phase 1 — Validation errors
@@ -599,4 +601,19 @@ export function patchDeleteNotInArray(
     patchIndex: number,
 ): PatchDeleteNotInArrayError {
     return { error: "patch_delete_not_in_array", nodeId, patchIndex };
+}
+
+// =============================================================================
+// Phase 5 — Codegen errors
+// =============================================================================
+
+export interface WasmValidationError {
+    error: "wasm_validation_error";
+    message: string;
+}
+
+export function wasmValidationError(
+    message: string,
+): WasmValidationError {
+    return { error: "wasm_validation_error", message };
 }

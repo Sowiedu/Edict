@@ -12,7 +12,7 @@ export interface ErrorCatalogEntry {
     /** Discriminator string (e.g., "type_mismatch") */
     type: string;
     /** Pipeline stage that produces this error */
-    pipeline_stage: "validator" | "resolver" | "type_checker" | "effect_checker" | "contract_verifier" | "patch";
+    pipeline_stage: "validator" | "resolver" | "type_checker" | "effect_checker" | "contract_verifier" | "codegen" | "patch";
     /** All fields present on this error (excluding the `error` discriminator) */
     fields: { name: string; type: string }[];
     /** Minimal AST that triggers this error */
@@ -593,6 +593,27 @@ export function buildErrorCatalog(): ErrorCatalog {
                     { kind: "fn", id: "fn-001", name: "divide", params: [{ id: "p-001", name: "a", type: { kind: "basic", name: "Int" } }, { id: "p-002", name: "b", type: { kind: "basic", name: "Int" } }], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [{ kind: "pre", id: "pre-001", condition: { kind: "binop", id: "cmp-001", op: "!=", left: { kind: "ident", id: "id-b", name: "b" }, right: { kind: "literal", id: "lit-z", value: 0 } } }], body: [{ kind: "binop", id: "div-001", op: "/", left: { kind: "ident", id: "id-a", name: "a" }, right: { kind: "ident", id: "id-b2", name: "b" } }] },
                     { kind: "fn", id: "fn-002", name: "main", params: [{ id: "p-003", name: "x", type: { kind: "basic", name: "Int" } }], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "call", id: "call-001", fn: "divide", args: [{ kind: "ident", id: "id-x", name: "x" }, { kind: "literal", id: "lit-001", value: 1 }] }] },
                 ],
+            },
+        },
+
+        // =====================================================================
+        // Phase 5 — Codegen errors
+        // =====================================================================
+        {
+            type: "wasm_validation_error",
+            pipeline_stage: "codegen",
+            fields: [
+                { name: "message", type: "string" },
+            ],
+            example_cause: {
+                kind: "module",
+                name: "test",
+                definitions: [{ kind: "fn", id: "fn-001", name: "bad_codegen", params: [], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "ident", id: "id-001", name: "internal_compiler_error" }] }],
+            },
+            example_fix: {
+                kind: "module",
+                name: "test",
+                definitions: [{ kind: "fn", id: "fn-001", name: "bad_codegen", params: [], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "literal", id: "lit-001", value: 1 }] }],
             },
         },
 
