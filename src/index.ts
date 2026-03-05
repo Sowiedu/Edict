@@ -125,8 +125,9 @@ export type {
     PreconditionNotMetError,
 } from "./errors/structured-errors.js";
 
-// Error constructors — Phase 1
+// Error constructors (all phases)
 export {
+    // Phase 1
     duplicateId,
     unknownNodeKind,
     missingField,
@@ -135,10 +136,7 @@ export {
     invalidOperator,
     invalidBasicTypeName,
     conflictingEffects,
-} from "./errors/structured-errors.js";
-
-// Error constructors — Phase 2
-export {
+    // Phase 2
     undefinedReference,
     duplicateDefinition,
     unknownRecord,
@@ -149,16 +147,10 @@ export {
     notAFunction,
     unknownField,
     missingRecordFields,
-} from "./errors/structured-errors.js";
-
-// Error constructors — Phase 3
-export {
+    // Phase 3
     effectViolation,
     effectInPure,
-} from "./errors/structured-errors.js";
-
-// Error constructors — Phase 4
-export {
+    // Phase 4
     contractFailure,
     verificationTimeout,
     undecidablePredicate,
@@ -182,7 +174,7 @@ export type {
     CompileAndRunFailure,
 } from "./compile.js";
 export { StringTable } from "./codegen/string-table.js";
-export { BUILTIN_FUNCTIONS, isBuiltin, getBuiltin } from "./codegen/builtins.js";
+export { BUILTIN_FUNCTIONS, isBuiltin, getBuiltin } from "./builtins/builtins.js";
 
 // Error catalog
 export { buildErrorCatalog } from "./errors/error-catalog.js";

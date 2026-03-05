@@ -6,7 +6,7 @@
 // so agents can bootstrap themselves with Edict in a single prompt retrieval.
 
 import { handleSchema, handleExamples, handleVersion } from "./handlers.js";
-import { BUILTIN_FUNCTIONS } from "../codegen/builtins.js";
+import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 
 // =============================================================================
 // Types (mirrors GetPromptResult from MCP SDK)

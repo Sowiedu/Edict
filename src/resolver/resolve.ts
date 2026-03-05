@@ -22,7 +22,7 @@ import { undefinedReference, type FixSuggestion } from "../errors/structured-err
 import { findCandidates } from "./levenshtein.js";
 import { Scope, type SymbolInfo } from "./scope.js";
 import type { FunctionType } from "../ast/types.js";
-import { BUILTIN_FUNCTIONS } from "../codegen/builtins.js";
+import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 
 /**
  * Entry point: resolve all names in a validated Edict module.

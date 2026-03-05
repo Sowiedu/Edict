@@ -12,56 +12,34 @@ import type {
     Expression,
     Pattern,
 } from "../ast/nodes.js";
-import type { TypeExpr } from "../ast/types.js";
+
 import { StringTable } from "./string-table.js";
-import { BUILTIN_FUNCTIONS } from "./builtins.js";
+import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import { type StructuredError, wasmValidationError } from "../errors/structured-errors.js";
 import { collectStrings } from "./collect-strings.js";
+import { generateArrayMap, generateArrayFilter, generateArrayReduce } from "./hof-generators.js";
 import {
+    type CompilationContext,
     type CompileResult,
     type CompileSuccess,
     type CompileFailure,
     type CompileOptions,
     type FunctionSig,
-    type LocalEntry,
+
     type FieldLayout,
     type EnumVariantLayout,
     type EnumLayout,
     type RecordLayout,
     FunctionContext,
+    edictTypeToWasm,
 } from "./types.js";
+import { inferImportSignatures } from "./imports.js";
+import { collectFreeVariables, allocClosurePair } from "./closures.js";
 
 // Re-export types for backwards compatibility
 export type { CompileResult, CompileSuccess, CompileFailure, CompileOptions };
 export type { FieldLayout, EnumVariantLayout, EnumLayout, RecordLayout };
 
-// =============================================================================
-// Edict → WASM type mapping
-// =============================================================================
-
-function edictTypeToWasm(type: TypeExpr): binaryen.Type {
-    if (type.kind === "basic") {
-        switch (type.name) {
-            case "Int":
-                return binaryen.i32;
-            case "Float":
-                return binaryen.f64;
-            case "Bool":
-                return binaryen.i32;
-            case "String":
-                // Strings are (ptr, len) → we use i32 for the pointer.
-                // The full string is represented as two i32s, but at the ABI
-                // level we pass two separate i32 params. For return values
-                // of builtin print, we return just the ptr (i32).
-                return binaryen.i32;
-        }
-    }
-    if (type.kind === "unit_type") {
-        return binaryen.none;
-    }
-    // Fallback for anything else
-    return binaryen.i32;
-}
 
 // =============================================================================
 // Compile-time WASM type inference for expressions
@@ -157,166 +135,6 @@ function inferExprWasmType(
         default:
             return binaryen.i32;
     }
-}
-
-// =============================================================================
-// Free variable collection (for closures)
-// =============================================================================
-
-/**
- * Walk a lambda body and collect identifiers that reference variables from
- * the enclosing scope ("free variables"). These are the values that must be
- * stored in a closure environment record.
- */
-function collectFreeVariables(
-    body: Expression[],
-    paramNames: Set<string>,
-    constGlobals: Map<string, binaryen.Type>,
-    fnSigs: Map<string, FunctionSig>,
-): Map<string, { wasmType: binaryen.Type }> {
-    const free = new Map<string, { wasmType: binaryen.Type }>();
-    const locallyDefined = new Set<string>();
-
-    function walk(expr: Expression): void {
-        switch (expr.kind) {
-            case "ident":
-                if (
-                    !paramNames.has(expr.name) &&
-                    !constGlobals.has(expr.name) &&
-                    !fnSigs.has(expr.name) &&
-                    !BUILTIN_FUNCTIONS.has(expr.name) &&
-                    !locallyDefined.has(expr.name) &&
-                    !free.has(expr.name)
-                ) {
-                    // This is a free variable — we'll determine its WASM type later
-                    // during compilation when we have access to the enclosing context.
-                    free.set(expr.name, { wasmType: binaryen.i32 }); // placeholder
-                }
-                break;
-            case "let":
-                walk(expr.value);
-                locallyDefined.add(expr.name);
-                break;
-            case "binop":
-                walk(expr.left);
-                walk(expr.right);
-                break;
-            case "unop":
-                walk(expr.operand);
-                break;
-            case "call":
-                walk(expr.fn);
-                for (const a of expr.args) walk(a);
-                break;
-            case "if":
-                walk(expr.condition);
-                for (const e of expr.then) walk(e);
-                if (expr.else) for (const e of expr.else) walk(e);
-                break;
-            case "block":
-                for (const e of expr.body) walk(e);
-                break;
-            case "match":
-                walk(expr.target);
-                for (const arm of expr.arms) {
-                    for (const e of arm.body) walk(e);
-                }
-                break;
-            case "lambda":
-                // Nested lambda — its params shadow, but we still walk its body
-                // to find free variables from OUR scope
-                {
-                    const innerParams = new Set(expr.params.map(p => p.name));
-                    const innerFree = collectFreeVariables(
-                        expr.body,
-                        innerParams,
-                        constGlobals,
-                        fnSigs,
-                    );
-                    // Any free var from the inner lambda that isn't our param
-                    // or locally defined is also free in our scope
-                    for (const [name, info] of innerFree) {
-                        if (
-                            !paramNames.has(name) &&
-                            !locallyDefined.has(name) &&
-                            !constGlobals.has(name) &&
-                            !fnSigs.has(name) &&
-                            !BUILTIN_FUNCTIONS.has(name) &&
-                            !free.has(name)
-                        ) {
-                            free.set(name, info);
-                        }
-                    }
-                }
-                break;
-            case "array":
-                for (const e of expr.elements) walk(e);
-                break;
-            case "tuple_expr":
-                for (const e of expr.elements) walk(e);
-                break;
-            case "record_expr":
-                for (const f of expr.fields) walk(f.value);
-                break;
-            case "enum_constructor":
-                for (const f of expr.fields) walk(f.value);
-                break;
-            case "access":
-                walk(expr.target);
-                break;
-            case "string_interp":
-                for (const p of expr.parts) walk(p);
-                break;
-            case "literal":
-                break;
-        }
-    }
-
-    for (const expr of body) walk(expr);
-    return free;
-}
-
-// =============================================================================
-// Closure helpers
-// =============================================================================
-
-/**
- * Allocate a closure pair on the heap: [table_index: i32, env_ptr: i32].
- * Returns a block expression that evaluates to the pair's heap pointer.
- */
-function allocClosurePair(
-    mod: binaryen.Module,
-    ctx: FunctionContext,
-    tableIndexExpr: binaryen.ExpressionRef,
-    envPtrExpr: binaryen.ExpressionRef,
-    uniqueId: string,
-): binaryen.ExpressionRef {
-    const ptrIndex = ctx.addLocal(`__closure_ptr_${uniqueId}`, binaryen.i32);
-
-    return mod.block(null, [
-        // ptr = __heap_ptr
-        mod.local.set(ptrIndex, mod.global.get("__heap_ptr", binaryen.i32)),
-        // __heap_ptr += 8
-        mod.global.set(
-            "__heap_ptr",
-            mod.i32.add(
-                mod.local.get(ptrIndex, binaryen.i32),
-                mod.i32.const(8),
-            ),
-        ),
-        // store table_index at offset 0
-        mod.i32.store(0, 0,
-            mod.local.get(ptrIndex, binaryen.i32),
-            tableIndexExpr,
-        ),
-        // store env_ptr at offset 4
-        mod.i32.store(4, 0,
-            mod.local.get(ptrIndex, binaryen.i32),
-            envPtrExpr,
-        ),
-        // return the pair pointer
-        mod.local.get(ptrIndex, binaryen.i32),
-    ], binaryen.i32);
 }
 
 
@@ -474,13 +292,17 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
 
         // Compile const definitions as WASM globals
         const constGlobals = new Map<string, binaryen.Type>();
+
+        // Create the compilation context — bundles compile-wide state
+        const cc: CompilationContext = { mod, strings, fnSigs, errors, lambdaCounter: 0 };
+
         for (const def of module.definitions) {
             if (def.kind === "const") {
                 const wasmType = edictTypeToWasm(def.type);
                 // Create a temporary context for compiling the const init expression
                 const tmpCtx = new FunctionContext([]);
                 const initExpr = compileExpr(
-                    def.value, mod, tmpCtx, strings, fnSigs, errors,
+                    def.value, cc, tmpCtx,
                 );
                 mod.addGlobal(def.name, wasmType, false, initExpr);
                 constGlobals.set(def.name, wasmType);
@@ -490,7 +312,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         // Compile each function
         for (const def of module.definitions) {
             if (def.kind === "fn") {
-                compileFunction(def, mod, strings, fnSigs, constGlobals, recordLayouts, enumLayouts, errors, fnTableIndices, tableFunctions);
+                compileFunction(def, cc, constGlobals, recordLayouts, enumLayouts, fnTableIndices, tableFunctions);
             }
         }
 
@@ -582,16 +404,14 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
 
 function compileFunction(
     fn: FunctionDef,
-    mod: binaryen.Module,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
+    cc: CompilationContext,
     constGlobals: Map<string, binaryen.Type>,
     recordLayouts: Map<string, RecordLayout>,
     enumLayouts: Map<string, EnumLayout>,
-    errors: StructuredError[],
     fnTableIndices: Map<string, number> = new Map(),
     tableFunctions: string[] = [],
 ): void {
+    const { mod } = cc;
     const params = fn.params.map((p) => ({
         name: p.name,
         edictType: p.type,
@@ -625,7 +445,7 @@ function compileFunction(
 
     // Compile body — wrap non-final expressions in drop() per WASM semantics
     const bodyExprs = fn.body.map((expr, i) => {
-        const compiled = compileExpr(expr, mod, ctx, strings, fnSigs, errors);
+        const compiled = compileExpr(expr, cc, ctx);
         // Non-final expressions that produce values must be dropped
         if (i < fn.body.length - 1 && expr.kind !== "let") {
             return mod.drop(compiled);
@@ -651,72 +471,69 @@ function compileFunction(
 
 function compileExpr(
     expr: Expression,
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
     switch (expr.kind) {
         case "literal":
-            return compileLiteral(expr, mod, strings);
+            return compileLiteral(expr, cc);
 
         case "ident":
-            return compileIdent(expr, mod, ctx);
+            return compileIdent(expr, cc, ctx);
 
         case "binop":
-            return compileBinop(expr, mod, ctx, strings, fnSigs, errors);
+            return compileBinop(expr, cc, ctx);
 
         case "unop":
-            return compileUnop(expr, mod, ctx, strings, fnSigs, errors);
+            return compileUnop(expr, cc, ctx);
 
         case "call":
-            return compileCall(expr, mod, ctx, strings, fnSigs, errors);
+            return compileCall(expr, cc, ctx);
 
         case "if":
-            return compileIf(expr, mod, ctx, strings, fnSigs, errors);
+            return compileIf(expr, cc, ctx);
 
         case "let":
-            return compileLet(expr, mod, ctx, strings, fnSigs, errors);
+            return compileLet(expr, cc, ctx);
 
         case "block":
-            return compileBlock(expr, mod, ctx, strings, fnSigs, errors);
+            return compileBlock(expr, cc, ctx);
 
         case "match":
-            return compileMatch(expr, mod, ctx, strings, fnSigs, errors);
+            return compileMatch(expr, cc, ctx);
 
         case "record_expr":
-            return compileRecordExpr(expr, mod, ctx, strings, fnSigs, errors);
+            return compileRecordExpr(expr, cc, ctx);
 
         case "tuple_expr":
-            return compileTupleExpr(expr, mod, ctx, strings, fnSigs, errors);
+            return compileTupleExpr(expr, cc, ctx);
 
         case "enum_constructor":
-            return compileEnumConstructor(expr, mod, ctx, strings, fnSigs, errors);
+            return compileEnumConstructor(expr, cc, ctx);
 
         case "access":
-            return compileAccess(expr, mod, ctx, strings, fnSigs, errors);
+            return compileAccess(expr, cc, ctx);
 
         case "array":
-            return compileArrayExpr(expr as Expression & { kind: "array" }, mod, ctx, strings, fnSigs, errors);
+            return compileArrayExpr(expr as Expression & { kind: "array" }, cc, ctx);
 
         case "lambda":
-            return compileLambdaExpr(expr as Expression & { kind: "lambda" }, mod, ctx, strings, fnSigs, errors);
+            return compileLambdaExpr(expr as Expression & { kind: "lambda" }, cc, ctx);
 
         case "string_interp":
-            return compileStringInterp(expr as Expression & { kind: "string_interp" }, mod, ctx, strings, fnSigs, errors);
+            return compileStringInterp(expr as Expression & { kind: "string_interp" }, cc, ctx);
 
         default:
-            errors.push(wasmValidationError(`unsupported expression kind: ${(expr as any).kind}`));
-            return mod.unreachable();
+            cc.errors.push(wasmValidationError(`unsupported expression kind: ${(expr as any).kind}`));
+            return cc.mod.unreachable();
     }
 }
 
 function compileLiteral(
     expr: Expression & { kind: "literal" },
-    mod: binaryen.Module,
-    strings: StringTable,
+    cc: CompilationContext,
 ): binaryen.ExpressionRef {
+    const { mod, strings } = cc;
     const val = expr.value;
 
     if (typeof val === "boolean") {
@@ -743,9 +560,10 @@ function compileLiteral(
 
 function compileIdent(
     expr: Expression & { kind: "ident" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
+    const { mod } = cc;
     const local = ctx.getLocal(expr.name);
     if (local) {
         return mod.local.get(local.index, local.type);
@@ -771,14 +589,12 @@ function compileIdent(
 
 function compileBinop(
     expr: Expression & { kind: "binop" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
-    const left = compileExpr(expr.left, mod, ctx, strings, fnSigs, errors);
-    const right = compileExpr(expr.right, mod, ctx, strings, fnSigs, errors);
+    const { mod, fnSigs, errors } = cc;
+    const left = compileExpr(expr.left, cc, ctx);
+    const right = compileExpr(expr.right, cc, ctx);
 
     // Determine the WASM type from the left operand.
     // Type checker guarantees matching types for both operands.
@@ -827,13 +643,11 @@ function compileBinop(
 
 function compileUnop(
     expr: Expression & { kind: "unop" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
-    const operand = compileExpr(expr.operand, mod, ctx, strings, fnSigs, errors);
+    const { mod, fnSigs, errors } = cc;
+    const operand = compileExpr(expr.operand, cc, ctx);
     const opType = inferExprWasmType(expr.operand, ctx, fnSigs);
     const isFloat = opType === binaryen.f64;
 
@@ -852,12 +666,10 @@ function compileUnop(
 
 function compileCall(
     expr: Expression & { kind: "call" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, strings, fnSigs } = cc;
     // Determine if this is a direct call (fn is ident resolving to a known function)
     // or an indirect call (fn is a variable, lambda, or expression)
     const isDirectCall = expr.fn.kind === "ident"
@@ -893,13 +705,13 @@ function compileCall(
                         } else {
                             // Non-literal string arg — compile to get ptr,
                             // read __str_ret_len for the length
-                            const ptrExpr = compileExpr(arg, mod, ctx, strings, fnSigs, errors);
+                            const ptrExpr = compileExpr(arg, cc, ctx);
                             wasmArgs.push(ptrExpr);
                             wasmArgs.push(mod.global.get("__str_ret_len", binaryen.i32));
                         }
                     } else {
                         // Non-string param — compile normally
-                        wasmArgs.push(compileExpr(arg, mod, ctx, strings, fnSigs, errors));
+                        wasmArgs.push(compileExpr(arg, cc, ctx));
                     }
                 }
 
@@ -914,7 +726,7 @@ function compileCall(
         // fnTableIndices contains exactly the user-defined functions.
         const isUserFn = ctx.fnTableIndices.has(fnName);
         const args = expr.args.map((a, i) => {
-            const compiled = compileExpr(a, mod, ctx, strings, fnSigs, errors);
+            const compiled = compileExpr(a, cc, ctx);
             // Coerce i32→f64 if function expects f64 but arg infers to i32
             const sig = fnSigs.get(fnName);
             // For user functions, paramTypes[0] is __env, so Edict arg i maps to paramTypes[i+1]
@@ -938,14 +750,14 @@ function compileCall(
 
     // === Indirect call path (call_indirect via function table) ===
     // The fn expression evaluates to a closure pair pointer: [table_index, env_ptr]
-    const closurePtr = compileExpr(expr.fn, mod, ctx, strings, fnSigs, errors);
+    const closurePtr = compileExpr(expr.fn, cc, ctx);
 
     // We need to decompose the closure pair, so store it in a temp local
     const closurePtrLocal = ctx.addLocal(`__call_closure_${expr.id}`, binaryen.i32);
 
     // Compile arguments
     const args = expr.args.map(a =>
-        compileExpr(a, mod, ctx, strings, fnSigs, errors),
+        compileExpr(a, cc, ctx),
     );
 
     // Determine the WASM type signature for call_indirect:
@@ -970,13 +782,11 @@ function compileCall(
 
 function compileIf(
     expr: Expression & { kind: "if" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
-    const cond = compileExpr(expr.condition, mod, ctx, strings, fnSigs, errors);
+    const { mod, fnSigs } = cc;
+    const cond = compileExpr(expr.condition, cc, ctx);
 
     // Infer the result type from the then-branch's last expression
     const resultType = expr.then.length > 0
@@ -984,7 +794,7 @@ function compileIf(
         : binaryen.i32;
 
     const thenExprs = expr.then.map((e) =>
-        compileExpr(e, mod, ctx, strings, fnSigs, errors),
+        compileExpr(e, cc, ctx),
     );
     const thenBody =
         thenExprs.length === 1
@@ -993,7 +803,7 @@ function compileIf(
 
     if (expr.else) {
         const elseExprs = expr.else.map((e) =>
-            compileExpr(e, mod, ctx, strings, fnSigs, errors),
+            compileExpr(e, cc, ctx),
         );
         const elseBody =
             elseExprs.length === 1
@@ -1007,12 +817,10 @@ function compileIf(
 
 function compileLet(
     expr: Expression & { kind: "let" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, strings, fnSigs } = cc;
     const wasmType = expr.type
         ? edictTypeToWasm(expr.type)
         : inferExprWasmType(expr.value, ctx, fnSigs);
@@ -1027,7 +835,7 @@ function compileLet(
     }
 
     const index = ctx.addLocal(expr.name, wasmType, edictTypeName);
-    const value = compileExpr(expr.value, mod, ctx, strings, fnSigs, errors);
+    const value = compileExpr(expr.value, cc, ctx);
     const localSet = mod.local.set(index, value);
 
     // For String-type let bindings from literals, also set __str_ret_len
@@ -1047,14 +855,12 @@ function compileLet(
 
 function compileBlock(
     expr: Expression & { kind: "block" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, fnSigs } = cc;
     const bodyExprs = expr.body.map((e) =>
-        compileExpr(e, mod, ctx, strings, fnSigs, errors),
+        compileExpr(e, cc, ctx),
     );
     if (bodyExprs.length === 0) return mod.nop();
     if (bodyExprs.length === 1) return bodyExprs[0]!;
@@ -1064,12 +870,10 @@ function compileBlock(
 
 function compileMatch(
     expr: Expression & { kind: "match" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, strings, fnSigs, errors } = cc;
     // Attempt to determine the Edict type name of the target for enum matching
     let targetEdictTypeName: string | undefined;
     if (expr.target.kind === "ident") {
@@ -1087,7 +891,7 @@ function compileMatch(
     const matchResultType = inferExprWasmType(expr as Expression, ctx, fnSigs);
 
     // Evaluate target once and store in a temporary local
-    const targetExpr = compileExpr(expr.target, mod, ctx, strings, fnSigs, errors);
+    const targetExpr = compileExpr(expr.target, cc, ctx);
     const tmpIndex = ctx.addLocal(`__match_${expr.id}`, targetType);
     const setTarget = mod.local.set(tmpIndex, targetExpr);
     const getTarget = () => mod.local.get(tmpIndex, targetType);
@@ -1095,7 +899,7 @@ function compileMatch(
     // Compile body of a match arm (list of expressions → single expression)
     function compileArmBody(body: Expression[]): binaryen.ExpressionRef {
         const compiled = body.map((e) =>
-            compileExpr(e, mod, ctx, strings, fnSigs, errors),
+            compileExpr(e, cc, ctx),
         );
         if (compiled.length === 0) return mod.nop();
         if (compiled.length === 1) return compiled[0]!;
@@ -1251,12 +1055,10 @@ function compileMatch(
 
 function compileRecordExpr(
     expr: Expression & { kind: "record_expr" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, errors } = cc;
     const layout = ctx.recordLayouts.get(expr.name);
     if (!layout) {
         errors.push(wasmValidationError(`unknown record type: ${expr.name}`));
@@ -1286,7 +1088,7 @@ function compileRecordExpr(
             continue;
         }
 
-        const valueExpr = compileExpr(fieldInit.value, mod, ctx, strings, fnSigs, errors);
+        const valueExpr = compileExpr(fieldInit.value, cc, ctx);
 
         if (fieldLayout.wasmType === binaryen.f64) {
             stores.push(
@@ -1317,12 +1119,10 @@ function compileRecordExpr(
 
 function compileTupleExpr(
     expr: Expression & { kind: "tuple_expr" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, fnSigs } = cc;
     const totalSize = expr.elements.length * 8;
     const ptrIndex = ctx.addLocal(`__tuple_ptr_${expr.id}`, binaryen.i32);
 
@@ -1338,7 +1138,7 @@ function compileTupleExpr(
     const stores: binaryen.ExpressionRef[] = [];
     for (let i = 0; i < expr.elements.length; i++) {
         const elExpr = expr.elements[i]!;
-        const valWasm = compileExpr(elExpr, mod, ctx, strings, fnSigs, errors);
+        const valWasm = compileExpr(elExpr, cc, ctx);
         const valType = inferExprWasmType(elExpr, ctx, fnSigs);
         const offset = i * 8;
 
@@ -1356,12 +1156,10 @@ function compileTupleExpr(
 
 function compileEnumConstructor(
     expr: Expression & { kind: "enum_constructor" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, errors } = cc;
     const enumLayout = ctx.enumLayouts.get(expr.enumName);
     if (!enumLayout) {
         errors.push(wasmValidationError(`Enum layout not found for ${expr.enumName}`));
@@ -1393,7 +1191,7 @@ function compileEnumConstructor(
 
     // Store fields
     for (const fieldInit of expr.fields) {
-        const valWasm = compileExpr(fieldInit.value, mod, ctx, strings, fnSigs, errors);
+        const valWasm = compileExpr(fieldInit.value, cc, ctx);
         const fieldLayout = variantLayout.fields.find(f => f.name === fieldInit.name);
         if (!fieldLayout) continue; // Should be caught by type checker
 
@@ -1411,12 +1209,10 @@ function compileEnumConstructor(
 
 function compileAccess(
     expr: Expression & { kind: "access" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, errors } = cc;
     let recordTypeName: string | undefined;
 
     // Try to infer record type from target
@@ -1446,7 +1242,7 @@ function compileAccess(
         return mod.unreachable();
     }
 
-    const ptrExpr = compileExpr(expr.target, mod, ctx, strings, fnSigs, errors);
+    const ptrExpr = compileExpr(expr.target, cc, ctx);
 
     if (fieldLayout.wasmType === binaryen.f64) {
         return mod.f64.load(fieldLayout.offset, 0, ptrExpr);
@@ -1455,150 +1251,6 @@ function compileAccess(
     }
 }
 
-// =============================================================================
-// Import signature inference (for module-level imports)
-// =============================================================================
-
-interface ImportSig {
-    paramTypes: binaryen.Type[];
-    returnType: binaryen.Type;
-}
-
-/**
- * Scan function bodies for calls to imported names and infer WASM types
- * from the function's declared param/return types at call sites.
- */
-function inferImportSignatures(
-    module: EdictModule,
-    importedNames: Set<string>,
-): Map<string, ImportSig> {
-    const sigs = new Map<string, ImportSig>();
-
-    // Initialize with defaults
-    for (const name of importedNames) {
-        sigs.set(name, { paramTypes: [], returnType: binaryen.i32 });
-    }
-
-    // Multi-pass: run inference until stable (handles ordering deps like pow→sqrt)
-    for (let pass = 0; pass < 3; pass++) {
-        for (const def of module.definitions) {
-            if (def.kind !== "fn") continue;
-            inferFromExprs(def.body, def, sigs, importedNames);
-        }
-    }
-
-    return sigs;
-}
-
-function inferFromExprs(
-    exprs: Expression[],
-    enclosingFn: FunctionDef,
-    sigs: Map<string, ImportSig>,
-    importedNames: Set<string>,
-): void {
-    for (const expr of exprs) {
-        inferFromExpr(expr, enclosingFn, sigs, importedNames);
-    }
-}
-
-function inferFromExpr(
-    expr: Expression,
-    enclosingFn: FunctionDef,
-    sigs: Map<string, ImportSig>,
-    importedNames: Set<string>,
-): void {
-    if (expr.kind === "call" && expr.fn.kind === "ident" && importedNames.has(expr.fn.name)) {
-        const name = expr.fn.name;
-        // Infer param types from arguments
-        const paramTypes = expr.args.map(arg => inferTypeFromExpr(arg, enclosingFn, sigs));
-        // If any param is f64, promote all i32 numeric params to f64
-        // (JSON can't distinguish 2.0 from 2; Edict doesn't mix int/float in one function)
-        const hasFloat = paramTypes.some(t => t === binaryen.f64);
-        if (hasFloat) {
-            for (let j = 0; j < paramTypes.length; j++) {
-                if (paramTypes[j] === binaryen.i32 && expr.args[j]?.kind === "literal" &&
-                    typeof (expr.args[j] as Expression & { kind: "literal" }).value === "number") {
-                    paramTypes[j] = binaryen.f64;
-                }
-            }
-        }
-        // Infer return type from the enclosing function's return type
-        // (if this call is the last expression in the function body, it determines the return type)
-        const lastExprInBody = enclosingFn.body.length > 0
-            ? enclosingFn.body[enclosingFn.body.length - 1]
-            : null;
-        const returnType = isExprOrContains(lastExprInBody, expr)
-            ? edictTypeToWasm(enclosingFn.returnType)
-            : binaryen.i32;
-        sigs.set(name, { paramTypes, returnType });
-    }
-
-    // Recurse into sub-expressions
-    switch (expr.kind) {
-        case "binop": inferFromExpr(expr.left, enclosingFn, sigs, importedNames); inferFromExpr(expr.right, enclosingFn, sigs, importedNames); break;
-        case "unop": inferFromExpr(expr.operand, enclosingFn, sigs, importedNames); break;
-        case "call": inferFromExpr(expr.fn, enclosingFn, sigs, importedNames); for (const a of expr.args) inferFromExpr(a, enclosingFn, sigs, importedNames); break;
-        case "if": inferFromExpr(expr.condition, enclosingFn, sigs, importedNames); inferFromExprs(expr.then, enclosingFn, sigs, importedNames); if (expr.else) inferFromExprs(expr.else, enclosingFn, sigs, importedNames); break;
-        case "let": inferFromExpr(expr.value, enclosingFn, sigs, importedNames); break;
-        case "block": inferFromExprs(expr.body, enclosingFn, sigs, importedNames); break;
-        case "match": inferFromExpr(expr.target, enclosingFn, sigs, importedNames); for (const arm of expr.arms) inferFromExprs(arm.body, enclosingFn, sigs, importedNames); break;
-        case "lambda": inferFromExprs(expr.body, enclosingFn, sigs, importedNames); break;
-        case "array": for (const el of expr.elements) inferFromExpr(el, enclosingFn, sigs, importedNames); break;
-        case "record_expr": for (const f of expr.fields) inferFromExpr(f.value, enclosingFn, sigs, importedNames); break;
-        case "access": inferFromExpr(expr.target, enclosingFn, sigs, importedNames); break;
-        default: break;
-    }
-}
-
-/**
- * Infer the WASM type of an expression from its AST structure.
- * Used during import signature inference (before we have a FunctionContext).
- */
-function inferTypeFromExpr(
-    expr: Expression,
-    enclosingFn: FunctionDef,
-    sigs?: Map<string, ImportSig>,
-): binaryen.Type {
-    if (expr.kind === "literal") {
-        if (expr.type) return edictTypeToWasm(expr.type);
-        if (typeof expr.value === "number" && !Number.isInteger(expr.value)) return binaryen.f64;
-        return binaryen.i32;
-    }
-    if (expr.kind === "ident") {
-        const param = enclosingFn.params.find(p => p.name === expr.name);
-        if (param) return edictTypeToWasm(param.type);
-        return binaryen.i32;
-    }
-    if (expr.kind === "binop") {
-        // Arithmetic result type follows left operand
-        const cmpOps = ["==", "!=", "<", ">", "<=", ">=", "and", "or", "implies"];
-        if (cmpOps.includes(expr.op)) return binaryen.i32;
-        return inferTypeFromExpr(expr.left, enclosingFn, sigs);
-    }
-    if (expr.kind === "call" && expr.fn.kind === "ident") {
-        // Check inferred import sigs first, then fn defs
-        if (sigs?.has(expr.fn.name)) {
-            return sigs.get(expr.fn.name)!.returnType;
-        }
-        // Check enclosing module's function definitions
-        return binaryen.i32;
-    }
-    return binaryen.i32;
-}
-
-/**
- * Check if target expression is or contains the needle (by reference).
- */
-function isExprOrContains(target: Expression | null | undefined, needle: Expression): boolean {
-    if (!target) return false;
-    if (target === needle) return true;
-    switch (target.kind) {
-        case "call": return target.args.some(a => isExprOrContains(a, needle)) || isExprOrContains(target.fn, needle);
-        case "binop": return isExprOrContains(target.left, needle) || isExprOrContains(target.right, needle);
-        case "unop": return isExprOrContains(target.operand, needle);
-        default: return false;
-    }
-}
 
 // =============================================================================
 // Array expression compilation
@@ -1606,12 +1258,10 @@ function isExprOrContains(target: Expression | null | undefined, needle: Express
 
 function compileArrayExpr(
     expr: Expression & { kind: "array" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod } = cc;
     const elements = expr.elements;
     // Layout: [length: i32] [elem0: i32] [elem1: i32] ...
     const headerSize = 4; // i32 for length
@@ -1639,7 +1289,7 @@ function compileArrayExpr(
     // Store each element
     const stores: binaryen.ExpressionRef[] = [];
     for (let i = 0; i < elements.length; i++) {
-        const valueExpr = compileExpr(elements[i]!, mod, ctx, strings, fnSigs, errors);
+        const valueExpr = compileExpr(elements[i]!, cc, ctx);
         stores.push(
             mod.i32.store(
                 headerSize + i * elemSize,
@@ -1659,23 +1309,14 @@ function compileArrayExpr(
     ], binaryen.i32);
 }
 
-// =============================================================================
-// Lambda expression compilation
-// =============================================================================
-
-// Counter for generating unique lambda function names
-let lambdaCounter = 0;
-
 function compileLambdaExpr(
     expr: Expression & { kind: "lambda" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, fnSigs } = cc;
     // Compile as a module-level helper function with a generated name
-    const lambdaName = `__lambda_${lambdaCounter++}`;
+    const lambdaName = `__lambda_${cc.lambdaCounter++}`;
 
     const params = expr.params.map((p) => ({
         name: p.name,
@@ -1748,7 +1389,7 @@ function compileLambdaExpr(
 
     // Compile body
     const bodyExprs = expr.body.map((e, i) => {
-        const compiled = compileExpr(e, mod, lambdaCtx, strings, fnSigs, errors);
+        const compiled = compileExpr(e, cc, lambdaCtx);
         if (i < expr.body.length - 1 && e.kind !== "let") {
             return mod.drop(compiled);
         }
@@ -1843,12 +1484,10 @@ function compileLambdaExpr(
 
 function compileStringInterp(
     expr: Expression & { kind: "string_interp" },
-    mod: binaryen.Module,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    strings: StringTable,
-    fnSigs: Map<string, FunctionSig>,
-    errors: StructuredError[],
 ): binaryen.ExpressionRef {
+    const { mod, strings } = cc;
     const parts = expr.parts;
 
     // Edge case: no parts → empty string
@@ -1873,7 +1512,7 @@ function compileStringInterp(
             ], binaryen.i32);
         }
         // Non-literal — __str_ret_len already set by callee
-        return compileExpr(part, mod, ctx, strings, fnSigs, errors);
+        return compileExpr(part, cc, ctx);
     }
 
     // Helper: compile a part and return [ptrExpr, lenExpr]
@@ -1882,7 +1521,7 @@ function compileStringInterp(
             const interned = strings.intern(part.value);
             return [mod.i32.const(interned.offset), mod.i32.const(interned.length)];
         }
-        const ptrExpr = compileExpr(part, mod, ctx, strings, fnSigs, errors);
+        const ptrExpr = compileExpr(part, cc, ctx);
         return [ptrExpr, mod.global.get("__str_ret_len", binaryen.i32)];
     }
 
@@ -1926,241 +1565,3 @@ function compileStringInterp(
     return mod.block(null, stmts, binaryen.i32);
 }
 
-// =============================================================================
-// HOF Array Builtin WASM Generation
-// =============================================================================
-// These builtins need call_indirect to invoke closure arguments, so they
-// are generated as internal WASM functions rather than host imports.
-//
-// Array layout: [length:i32][elem0:i32][elem1:i32]...
-// Closure pair: [table_index:i32][env_ptr:i32]
-// Closure calling convention: call_indirect(table, idx, [env_ptr, ...args])
-
-/**
- * Generate array_map(arrPtr: i32, closurePtr: i32) → i32
- *
- * Allocates a new array, maps each element through the closure, returns result ptr.
- */
-function generateArrayMap(mod: binaryen.Module): void {
-    // Params: arrPtr=0, closurePtr=1
-    // Locals: length=2, tableIdx=3, envPtr=4, resultPtr=5, i=6
-    const paramType = binaryen.createType([binaryen.i32, binaryen.i32]);
-    const vars = [
-        binaryen.i32, // length
-        binaryen.i32, // tableIdx
-        binaryen.i32, // envPtr
-        binaryen.i32, // resultPtr
-        binaryen.i32, // i
-    ];
-
-    const arrPtr = 0, closurePtr = 1, length = 2, tableIdx = 3, envPtr = 4, resultPtr = 5, idx = 6;
-
-    // callbackType: (env:i32, elem:i32) → i32
-    const callbackParamType = binaryen.createType([binaryen.i32, binaryen.i32]);
-
-    const body = mod.block(null, [
-        // length = i32.load(arrPtr, 0)
-        mod.local.set(length, mod.i32.load(0, 0, mod.local.get(arrPtr, binaryen.i32))),
-        // tableIdx = i32.load(closurePtr, 0)
-        mod.local.set(tableIdx, mod.i32.load(0, 0, mod.local.get(closurePtr, binaryen.i32))),
-        // envPtr = i32.load(closurePtr, 4)
-        mod.local.set(envPtr, mod.i32.load(4, 0, mod.local.get(closurePtr, binaryen.i32))),
-        // resultPtr = __heap_ptr
-        mod.local.set(resultPtr, mod.global.get("__heap_ptr", binaryen.i32)),
-        // __heap_ptr += 4 + length * 4
-        mod.global.set("__heap_ptr", mod.i32.add(
-            mod.global.get("__heap_ptr", binaryen.i32),
-            mod.i32.add(mod.i32.const(4), mod.i32.mul(mod.local.get(length, binaryen.i32), mod.i32.const(4))),
-        )),
-        // i32.store(resultPtr, 0, length)
-        mod.i32.store(0, 0, mod.local.get(resultPtr, binaryen.i32), mod.local.get(length, binaryen.i32)),
-        // i = 0
-        mod.local.set(idx, mod.i32.const(0)),
-        // loop
-        mod.if(
-            mod.i32.gt_s(mod.local.get(length, binaryen.i32), mod.i32.const(0)),
-            mod.loop("map_loop", mod.block(null, [
-                // result[i] = call_indirect(tableIdx, [envPtr, arr[i]])
-                mod.i32.store(
-                    4, 0, // offset 4 + i*4 from resultPtr
-                    mod.i32.add(mod.local.get(resultPtr, binaryen.i32), mod.i32.mul(mod.local.get(idx, binaryen.i32), mod.i32.const(4))),
-                    mod.call_indirect(
-                        "__fn_table",
-                        mod.local.get(tableIdx, binaryen.i32),
-                        [
-                            mod.local.get(envPtr, binaryen.i32),
-                            // arr[i] = i32.load(arrPtr + 4 + i*4)
-                            mod.i32.load(4, 0, mod.i32.add(
-                                mod.local.get(arrPtr, binaryen.i32),
-                                mod.i32.mul(mod.local.get(idx, binaryen.i32), mod.i32.const(4)),
-                            )),
-                        ],
-                        callbackParamType,
-                        binaryen.i32,
-                    ),
-                ),
-                // i++
-                mod.local.set(idx, mod.i32.add(mod.local.get(idx, binaryen.i32), mod.i32.const(1))),
-                // br_if map_loop (i < length)
-                mod.br("map_loop", mod.i32.lt_s(mod.local.get(idx, binaryen.i32), mod.local.get(length, binaryen.i32))),
-            ], binaryen.none)),
-        ),
-        // return resultPtr
-        mod.local.get(resultPtr, binaryen.i32),
-    ], binaryen.i32);
-
-    mod.addFunction("array_map", paramType, binaryen.i32, vars, body);
-}
-
-/**
- * Generate array_filter(arrPtr: i32, closurePtr: i32) → i32
- *
- * Single-pass overalloc: allocates max-length result, filters in one pass,
- * then writes actual count. Tail waste is acceptable (arena allocator).
- */
-function generateArrayFilter(mod: binaryen.Module): void {
-    // Params: arrPtr=0, closurePtr=1
-    // Locals: length=2, tableIdx=3, envPtr=4, resultPtr=5, i=6, count=7, elem=8
-    const paramType = binaryen.createType([binaryen.i32, binaryen.i32]);
-    const vars = [
-        binaryen.i32, // length
-        binaryen.i32, // tableIdx
-        binaryen.i32, // envPtr
-        binaryen.i32, // resultPtr
-        binaryen.i32, // i
-        binaryen.i32, // count
-        binaryen.i32, // elem
-    ];
-
-    const arrPtr = 0, closurePtr = 1, length = 2, tableIdx = 3, envPtr = 4, resultPtr = 5, idx = 6, count = 7, elem = 8;
-
-    // callbackType: (env:i32, elem:i32) → i32 (bool)
-    const callbackParamType = binaryen.createType([binaryen.i32, binaryen.i32]);
-
-    const body = mod.block(null, [
-        // length = i32.load(arrPtr, 0)
-        mod.local.set(length, mod.i32.load(0, 0, mod.local.get(arrPtr, binaryen.i32))),
-        // tableIdx = i32.load(closurePtr, 0)
-        mod.local.set(tableIdx, mod.i32.load(0, 0, mod.local.get(closurePtr, binaryen.i32))),
-        // envPtr = i32.load(closurePtr, 4)
-        mod.local.set(envPtr, mod.i32.load(4, 0, mod.local.get(closurePtr, binaryen.i32))),
-        // resultPtr = __heap_ptr (overalloc: 4 + length*4)
-        mod.local.set(resultPtr, mod.global.get("__heap_ptr", binaryen.i32)),
-        mod.global.set("__heap_ptr", mod.i32.add(
-            mod.global.get("__heap_ptr", binaryen.i32),
-            mod.i32.add(mod.i32.const(4), mod.i32.mul(mod.local.get(length, binaryen.i32), mod.i32.const(4))),
-        )),
-        // count = 0, i = 0
-        mod.local.set(count, mod.i32.const(0)),
-        mod.local.set(idx, mod.i32.const(0)),
-        // loop
-        mod.if(
-            mod.i32.gt_s(mod.local.get(length, binaryen.i32), mod.i32.const(0)),
-            mod.loop("filter_loop", mod.block(null, [
-                // elem = arr[i]
-                mod.local.set(elem, mod.i32.load(4, 0, mod.i32.add(
-                    mod.local.get(arrPtr, binaryen.i32),
-                    mod.i32.mul(mod.local.get(idx, binaryen.i32), mod.i32.const(4)),
-                ))),
-                // if call_indirect(tableIdx, [envPtr, elem]) != 0
-                mod.if(
-                    mod.call_indirect(
-                        "__fn_table",
-                        mod.local.get(tableIdx, binaryen.i32),
-                        [
-                            mod.local.get(envPtr, binaryen.i32),
-                            mod.local.get(elem, binaryen.i32),
-                        ],
-                        callbackParamType,
-                        binaryen.i32,
-                    ),
-                    mod.block(null, [
-                        // result[count] = elem
-                        mod.i32.store(
-                            4, 0,
-                            mod.i32.add(mod.local.get(resultPtr, binaryen.i32), mod.i32.mul(mod.local.get(count, binaryen.i32), mod.i32.const(4))),
-                            mod.local.get(elem, binaryen.i32),
-                        ),
-                        // count++
-                        mod.local.set(count, mod.i32.add(mod.local.get(count, binaryen.i32), mod.i32.const(1))),
-                    ], binaryen.none),
-                ),
-                // i++
-                mod.local.set(idx, mod.i32.add(mod.local.get(idx, binaryen.i32), mod.i32.const(1))),
-                // br_if filter_loop (i < length)
-                mod.br("filter_loop", mod.i32.lt_s(mod.local.get(idx, binaryen.i32), mod.local.get(length, binaryen.i32))),
-            ], binaryen.none)),
-        ),
-        // Write actual count as result length
-        mod.i32.store(0, 0, mod.local.get(resultPtr, binaryen.i32), mod.local.get(count, binaryen.i32)),
-        // return resultPtr
-        mod.local.get(resultPtr, binaryen.i32),
-    ], binaryen.i32);
-
-    mod.addFunction("array_filter", paramType, binaryen.i32, vars, body);
-}
-
-/**
- * Generate array_reduce(arrPtr: i32, init: i32, closurePtr: i32) → i32
- *
- * Folds array elements into an accumulator via the closure.
- */
-function generateArrayReduce(mod: binaryen.Module): void {
-    // Params: arrPtr=0, init=1, closurePtr=2
-    // Locals: length=3, tableIdx=4, envPtr=5, acc=6, i=7
-    const paramType = binaryen.createType([binaryen.i32, binaryen.i32, binaryen.i32]);
-    const vars = [
-        binaryen.i32, // length
-        binaryen.i32, // tableIdx
-        binaryen.i32, // envPtr
-        binaryen.i32, // acc
-        binaryen.i32, // i
-    ];
-
-    const arrPtr = 0, init = 1, closurePtr = 2, length = 3, tableIdx = 4, envPtr = 5, acc = 6, idx = 7;
-
-    // callbackType: (env:i32, acc:i32, elem:i32) → i32
-    const callbackParamType = binaryen.createType([binaryen.i32, binaryen.i32, binaryen.i32]);
-
-    const body = mod.block(null, [
-        // length = i32.load(arrPtr, 0)
-        mod.local.set(length, mod.i32.load(0, 0, mod.local.get(arrPtr, binaryen.i32))),
-        // tableIdx = i32.load(closurePtr, 0)
-        mod.local.set(tableIdx, mod.i32.load(0, 0, mod.local.get(closurePtr, binaryen.i32))),
-        // envPtr = i32.load(closurePtr, 4)
-        mod.local.set(envPtr, mod.i32.load(4, 0, mod.local.get(closurePtr, binaryen.i32))),
-        // acc = init
-        mod.local.set(acc, mod.local.get(init, binaryen.i32)),
-        // i = 0
-        mod.local.set(idx, mod.i32.const(0)),
-        // loop
-        mod.if(
-            mod.i32.gt_s(mod.local.get(length, binaryen.i32), mod.i32.const(0)),
-            mod.loop("reduce_loop", mod.block(null, [
-                // acc = call_indirect(tableIdx, [envPtr, acc, arr[i]])
-                mod.local.set(acc, mod.call_indirect(
-                    "__fn_table",
-                    mod.local.get(tableIdx, binaryen.i32),
-                    [
-                        mod.local.get(envPtr, binaryen.i32),
-                        mod.local.get(acc, binaryen.i32),
-                        mod.i32.load(4, 0, mod.i32.add(
-                            mod.local.get(arrPtr, binaryen.i32),
-                            mod.i32.mul(mod.local.get(idx, binaryen.i32), mod.i32.const(4)),
-                        )),
-                    ],
-                    callbackParamType,
-                    binaryen.i32,
-                )),
-                // i++
-                mod.local.set(idx, mod.i32.add(mod.local.get(idx, binaryen.i32), mod.i32.const(1))),
-                // br_if reduce_loop (i < length)
-                mod.br("reduce_loop", mod.i32.lt_s(mod.local.get(idx, binaryen.i32), mod.local.get(length, binaryen.i32))),
-            ], binaryen.none)),
-        ),
-        // return acc
-        mod.local.get(acc, binaryen.i32),
-    ], binaryen.i32);
-
-    mod.addFunction("array_reduce", paramType, binaryen.i32, vars, body);
-}

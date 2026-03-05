@@ -13,7 +13,7 @@ import { check } from "../check.js";
 import { compile } from "../codegen/codegen.js";
 import { run } from "../codegen/runner.js";
 import type { RunLimits } from "../codegen/runner.js";
-import { BUILTIN_FUNCTIONS } from "../codegen/builtins.js";
+import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import type { StructuredError } from "../errors/structured-errors.js";
 import { applyPatches, type AstPatch } from "../patch/apply.js";
 import { buildErrorCatalog, type ErrorCatalog } from "../errors/error-catalog.js";

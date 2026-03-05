@@ -5,6 +5,53 @@
 
 import binaryen from "binaryen";
 import type { StructuredError } from "../errors/structured-errors.js";
+import type { StringTable } from "./string-table.js";
+import type { TypeExpr } from "../ast/types.js";
+
+// =============================================================================
+// Edict → WASM type mapping
+// =============================================================================
+
+export function edictTypeToWasm(type: TypeExpr): binaryen.Type {
+    if (type.kind === "basic") {
+        switch (type.name) {
+            case "Int":
+                return binaryen.i32;
+            case "Float":
+                return binaryen.f64;
+            case "Bool":
+                return binaryen.i32;
+            case "String":
+                // Strings are (ptr, len) → we use i32 for the pointer.
+                return binaryen.i32;
+        }
+    }
+    if (type.kind === "unit_type") {
+        return binaryen.none;
+    }
+    // Fallback for anything else
+    return binaryen.i32;
+}
+
+// =============================================================================
+// Compilation context (per-compile() invocation state)
+// =============================================================================
+
+/**
+ * Bundles the compile-wide state shared across all expression compilers.
+ * Created once per `compile()` call. `FunctionContext` is separate because
+ * it changes per function/lambda scope.
+ *
+ * `lambdaCounter` is scoped here (not module-global) so multiple
+ * `compile()` calls in the same process don't leak state.
+ */
+export interface CompilationContext {
+    readonly mod: binaryen.Module;
+    readonly strings: StringTable;
+    readonly fnSigs: Map<string, FunctionSig>;
+    readonly errors: StructuredError[];
+    lambdaCounter: number;
+}
 
 // =============================================================================
 // Result types

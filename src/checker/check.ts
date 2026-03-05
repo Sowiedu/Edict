@@ -29,7 +29,7 @@ import {
 import { findCandidates } from "../resolver/levenshtein.js";
 import { TypeEnv } from "./type-env.js";
 import { typesEqual, isUnknown, resolveType } from "./types-equal.js";
-import { BUILTIN_FUNCTIONS } from "../codegen/builtins.js";
+import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import { UNKNOWN_TYPE, INT_TYPE, FLOAT_TYPE, STRING_TYPE, BOOL_TYPE } from "../ast/type-constants.js";
 
 /**

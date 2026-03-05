@@ -9,7 +9,7 @@ import type {
     Expression,
     FunctionDef,
 } from "../ast/nodes.js";
-import { BUILTIN_FUNCTIONS } from "../codegen/builtins.js";
+import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 
 // =============================================================================
 // Types
