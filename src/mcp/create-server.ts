@@ -11,6 +11,7 @@ import {
     handleVersion,
     handlePatch,
     handleErrorCatalog,
+    handleLint,
 } from "./handlers.js";
 import {
     promptWriteProgram,
@@ -232,6 +233,34 @@ export function createEdictServer(): McpServer {
             ],
         };
     });
+
+    // edict_lint — Run non-blocking quality analysis and return warnings
+    server.tool(
+        "edict_lint",
+        "Run non-blocking lint analysis on an Edict AST. Returns quality warnings (unused variables, missing contracts, oversized functions, redundant effects, etc.) without blocking compilation. Warnings use the same structured format as errors but with severity: 'warning'.",
+        {
+            ast: z.any().describe("The Edict JSON AST to lint"),
+        },
+        async ({ ast }) => {
+            const result = handleLint(ast);
+            if (!result.ok) {
+                return {
+                    content: [
+                        { type: "text", text: JSON.stringify({ errors: result.errors }, null, 2) },
+                    ],
+                    isError: true,
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({ warnings: result.warnings, count: result.warnings?.length ?? 0 }, null, 2),
+                    },
+                ],
+            };
+        },
+    );
 
     // =============================================================================
     // Resources

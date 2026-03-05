@@ -188,3 +188,23 @@ export { BUILTIN_FUNCTIONS, isBuiltin, getBuiltin } from "./codegen/builtins.js"
 export { buildErrorCatalog } from "./errors/error-catalog.js";
 export type { ErrorCatalog, ErrorCatalogEntry } from "./errors/error-catalog.js";
 
+// Lint
+export { lint } from "./lint/lint.js";
+export type { LintWarning } from "./lint/lint.js";
+export type {
+    UnusedVariableWarning,
+    UnusedImportWarning,
+    MissingContractWarning,
+    OversizedFunctionWarning,
+    EmptyBodyWarning,
+    RedundantEffectWarning,
+} from "./lint/warnings.js";
+export {
+    unusedVariable,
+    unusedImport,
+    missingContract,
+    oversizedFunction,
+    emptyBody,
+    redundantEffect,
+} from "./lint/warnings.js";
+

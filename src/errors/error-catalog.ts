@@ -12,7 +12,7 @@ export interface ErrorCatalogEntry {
     /** Discriminator string (e.g., "type_mismatch") */
     type: string;
     /** Pipeline stage that produces this error */
-    pipeline_stage: "validator" | "resolver" | "type_checker" | "effect_checker" | "contract_verifier" | "codegen" | "patch";
+    pipeline_stage: "validator" | "resolver" | "type_checker" | "effect_checker" | "contract_verifier" | "codegen" | "patch" | "lint";
     /** All fields present on this error (excluding the `error` discriminator) */
     fields: { name: string; type: string }[];
     /** Minimal AST that triggers this error */
@@ -664,6 +664,106 @@ export function buildErrorCatalog(): ErrorCatalog {
             ],
             example_cause: { patches: [{ nodeId: "fn-main-001", op: "delete" }] },
             example_fix: { patches: [{ nodeId: "fn-main-001", op: "replace", field: "name", value: "updated" }] },
+        },
+
+        // =====================================================================
+        // Lint warnings (non-blocking)
+        // =====================================================================
+        {
+            type: "unused_variable",
+            pipeline_stage: "lint",
+            fields: [
+                { name: "nodeId", type: "string" },
+                { name: "name", type: "string" },
+            ],
+            example_cause: {
+                kind: "module", id: "mod-001", name: "test", imports: [],
+                definitions: [{ kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "let", id: "let-001", name: "unused", type: { kind: "basic", name: "Int" }, value: { kind: "literal", id: "lit-001", value: 42 } }, { kind: "literal", id: "lit-002", value: 0 }] }],
+            },
+            example_fix: {
+                kind: "module", id: "mod-001", name: "test", imports: [],
+                definitions: [{ kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "literal", id: "lit-002", value: 0 }] }],
+            },
+        },
+        {
+            type: "unused_import",
+            pipeline_stage: "lint",
+            fields: [
+                { name: "nodeId", type: "string" },
+                { name: "importModule", type: "string" },
+                { name: "unusedNames", type: "string[]" },
+            ],
+            example_cause: {
+                kind: "module", id: "mod-001", name: "test", imports: [{ kind: "import", id: "imp-001", module: "std", names: ["map"] }],
+                definitions: [{ kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "literal", id: "lit-001", value: 0 }] }],
+            },
+            example_fix: {
+                kind: "module", id: "mod-001", name: "test", imports: [],
+                definitions: [{ kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "literal", id: "lit-001", value: 0 }] }],
+            },
+        },
+        {
+            type: "missing_contract",
+            pipeline_stage: "lint",
+            fields: [
+                { name: "nodeId", type: "string" },
+                { name: "functionName", type: "string" },
+            ],
+            example_cause: {
+                kind: "module", id: "mod-001", name: "test", imports: [],
+                definitions: [{ kind: "fn", id: "fn-001", name: "add", params: [{ kind: "param", id: "p-001", name: "a", type: { kind: "basic", name: "Int" } }], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "ident", id: "id-001", name: "a" }] }],
+            },
+            example_fix: {
+                kind: "module", id: "mod-001", name: "test", imports: [],
+                definitions: [{ kind: "fn", id: "fn-001", name: "add", params: [{ kind: "param", id: "p-001", name: "a", type: { kind: "basic", name: "Int" } }], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [{ kind: "post", id: "post-001", condition: { kind: "binop", id: "cmp-001", op: ">=", left: { kind: "ident", id: "id-r", name: "result" }, right: { kind: "literal", id: "lit-z", value: 0 } } }], body: [{ kind: "ident", id: "id-001", name: "a" }] }],
+            },
+        },
+        {
+            type: "oversized_function",
+            pipeline_stage: "lint",
+            fields: [
+                { name: "nodeId", type: "string" },
+                { name: "functionName", type: "string" },
+                { name: "expressionCount", type: "number" },
+                { name: "threshold", type: "number" },
+            ],
+            example_cause: { _note: "Function with >50 recursive expression nodes" },
+            example_fix: { _note: "Split into smaller helper functions" },
+        },
+        {
+            type: "empty_body",
+            pipeline_stage: "lint",
+            fields: [
+                { name: "nodeId", type: "string" },
+                { name: "functionName", type: "string" },
+            ],
+            example_cause: {
+                kind: "module", id: "mod-001", name: "test", imports: [],
+                definitions: [{ kind: "fn", id: "fn-001", name: "stub", params: [], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [] }],
+            },
+            example_fix: {
+                kind: "module", id: "mod-001", name: "test", imports: [],
+                definitions: [{ kind: "fn", id: "fn-001", name: "stub", params: [], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "literal", id: "lit-001", value: 0 }] }],
+            },
+        },
+        {
+            type: "redundant_effect",
+            pipeline_stage: "lint",
+            fields: [
+                { name: "nodeId", type: "string" },
+                { name: "functionName", type: "string" },
+                { name: "redundantEffects", type: "Effect[]" },
+                { name: "requiredEffects", type: "Effect[]" },
+                { name: "suggestion", type: "FixSuggestion?" },
+            ],
+            example_cause: {
+                kind: "module", id: "mod-001", name: "test", imports: [],
+                definitions: [{ kind: "fn", id: "fn-001", name: "helper", params: [], effects: ["io"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "literal", id: "lit-001", value: 42 }] }],
+            },
+            example_fix: {
+                kind: "module", id: "mod-001", name: "test", imports: [],
+                definitions: [{ kind: "fn", id: "fn-001", name: "helper", params: [], effects: ["pure"], returnType: { kind: "basic", name: "Int" }, contracts: [], body: [{ kind: "literal", id: "lit-001", value: 42 }] }],
+            },
         },
     ];
 

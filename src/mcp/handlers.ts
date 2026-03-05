@@ -18,6 +18,8 @@ import type { StructuredError } from "../errors/structured-errors.js";
 import { applyPatches, type AstPatch } from "../patch/apply.js";
 import { buildErrorCatalog, type ErrorCatalog } from "../errors/error-catalog.js";
 import { stripDescriptions } from "./minimal-schema.js";
+import { lint } from "../lint/lint.js";
+import type { LintWarning } from "../lint/warnings.js";
 
 // =============================================================================
 // Path resolution (relative to this file, works regardless of cwd)
@@ -230,4 +232,21 @@ export function handleVersion(): VersionResult {
             maxMemoryMb: 1,
         },
     };
+}
+
+export interface LintResult {
+    ok: boolean;
+    warnings?: LintWarning[];
+    errors?: StructuredError[];
+}
+
+export function handleLint(ast: unknown): LintResult {
+    const validation = validate(ast);
+    if (!validation.ok) {
+        return { ok: false, errors: validation.errors };
+    }
+
+    const module = ast as import("../ast/nodes.js").EdictModule;
+    const warnings = lint(module);
+    return { ok: true, warnings };
 }

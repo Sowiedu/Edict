@@ -44,6 +44,13 @@ const ALL_ERROR_TYPES = [
     "patch_invalid_field",
     "patch_index_out_of_range",
     "patch_delete_not_in_array",
+    // Lint warnings
+    "unused_variable",
+    "unused_import",
+    "missing_contract",
+    "oversized_function",
+    "empty_body",
+    "redundant_effect",
 ];
 
 describe("handleErrorCatalog", () => {
@@ -82,7 +89,7 @@ describe("handleErrorCatalog", () => {
     });
 
     it("every entry has a valid pipeline_stage", () => {
-        const validStages = ["validator", "resolver", "type_checker", "effect_checker", "contract_verifier", "codegen", "patch"];
+        const validStages = ["validator", "resolver", "type_checker", "effect_checker", "contract_verifier", "codegen", "patch", "lint"];
         for (const entry of catalog.errors) {
             expect(validStages, `invalid pipeline_stage: ${entry.pipeline_stage} for ${entry.type}`).toContain(entry.pipeline_stage);
         }
