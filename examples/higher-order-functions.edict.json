@@ -1,0 +1,396 @@
+{
+    "kind": "module",
+    "id": "mod-hof-001",
+    "name": "higher-order-functions",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-double-001",
+            "name": "double",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-x-001",
+                    "name": "x",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "binop",
+                    "id": "expr-mul-001",
+                    "op": "*",
+                    "left": {
+                        "kind": "ident",
+                        "id": "ident-x-001",
+                        "name": "x"
+                    },
+                    "right": {
+                        "kind": "literal",
+                        "id": "lit-2-001",
+                        "value": 2
+                    }
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-apply-001",
+            "name": "applyToArray",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-arr-001",
+                    "name": "arr",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    }
+                },
+                {
+                    "kind": "param",
+                    "id": "param-fn-001",
+                    "name": "f",
+                    "type": {
+                        "kind": "fn_type",
+                        "params": [
+                            {
+                                "kind": "basic",
+                                "name": "Int"
+                            }
+                        ],
+                        "effects": [
+                            "pure"
+                        ],
+                        "returnType": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "array",
+                "element": {
+                    "kind": "basic",
+                    "name": "Int"
+                }
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "call",
+                    "id": "call-map-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-map-001",
+                        "name": "array_map"
+                    },
+                    "args": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-arr-001",
+                            "name": "arr"
+                        },
+                        {
+                            "kind": "ident",
+                            "id": "ident-f-001",
+                            "name": "f"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-sumPositive-001",
+            "name": "sumPositive",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-nums-001",
+                    "name": "nums",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let",
+                    "id": "let-pos-001",
+                    "name": "positives",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-filter-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-filter-001",
+                            "name": "array_filter"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "ident-nums-001",
+                                "name": "nums"
+                            },
+                            {
+                                "kind": "lambda",
+                                "id": "lam-gt-001",
+                                "params": [
+                                    {
+                                        "kind": "param",
+                                        "id": "param-n-001",
+                                        "name": "n",
+                                        "type": {
+                                            "kind": "basic",
+                                            "name": "Int"
+                                        }
+                                    }
+                                ],
+                                "body": [
+                                    {
+                                        "kind": "binop",
+                                        "id": "expr-gt-001",
+                                        "op": ">",
+                                        "left": {
+                                            "kind": "ident",
+                                            "id": "ident-n-001",
+                                            "name": "n"
+                                        },
+                                        "right": {
+                                            "kind": "literal",
+                                            "id": "lit-zero-001",
+                                            "value": 0
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "call",
+                    "id": "call-reduce-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-reduce-001",
+                        "name": "array_reduce"
+                    },
+                    "args": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-pos-001",
+                            "name": "positives"
+                        },
+                        {
+                            "kind": "literal",
+                            "id": "lit-init-001",
+                            "value": 0
+                        },
+                        {
+                            "kind": "lambda",
+                            "id": "lam-add-001",
+                            "params": [
+                                {
+                                    "kind": "param",
+                                    "id": "param-acc-001",
+                                    "name": "acc",
+                                    "type": {
+                                        "kind": "basic",
+                                        "name": "Int"
+                                    }
+                                },
+                                {
+                                    "kind": "param",
+                                    "id": "param-el-001",
+                                    "name": "el",
+                                    "type": {
+                                        "kind": "basic",
+                                        "name": "Int"
+                                    }
+                                }
+                            ],
+                            "body": [
+                                {
+                                    "kind": "binop",
+                                    "id": "expr-add-001",
+                                    "op": "+",
+                                    "left": {
+                                        "kind": "ident",
+                                        "id": "ident-acc-001",
+                                        "name": "acc"
+                                    },
+                                    "right": {
+                                        "kind": "ident",
+                                        "id": "ident-el-001",
+                                        "name": "el"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-main-001",
+            "name": "main",
+            "params": [],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let",
+                    "id": "let-data-001",
+                    "name": "data",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    },
+                    "value": {
+                        "kind": "array",
+                        "id": "arr-data-001",
+                        "elements": [
+                            {
+                                "kind": "literal",
+                                "id": "lit-1-001",
+                                "value": 1
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-2-002",
+                                "value": 2
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-3-001",
+                                "value": 3
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-4-001",
+                                "value": 4
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-5-001",
+                                "value": 5
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-doubled-001",
+                    "name": "doubled",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-apply-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-apply-001",
+                            "name": "applyToArray"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "ident-data-001",
+                                "name": "data"
+                            },
+                            {
+                                "kind": "ident",
+                                "id": "ident-double-001",
+                                "name": "double"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-sum-001",
+                    "name": "total",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-sum-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-sum-001",
+                            "name": "sumPositive"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "ident-doubled-001",
+                                "name": "doubled"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "ident",
+                    "id": "ident-total-001",
+                    "name": "total"
+                }
+            ]
+        }
+    ]
+}

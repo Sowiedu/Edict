@@ -1,0 +1,461 @@
+{
+    "kind": "module",
+    "id": "mod-strproc-001",
+    "name": "string-processing",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-greet-001",
+            "name": "greet",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-name-001",
+                    "name": "name",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "String"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "string_interp",
+                    "id": "interp-greet-001",
+                    "parts": [
+                        {
+                            "kind": "literal",
+                            "id": "lit-hello-001",
+                            "value": "Hello, "
+                        },
+                        {
+                            "kind": "call",
+                            "id": "call-upper-001",
+                            "fn": {
+                                "kind": "ident",
+                                "id": "ident-upper-001",
+                                "name": "toUpperCase"
+                            },
+                            "args": [
+                                {
+                                    "kind": "ident",
+                                    "id": "ident-name-001",
+                                    "name": "name"
+                                }
+                            ]
+                        },
+                        {
+                            "kind": "literal",
+                            "id": "lit-exclaim-001",
+                            "value": "!"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-initials-001",
+            "name": "getInitial",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-word-001",
+                    "name": "word",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "String"
+            },
+            "contracts": [
+                {
+                    "kind": "pre",
+                    "id": "pre-nonempty-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-gt-001",
+                        "op": ">",
+                        "left": {
+                            "kind": "call",
+                            "id": "call-len-001",
+                            "fn": {
+                                "kind": "ident",
+                                "id": "ident-len-001",
+                                "name": "string_length"
+                            },
+                            "args": [
+                                {
+                                    "kind": "ident",
+                                    "id": "ident-word-pre-001",
+                                    "name": "word"
+                                }
+                            ]
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "lit-zero-001",
+                            "value": 0
+                        }
+                    }
+                }
+            ],
+            "body": [
+                {
+                    "kind": "call",
+                    "id": "call-upper2-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-upper2-001",
+                        "name": "toUpperCase"
+                    },
+                    "args": [
+                        {
+                            "kind": "call",
+                            "id": "call-sub-001",
+                            "fn": {
+                                "kind": "ident",
+                                "id": "ident-sub-001",
+                                "name": "substring"
+                            },
+                            "args": [
+                                {
+                                    "kind": "ident",
+                                    "id": "ident-word-001",
+                                    "name": "word"
+                                },
+                                {
+                                    "kind": "literal",
+                                    "id": "lit-idx0-001",
+                                    "value": 0
+                                },
+                                {
+                                    "kind": "literal",
+                                    "id": "lit-idx1-001",
+                                    "value": 1
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-repeat-sep-001",
+            "name": "repeatWithSep",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-s-001",
+                    "name": "s",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    }
+                },
+                {
+                    "kind": "param",
+                    "id": "param-sep-001",
+                    "name": "sep",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    }
+                },
+                {
+                    "kind": "param",
+                    "id": "param-n-001",
+                    "name": "n",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "String"
+            },
+            "contracts": [
+                {
+                    "kind": "pre",
+                    "id": "pre-positive-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-gte-001",
+                        "op": ">=",
+                        "left": {
+                            "kind": "ident",
+                            "id": "ident-n-pre-001",
+                            "name": "n"
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "lit-one-pre-001",
+                            "value": 1
+                        }
+                    }
+                }
+            ],
+            "body": [
+                {
+                    "kind": "if",
+                    "id": "if-base-001",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "expr-eq-001",
+                        "op": "==",
+                        "left": {
+                            "kind": "ident",
+                            "id": "ident-n-001",
+                            "name": "n"
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "lit-one-001",
+                            "value": 1
+                        }
+                    },
+                    "then": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-s-ret-001",
+                            "name": "s"
+                        }
+                    ],
+                    "else": [
+                        {
+                            "kind": "string_interp",
+                            "id": "interp-concat-001",
+                            "parts": [
+                                {
+                                    "kind": "ident",
+                                    "id": "ident-s-001",
+                                    "name": "s"
+                                },
+                                {
+                                    "kind": "ident",
+                                    "id": "ident-sep-001",
+                                    "name": "sep"
+                                },
+                                {
+                                    "kind": "call",
+                                    "id": "call-rec-001",
+                                    "fn": {
+                                        "kind": "ident",
+                                        "id": "ident-rec-001",
+                                        "name": "repeatWithSep"
+                                    },
+                                    "args": [
+                                        {
+                                            "kind": "ident",
+                                            "id": "ident-s2-001",
+                                            "name": "s"
+                                        },
+                                        {
+                                            "kind": "ident",
+                                            "id": "ident-sep2-001",
+                                            "name": "sep"
+                                        },
+                                        {
+                                            "kind": "binop",
+                                            "id": "expr-dec-001",
+                                            "op": "-",
+                                            "left": {
+                                                "kind": "ident",
+                                                "id": "ident-n2-001",
+                                                "name": "n"
+                                            },
+                                            "right": {
+                                                "kind": "literal",
+                                                "id": "lit-one2-001",
+                                                "value": 1
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-main-001",
+            "name": "main",
+            "params": [],
+            "effects": [
+                "io"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let",
+                    "id": "let-msg-001",
+                    "name": "msg",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-greet-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-greet-001",
+                            "name": "greet"
+                        },
+                        "args": [
+                            {
+                                "kind": "literal",
+                                "id": "lit-name-001",
+                                "value": "edict"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-init-001",
+                    "name": "initial",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-init-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-init-001",
+                            "name": "getInitial"
+                        },
+                        "args": [
+                            {
+                                "kind": "literal",
+                                "id": "lit-word-001",
+                                "value": "edict"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-rep-001",
+                    "name": "banner",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-rep-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-rep-001",
+                            "name": "repeatWithSep"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "ident-init2-001",
+                                "name": "initial"
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-dash-001",
+                                "value": "-"
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-three-001",
+                                "value": 3
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-output-001",
+                    "name": "output",
+                    "type": {
+                        "kind": "basic",
+                        "name": "String"
+                    },
+                    "value": {
+                        "kind": "string_interp",
+                        "id": "interp-out-001",
+                        "parts": [
+                            {
+                                "kind": "ident",
+                                "id": "ident-msg-001",
+                                "name": "msg"
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-space-001",
+                                "value": " ["
+                            },
+                            {
+                                "kind": "ident",
+                                "id": "ident-banner-001",
+                                "name": "banner"
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-close-001",
+                                "value": "]"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "call",
+                    "id": "call-print-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-print-001",
+                        "name": "print"
+                    },
+                    "args": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-output-001",
+                            "name": "output"
+                        }
+                    ]
+                },
+                {
+                    "kind": "literal",
+                    "id": "lit-exit-001",
+                    "value": 0
+                }
+            ]
+        }
+    ]
+}

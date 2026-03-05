@@ -296,6 +296,58 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
             wasmImport: ["host", "array_reverse"],
         },
     ],
+    // =========================================================================
+    // HOF array builtins — WASM-native (not host-imported)
+    // These use call_indirect to invoke closure arguments, so they must be
+    // generated as WASM functions in codegen, not imported from the host.
+    // wasmImport sentinel ["__wasm", "..."] signals codegen to skip import.
+    // =========================================================================
+    [
+        "array_map",
+        {
+            type: {
+                kind: "fn_type",
+                params: [
+                    ARRAY_INT_TYPE,
+                    { kind: "fn_type", params: [INT_TYPE], effects: [], returnType: INT_TYPE },
+                ],
+                effects: ["pure"],
+                returnType: ARRAY_INT_TYPE,
+            },
+            wasmImport: ["__wasm", "array_map"],
+        },
+    ],
+    [
+        "array_filter",
+        {
+            type: {
+                kind: "fn_type",
+                params: [
+                    ARRAY_INT_TYPE,
+                    { kind: "fn_type", params: [INT_TYPE], effects: [], returnType: BOOL_TYPE },
+                ],
+                effects: ["pure"],
+                returnType: ARRAY_INT_TYPE,
+            },
+            wasmImport: ["__wasm", "array_filter"],
+        },
+    ],
+    [
+        "array_reduce",
+        {
+            type: {
+                kind: "fn_type",
+                params: [
+                    ARRAY_INT_TYPE,
+                    INT_TYPE,
+                    { kind: "fn_type", params: [INT_TYPE, INT_TYPE], effects: [], returnType: INT_TYPE },
+                ],
+                effects: ["pure"],
+                returnType: INT_TYPE,
+            },
+            wasmImport: ["__wasm", "array_reduce"],
+        },
+    ],
 ]);
 
 /**

@@ -1,0 +1,218 @@
+{
+    "kind": "module",
+    "id": "mod-closures-001",
+    "name": "closures",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-makeAdder-001",
+            "name": "makeAdder",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "param-k-001",
+                    "name": "k",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "fn_type",
+                "params": [
+                    {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                ],
+                "effects": [
+                    "pure"
+                ],
+                "returnType": {
+                    "kind": "basic",
+                    "name": "Int"
+                }
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "lambda",
+                    "id": "lam-adder-001",
+                    "params": [
+                        {
+                            "kind": "param",
+                            "id": "param-x-001",
+                            "name": "x",
+                            "type": {
+                                "kind": "basic",
+                                "name": "Int"
+                            }
+                        }
+                    ],
+                    "body": [
+                        {
+                            "kind": "binop",
+                            "id": "expr-add-001",
+                            "op": "+",
+                            "left": {
+                                "kind": "ident",
+                                "id": "ident-x-001",
+                                "name": "x"
+                            },
+                            "right": {
+                                "kind": "ident",
+                                "id": "ident-k-001",
+                                "name": "k"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-main-001",
+            "name": "main",
+            "params": [],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let",
+                    "id": "let-add10-001",
+                    "name": "add10",
+                    "type": {
+                        "kind": "fn_type",
+                        "params": [
+                            {
+                                "kind": "basic",
+                                "name": "Int"
+                            }
+                        ],
+                        "effects": [
+                            "pure"
+                        ],
+                        "returnType": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-makeAdder-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-makeAdder-001",
+                            "name": "makeAdder"
+                        },
+                        "args": [
+                            {
+                                "kind": "literal",
+                                "id": "lit-10-001",
+                                "value": 10
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-data-001",
+                    "name": "data",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    },
+                    "value": {
+                        "kind": "array",
+                        "id": "arr-data-001",
+                        "elements": [
+                            {
+                                "kind": "literal",
+                                "id": "lit-1-001",
+                                "value": 1
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-2-001",
+                                "value": 2
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "lit-3-001",
+                                "value": 3
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-mapped-001",
+                    "name": "mapped",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "call-map-001",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "ident-map-001",
+                            "name": "array_map"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "ident-data-001",
+                                "name": "data"
+                            },
+                            {
+                                "kind": "ident",
+                                "id": "ident-add10-001",
+                                "name": "add10"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "call",
+                    "id": "call-get-001",
+                    "fn": {
+                        "kind": "ident",
+                        "id": "ident-get-001",
+                        "name": "array_get"
+                    },
+                    "args": [
+                        {
+                            "kind": "ident",
+                            "id": "ident-mapped-001",
+                            "name": "mapped"
+                        },
+                        {
+                            "kind": "literal",
+                            "id": "lit-idx-001",
+                            "value": 0
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

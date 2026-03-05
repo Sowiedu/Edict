@@ -671,3 +671,376 @@ describe("array builtin composition", () => {
         expect(result.returnValue).toBe(4);
     });
 });
+
+// Shorthand: lambda expression node
+function lambdaExpr(id: string, params: { name: string; type: unknown }[], body: unknown[]): unknown {
+    return {
+        kind: "lambda",
+        id,
+        params: params.map((p, i) => ({
+            kind: "param",
+            id: `param-${id}-${i}`,
+            name: p.name,
+            type: p.type,
+        })),
+        body,
+    };
+}
+
+// =============================================================================
+// array_map — HOF builtin
+// =============================================================================
+
+describe("array_map builtin", () => {
+    it("maps elements with doubling function", async () => {
+        // array_get(array_map([1, 2, 3], (x) => x * 2), 0) → 2
+        const ast = intProgram([
+            callExpr("call-get", "array_get", [
+                callExpr("call-map", "array_map", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 1),
+                        intLit("lit-002", 2),
+                        intLit("lit-003", 3),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "mul-001",
+                            op: "*",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-2", 2),
+                        },
+                    ]),
+                ]),
+                intLit("lit-idx", 0),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(2);
+    });
+
+    it("mapped array preserves length", async () => {
+        // array_length(array_map([1, 2, 3], (x) => x * 2)) → 3
+        const ast = intProgram([
+            callExpr("call-len", "array_length", [
+                callExpr("call-map", "array_map", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 1),
+                        intLit("lit-002", 2),
+                        intLit("lit-003", 3),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "mul-001",
+                            op: "*",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-2", 2),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(3);
+    });
+
+    it("mapping empty array returns empty array", async () => {
+        // array_length(array_map([], (x) => x * 2)) → 0
+        const ast = intProgram([
+            callExpr("call-len", "array_length", [
+                callExpr("call-map", "array_map", [
+                    arrayExpr("arr-001", []),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "mul-001",
+                            op: "*",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-2", 2),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(0);
+    });
+
+    it("map with closure capturing outer variable", async () => {
+        // let k = 10
+        // array_get(array_map([1, 2, 3], (x) => x + k), 0) → 11
+        const ast = intProgram([
+            {
+                kind: "let",
+                id: "let-k",
+                name: "k",
+                type: { kind: "basic", name: "Int" },
+                value: intLit("lit-k", 10),
+            },
+            callExpr("call-get", "array_get", [
+                callExpr("call-map", "array_map", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 1),
+                        intLit("lit-002", 2),
+                        intLit("lit-003", 3),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "add-001",
+                            op: "+",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: { kind: "ident", id: "id-k", name: "k" },
+                        },
+                    ]),
+                ]),
+                intLit("lit-idx", 0),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(11);
+    });
+});
+
+// =============================================================================
+// array_filter — HOF builtin
+// =============================================================================
+
+describe("array_filter builtin", () => {
+    it("filters elements greater than 2", async () => {
+        // array_length(array_filter([1, 2, 3, 4, 5], (x) => x > 2)) → 3
+        const ast = intProgram([
+            callExpr("call-len", "array_length", [
+                callExpr("call-filter", "array_filter", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 1),
+                        intLit("lit-002", 2),
+                        intLit("lit-003", 3),
+                        intLit("lit-004", 4),
+                        intLit("lit-005", 5),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "gt-001",
+                            op: ">",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-2", 2),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(3);
+    });
+
+    it("filtered elements are correct", async () => {
+        // array_get(array_filter([1, 2, 3, 4, 5], (x) => x > 2), 0) → 3
+        const ast = intProgram([
+            callExpr("call-get", "array_get", [
+                callExpr("call-filter", "array_filter", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 1),
+                        intLit("lit-002", 2),
+                        intLit("lit-003", 3),
+                        intLit("lit-004", 4),
+                        intLit("lit-005", 5),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "gt-001",
+                            op: ">",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-2", 2),
+                        },
+                    ]),
+                ]),
+                intLit("lit-idx", 0),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(3);
+    });
+
+    it("no matches returns empty array", async () => {
+        // array_length(array_filter([1, 2, 3], (x) => x > 10)) → 0
+        const ast = intProgram([
+            callExpr("call-len", "array_length", [
+                callExpr("call-filter", "array_filter", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 1),
+                        intLit("lit-002", 2),
+                        intLit("lit-003", 3),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "gt-001",
+                            op: ">",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-10", 10),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(0);
+    });
+
+    it("filtering empty array returns empty", async () => {
+        // array_length(array_filter([], (x) => x > 0)) → 0
+        const ast = intProgram([
+            callExpr("call-len", "array_length", [
+                callExpr("call-filter", "array_filter", [
+                    arrayExpr("arr-001", []),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "gt-001",
+                            op: ">",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-0", 0),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(0);
+    });
+});
+
+// =============================================================================
+// array_reduce — HOF builtin
+// =============================================================================
+
+describe("array_reduce builtin", () => {
+    it("sums array elements", async () => {
+        // array_reduce([1, 2, 3, 4], 0, (acc, x) => acc + x) → 10
+        const ast = intProgram([
+            callExpr("call-reduce", "array_reduce", [
+                arrayExpr("arr-001", [
+                    intLit("lit-001", 1),
+                    intLit("lit-002", 2),
+                    intLit("lit-003", 3),
+                    intLit("lit-004", 4),
+                ]),
+                intLit("lit-init", 0),
+                lambdaExpr("lam-001", [
+                    { name: "acc", type: { kind: "basic", name: "Int" } },
+                    { name: "x", type: { kind: "basic", name: "Int" } },
+                ], [
+                    {
+                        kind: "binop",
+                        id: "add-001",
+                        op: "+",
+                        left: { kind: "ident", id: "id-acc", name: "acc" },
+                        right: { kind: "ident", id: "id-x", name: "x" },
+                    },
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(10);
+    });
+
+    it("reduce with non-zero initial value", async () => {
+        // array_reduce([1, 2, 3], 100, (acc, x) => acc + x) → 106
+        const ast = intProgram([
+            callExpr("call-reduce", "array_reduce", [
+                arrayExpr("arr-001", [
+                    intLit("lit-001", 1),
+                    intLit("lit-002", 2),
+                    intLit("lit-003", 3),
+                ]),
+                intLit("lit-init", 100),
+                lambdaExpr("lam-001", [
+                    { name: "acc", type: { kind: "basic", name: "Int" } },
+                    { name: "x", type: { kind: "basic", name: "Int" } },
+                ], [
+                    {
+                        kind: "binop",
+                        id: "add-001",
+                        op: "+",
+                        left: { kind: "ident", id: "id-acc", name: "acc" },
+                        right: { kind: "ident", id: "id-x", name: "x" },
+                    },
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(106);
+    });
+
+    it("reduce empty array returns initial value", async () => {
+        // array_reduce([], 42, (acc, x) => acc + x) → 42
+        const ast = intProgram([
+            callExpr("call-reduce", "array_reduce", [
+                arrayExpr("arr-001", []),
+                intLit("lit-init", 42),
+                lambdaExpr("lam-001", [
+                    { name: "acc", type: { kind: "basic", name: "Int" } },
+                    { name: "x", type: { kind: "basic", name: "Int" } },
+                ], [
+                    {
+                        kind: "binop",
+                        id: "add-001",
+                        op: "+",
+                        left: { kind: "ident", id: "id-acc", name: "acc" },
+                        right: { kind: "ident", id: "id-x", name: "x" },
+                    },
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(42);
+    });
+
+    it("reduce with product operation", async () => {
+        // array_reduce([2, 3, 4], 1, (acc, x) => acc * x) → 24
+        const ast = intProgram([
+            callExpr("call-reduce", "array_reduce", [
+                arrayExpr("arr-001", [
+                    intLit("lit-001", 2),
+                    intLit("lit-002", 3),
+                    intLit("lit-003", 4),
+                ]),
+                intLit("lit-init", 1),
+                lambdaExpr("lam-001", [
+                    { name: "acc", type: { kind: "basic", name: "Int" } },
+                    { name: "x", type: { kind: "basic", name: "Int" } },
+                ], [
+                    {
+                        kind: "binop",
+                        id: "mul-001",
+                        op: "*",
+                        left: { kind: "ident", id: "id-acc", name: "acc" },
+                        right: { kind: "ident", id: "id-x", name: "x" },
+                    },
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(24);
+    });
+});
