@@ -521,6 +521,41 @@ export async function runDirect(
                 }
                 return writeArrayResult(elems);
             },
+            // =================================================================
+            // Option builtins — [tag: i32][value: i32] at 8-byte slots
+            // =================================================================
+            isSome: (ptr: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                return view.getInt32(ptr, true) === 1 ? 1 : 0;
+            },
+            isNone: (ptr: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                return view.getInt32(ptr, true) === 0 ? 1 : 0;
+            },
+            unwrap: (ptr: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const tag = view.getInt32(ptr, true);
+                if (tag === 1) return view.getInt32(ptr + 8, true);
+                throw new Error("unwrap called on None");
+            },
+            unwrapOr: (ptr: number, defaultVal: number): number => {
+                const memoryBuffer = (
+                    instance.exports.memory as WebAssembly.Memory
+                ).buffer;
+                const view = new DataView(memoryBuffer);
+                const tag = view.getInt32(ptr, true);
+                if (tag === 1) return view.getInt32(ptr + 8, true);
+                return defaultVal;
+            },
         },
     };
 

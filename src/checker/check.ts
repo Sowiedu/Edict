@@ -44,6 +44,22 @@ export function typeCheck(module: EdictModule): StructuredError[] {
         rootEnv.bind(name, builtin.type);
     }
 
+    // Register built-in Option enum type definition
+    // so enum_constructor with enumName:"Option" and match patterns work through typeCheck.
+    rootEnv.registerTypeDef("Option", {
+        kind: "enum",
+        id: "__builtin_option",
+        name: "Option",
+        variants: [
+            { kind: "variant", id: "__builtin_option_none", name: "None", fields: [] },
+            {
+                kind: "variant", id: "__builtin_option_some", name: "Some", fields: [
+                    { kind: "field", id: "__builtin_option_some_value", name: "value", type: INT_TYPE },
+                ]
+            },
+        ],
+    });
+
     // Register type definitions (records, enums, type aliases)
     for (const def of module.definitions) {
         registerTypeDef(def, rootEnv);

@@ -5,7 +5,7 @@
 // register them automatically. The codegen imports them from the host.
 
 import type { FunctionType } from "../ast/types.js";
-import { INT_TYPE, FLOAT_TYPE, STRING_TYPE, BOOL_TYPE, ARRAY_INT_TYPE } from "../ast/type-constants.js";
+import { INT_TYPE, FLOAT_TYPE, STRING_TYPE, BOOL_TYPE, ARRAY_INT_TYPE, OPTION_INT_TYPE } from "../ast/type-constants.js";
 
 export interface BuiltinFunction {
     /** Edict-level function type signature (includes effects, params, returnType) */
@@ -346,6 +346,37 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
                 returnType: INT_TYPE,
             },
             wasmImport: ["__wasm", "array_reduce"],
+        },
+    ],
+    // =========================================================================
+    // Option builtins — operate on heap-allocated [tag: i32][value: i32]
+    // =========================================================================
+    [
+        "isSome",
+        {
+            type: { kind: "fn_type", params: [OPTION_INT_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
+            wasmImport: ["host", "isSome"],
+        },
+    ],
+    [
+        "isNone",
+        {
+            type: { kind: "fn_type", params: [OPTION_INT_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
+            wasmImport: ["host", "isNone"],
+        },
+    ],
+    [
+        "unwrap",
+        {
+            type: { kind: "fn_type", params: [OPTION_INT_TYPE], effects: ["fails"], returnType: INT_TYPE },
+            wasmImport: ["host", "unwrap"],
+        },
+    ],
+    [
+        "unwrapOr",
+        {
+            type: { kind: "fn_type", params: [OPTION_INT_TYPE, INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
+            wasmImport: ["host", "unwrapOr"],
         },
     ],
 ]);

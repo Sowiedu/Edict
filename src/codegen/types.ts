@@ -26,6 +26,9 @@ export function edictTypeToWasm(type: TypeExpr): binaryen.Type {
                 return binaryen.i32;
         }
     }
+    if (type.kind === "option") {
+        return binaryen.i32; // heap pointer to tagged union
+    }
     if (type.kind === "unit_type") {
         return binaryen.none;
     }

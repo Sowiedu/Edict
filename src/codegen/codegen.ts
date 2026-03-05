@@ -193,6 +193,17 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
             }
         }
 
+        // Register built-in Option enum layout: None (tag 0), Some(value) (tag 1)
+        // Guard lets user-defined Option enums override the built-in.
+        if (!enumLayouts.has("Option")) {
+            enumLayouts.set("Option", {
+                variants: [
+                    { name: "None", tag: 0, fields: [], totalSize: 8 },
+                    { name: "Some", tag: 1, fields: [{ name: "value", offset: 8, wasmType: binaryen.i32 }], totalSize: 16 },
+                ],
+            });
+        }
+
         // Initialize bump allocator heap pointer
         // Ensure heap starts at an 8-byte aligned offset after the string table, min 8
         const heapStart = Math.max(8, Math.ceil(strings.totalBytes / 8) * 8);

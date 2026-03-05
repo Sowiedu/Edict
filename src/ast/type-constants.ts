@@ -12,3 +12,4 @@ export const STRING_TYPE: TypeExpr = { kind: "basic", name: "String" };
 export const BOOL_TYPE: TypeExpr = { kind: "basic", name: "Bool" };
 export const UNKNOWN_TYPE: TypeExpr = { kind: "named", name: "unknown" };
 export const ARRAY_INT_TYPE: TypeExpr = { kind: "array", element: INT_TYPE };
+export const OPTION_INT_TYPE: TypeExpr = { kind: "option", inner: INT_TYPE };
