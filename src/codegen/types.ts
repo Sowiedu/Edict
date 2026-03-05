@@ -53,6 +53,11 @@ export interface CompilationContext {
     readonly strings: StringTable;
     readonly fnSigs: Map<string, FunctionSig>;
     readonly errors: StructuredError[];
+    readonly constGlobals: Map<string, binaryen.Type>;
+    readonly recordLayouts: Map<string, RecordLayout>;
+    readonly enumLayouts: Map<string, EnumLayout>;
+    readonly fnTableIndices: Map<string, number>;
+    readonly tableFunctions: string[];
     lambdaCounter: number;
 }
 
@@ -123,33 +128,23 @@ export interface RecordLayout {
 }
 
 // =============================================================================
-// Function context (per-function compiler state)
+// Function context (per-function local variable scope)
 // =============================================================================
 
+/**
+ * Manages per-function local variables and their WASM indices.
+ * Compile-wide state (layouts, globals, table indices) lives in
+ * `CompilationContext` — not here.
+ */
 export class FunctionContext {
     private nextIndex: number;
     private locals = new Map<string, LocalEntry>();
     readonly varTypes: binaryen.Type[] = [];
-    readonly constGlobals: Map<string, binaryen.Type>;
-    readonly recordLayouts: Map<string, RecordLayout>;
-    readonly enumLayouts: Map<string, EnumLayout>;
-    readonly fnTableIndices: Map<string, number>;
-    readonly tableFunctions: string[];
 
     constructor(
         params: { name: string; wasmType: binaryen.Type; edictTypeName?: string }[],
-        constGlobals: Map<string, binaryen.Type> = new Map(),
-        recordLayouts: Map<string, RecordLayout> = new Map(),
-        enumLayouts: Map<string, EnumLayout> = new Map(),
-        fnTableIndices: Map<string, number> = new Map(),
-        tableFunctions: string[] = [],
     ) {
         this.nextIndex = 0;
-        this.constGlobals = constGlobals;
-        this.recordLayouts = recordLayouts;
-        this.enumLayouts = enumLayouts;
-        this.fnTableIndices = fnTableIndices;
-        this.tableFunctions = tableFunctions;
         for (const p of params) {
             this.locals.set(p.name, { index: this.nextIndex, type: p.wasmType, edictTypeName: p.edictTypeName });
             this.nextIndex++;

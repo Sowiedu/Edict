@@ -51,8 +51,8 @@ export type { FieldLayout, EnumVariantLayout, EnumLayout, RecordLayout };
  */
 function inferExprWasmType(
     expr: Expression,
+    cc: CompilationContext,
     ctx: FunctionContext,
-    fnSigs: Map<string, FunctionSig>,
 ): binaryen.Type {
     switch (expr.kind) {
         case "literal": {
@@ -65,7 +65,7 @@ function inferExprWasmType(
         case "ident": {
             const local = ctx.getLocal(expr.name);
             if (local) return local.type;
-            const globalType = ctx.constGlobals.get(expr.name);
+            const globalType = cc.constGlobals.get(expr.name);
             if (globalType) return globalType;
             return binaryen.i32;
         }
@@ -74,14 +74,14 @@ function inferExprWasmType(
             const cmpOps = ["==", "!=", "<", ">", "<=", ">=", "and", "or", "implies"];
             if (cmpOps.includes(expr.op)) return binaryen.i32;
             // Arithmetic: infer from left operand
-            return inferExprWasmType(expr.left, ctx, fnSigs);
+            return inferExprWasmType(expr.left, cc, ctx);
         }
         case "unop":
             if (expr.op === "not") return binaryen.i32;
-            return inferExprWasmType(expr.operand, ctx, fnSigs);
+            return inferExprWasmType(expr.operand, cc, ctx);
         case "call": {
             if (expr.fn.kind === "ident") {
-                const sig = fnSigs.get(expr.fn.name);
+                const sig = cc.fnSigs.get(expr.fn.name);
                 if (sig) return sig.returnType;
             }
             return binaryen.i32;
@@ -89,21 +89,21 @@ function inferExprWasmType(
         case "if":
             // Type of if is the type of the then branch's last expression
             if (expr.then.length > 0) {
-                return inferExprWasmType(expr.then[expr.then.length - 1]!, ctx, fnSigs);
+                return inferExprWasmType(expr.then[expr.then.length - 1]!, cc, ctx);
             }
             return binaryen.i32;
         case "let":
             return binaryen.none; // let is a statement (local.set), returns void
         case "block":
             if (expr.body.length > 0) {
-                return inferExprWasmType(expr.body[expr.body.length - 1]!, ctx, fnSigs);
+                return inferExprWasmType(expr.body[expr.body.length - 1]!, cc, ctx);
             }
             return binaryen.none;
         case "match":
             // Type of match is the type of the first arm's body
             if (expr.arms.length > 0 && expr.arms[0]!.body.length > 0) {
                 const firstBody = expr.arms[0]!.body;
-                return inferExprWasmType(firstBody[firstBody.length - 1]!, ctx, fnSigs);
+                return inferExprWasmType(firstBody[firstBody.length - 1]!, cc, ctx);
             }
             return binaryen.i32;
         case "array":
@@ -124,7 +124,7 @@ function inferExprWasmType(
                 recordTypeName = expr.target.name;
             }
             if (recordTypeName) {
-                const layout = ctx.recordLayouts.get(recordTypeName);
+                const layout = cc.recordLayouts.get(recordTypeName);
                 if (layout) {
                     const fieldLayout = layout.fields.find((f) => f.name === expr.field);
                     if (fieldLayout) return fieldLayout.wasmType;
@@ -316,7 +316,11 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         const constGlobals = new Map<string, binaryen.Type>();
 
         // Create the compilation context — bundles compile-wide state
-        const cc: CompilationContext = { mod, strings, fnSigs, errors, lambdaCounter: 0 };
+        const cc: CompilationContext = {
+            mod, strings, fnSigs, errors,
+            constGlobals, recordLayouts, enumLayouts, fnTableIndices, tableFunctions,
+            lambdaCounter: 0,
+        };
 
         for (const def of module.definitions) {
             if (def.kind === "const") {
@@ -334,7 +338,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         // Compile each function
         for (const def of module.definitions) {
             if (def.kind === "fn") {
-                compileFunction(def, cc, constGlobals, recordLayouts, enumLayouts, fnTableIndices, tableFunctions);
+                compileFunction(def, cc);
             }
         }
 
@@ -427,11 +431,6 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
 function compileFunction(
     fn: FunctionDef,
     cc: CompilationContext,
-    constGlobals: Map<string, binaryen.Type>,
-    recordLayouts: Map<string, RecordLayout>,
-    enumLayouts: Map<string, EnumLayout>,
-    fnTableIndices: Map<string, number> = new Map(),
-    tableFunctions: string[] = [],
 ): void {
     const { mod } = cc;
     const params = fn.params.map((p) => ({
@@ -449,14 +448,7 @@ function compileFunction(
         ...params.map((p) => ({ name: p.name, wasmType: p.wasmType, edictTypeName: p.edictTypeName })),
     ];
 
-    const ctx = new FunctionContext(
-        allParams,
-        constGlobals,
-        recordLayouts,
-        enumLayouts,
-        fnTableIndices,
-        tableFunctions,
-    );
+    const ctx = new FunctionContext(allParams);
 
     const returnType = edictTypeToWasm(fn.returnType);
     const paramTypes = allParams.map((p) => p.wasmType);
@@ -591,13 +583,13 @@ function compileIdent(
         return mod.local.get(local.index, local.type);
     }
     // Check module-level const globals
-    const globalType = ctx.constGlobals.get(expr.name);
+    const globalType = cc.constGlobals.get(expr.name);
     if (globalType !== undefined) {
         return mod.global.get(expr.name, globalType);
     }
     // Check function table — return a closure pair (table_index, env_ptr=0)
     // This enables `let f = myFunc` to store a function reference as a closure
-    const tableIndex = ctx.fnTableIndices.get(expr.name);
+    const tableIndex = cc.fnTableIndices.get(expr.name);
     if (tableIndex !== undefined) {
         return allocClosurePair(
             mod, ctx,
@@ -620,7 +612,7 @@ function compileBinop(
 
     // Determine the WASM type from the left operand.
     // Type checker guarantees matching types for both operands.
-    const opType = inferExprWasmType(expr.left, ctx, fnSigs);
+    const opType = inferExprWasmType(expr.left, cc, ctx);
     const isFloat = opType === binaryen.f64;
 
     switch (expr.op) {
@@ -670,7 +662,7 @@ function compileUnop(
 ): binaryen.ExpressionRef {
     const { mod, fnSigs, errors } = cc;
     const operand = compileExpr(expr.operand, cc, ctx);
-    const opType = inferExprWasmType(expr.operand, ctx, fnSigs);
+    const opType = inferExprWasmType(expr.operand, cc, ctx);
     const isFloat = opType === binaryen.f64;
 
     switch (expr.op) {
@@ -746,7 +738,7 @@ function compileCall(
         // Generic direct function call
         // User-defined functions have __env as first WASM param; builtins and imports do not.
         // fnTableIndices contains exactly the user-defined functions.
-        const isUserFn = ctx.fnTableIndices.has(fnName);
+        const isUserFn = cc.fnTableIndices.has(fnName);
         const args = expr.args.map((a, i) => {
             const compiled = compileExpr(a, cc, ctx);
             // Coerce i32→f64 if function expects f64 but arg infers to i32
@@ -755,7 +747,7 @@ function compileCall(
             // For builtins, paramTypes maps directly (no __env)
             const paramIdx = isUserFn ? i + 1 : i;
             if (sig?.paramTypes && sig.paramTypes[paramIdx] === binaryen.f64) {
-                const argType = inferExprWasmType(a, ctx, fnSigs);
+                const argType = inferExprWasmType(a, cc, ctx);
                 if (argType === binaryen.i32) {
                     return mod.f64.convert_s.i32(compiled);
                 }
@@ -785,10 +777,10 @@ function compileCall(
     // Determine the WASM type signature for call_indirect:
     // - params: __env (i32) + inferred from compiled argument types
     // - result: infer from the overall call expression type
-    const argWasmTypes = expr.args.map(a => inferExprWasmType(a, ctx, fnSigs));
+    const argWasmTypes = expr.args.map(a => inferExprWasmType(a, cc, ctx));
     const allParamTypes = [binaryen.i32, ...argWasmTypes]; // __env + user args
     const paramType = binaryen.createType(allParamTypes);
-    const resultType = inferExprWasmType(expr as Expression, ctx, fnSigs);
+    const resultType = inferExprWasmType(expr as Expression, cc, ctx);
 
     // Load table_index and env_ptr from the closure pair
     const tableIdx = mod.i32.load(0, 0, mod.local.get(closurePtrLocal, binaryen.i32));
@@ -812,7 +804,7 @@ function compileIf(
 
     // Infer the result type from the then-branch's last expression
     const resultType = expr.then.length > 0
-        ? inferExprWasmType(expr.then[expr.then.length - 1]!, ctx, fnSigs)
+        ? inferExprWasmType(expr.then[expr.then.length - 1]!, cc, ctx)
         : binaryen.i32;
 
     const thenExprs = expr.then.map((e) =>
@@ -845,7 +837,7 @@ function compileLet(
     const { mod, strings, fnSigs } = cc;
     const wasmType = expr.type
         ? edictTypeToWasm(expr.type)
-        : inferExprWasmType(expr.value, ctx, fnSigs);
+        : inferExprWasmType(expr.value, cc, ctx);
 
     let edictTypeName: string | undefined;
     if (expr.type && expr.type.kind === "named") {
@@ -890,7 +882,7 @@ function compileBlock(
     );
     if (bodyExprs.length === 0) return mod.nop();
     if (bodyExprs.length === 1) return bodyExprs[0]!;
-    const blockType = inferExprWasmType(expr.body[expr.body.length - 1]!, ctx, fnSigs);
+    const blockType = inferExprWasmType(expr.body[expr.body.length - 1]!, cc, ctx);
     return mod.block(null, bodyExprs, blockType);
 }
 
@@ -917,8 +909,8 @@ function compileMatch(
     }
 
     // Infer the target and result types
-    const targetType = inferExprWasmType(expr.target, ctx, fnSigs);
-    const matchResultType = inferExprWasmType(expr as Expression, ctx, fnSigs);
+    const targetType = inferExprWasmType(expr.target, cc, ctx);
+    const matchResultType = inferExprWasmType(expr as Expression, cc, ctx);
 
     // Evaluate target once and store in a temporary local
     const targetExpr = compileExpr(expr.target, cc, ctx);
@@ -934,7 +926,7 @@ function compileMatch(
         if (compiled.length === 0) return mod.nop();
         if (compiled.length === 1) return compiled[0]!;
         const bodyType = body.length > 0
-            ? inferExprWasmType(body[body.length - 1]!, ctx, fnSigs)
+            ? inferExprWasmType(body[body.length - 1]!, cc, ctx)
             : binaryen.i32;
         return mod.block(null, compiled, bodyType);
     }
@@ -971,7 +963,7 @@ function compileMatch(
                 let tagValue = -1;
 
                 if (targetEdictTypeName) {
-                    const enumLayout = ctx.enumLayouts.get(targetEdictTypeName);
+                    const enumLayout = cc.enumLayouts.get(targetEdictTypeName);
                     if (enumLayout) {
                         const variantLayout = enumLayout.variants.find(v => v.name === pattern.name);
                         if (variantLayout) {
@@ -1011,7 +1003,7 @@ function compileMatch(
             bindingLocals.set(i, bindIndex);
         } else if (pattern.kind === "constructor") {
             if (targetEdictTypeName) {
-                const enumLayout = ctx.enumLayouts.get(targetEdictTypeName);
+                const enumLayout = cc.enumLayouts.get(targetEdictTypeName);
                 if (enumLayout) {
                     const variantLayout = enumLayout.variants.find(v => v.name === pattern.name);
                     if (variantLayout) {
@@ -1089,7 +1081,7 @@ function compileRecordExpr(
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
     const { mod, errors } = cc;
-    const layout = ctx.recordLayouts.get(expr.name);
+    const layout = cc.recordLayouts.get(expr.name);
     if (!layout) {
         errors.push(wasmValidationError(`unknown record type: ${expr.name}`));
         return mod.unreachable();
@@ -1169,7 +1161,7 @@ function compileTupleExpr(
     for (let i = 0; i < expr.elements.length; i++) {
         const elExpr = expr.elements[i]!;
         const valWasm = compileExpr(elExpr, cc, ctx);
-        const valType = inferExprWasmType(elExpr, ctx, fnSigs);
+        const valType = inferExprWasmType(elExpr, cc, ctx);
         const offset = i * 8;
 
         const ptrExpr = mod.local.get(ptrIndex, binaryen.i32);
@@ -1190,7 +1182,7 @@ function compileEnumConstructor(
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
     const { mod, errors } = cc;
-    const enumLayout = ctx.enumLayouts.get(expr.enumName);
+    const enumLayout = cc.enumLayouts.get(expr.enumName);
     if (!enumLayout) {
         errors.push(wasmValidationError(`Enum layout not found for ${expr.enumName}`));
         return mod.unreachable();
@@ -1260,7 +1252,7 @@ function compileAccess(
         return mod.unreachable();
     }
 
-    const layout = ctx.recordLayouts.get(recordTypeName);
+    const layout = cc.recordLayouts.get(recordTypeName);
     if (!layout) {
         errors.push(wasmValidationError(`unknown record type: ${recordTypeName}`));
         return mod.unreachable();
@@ -1356,7 +1348,7 @@ function compileLambdaExpr(
     // Detect free variables (captures from enclosing scope)
     const paramNames = new Set(expr.params.map(p => p.name));
     const freeVars = collectFreeVariables(
-        expr.body, paramNames, ctx.constGlobals, fnSigs,
+        expr.body, paramNames, cc.constGlobals, fnSigs,
     );
 
     // Resolve WASM types for free variables from the enclosing context
@@ -1375,14 +1367,7 @@ function compileLambdaExpr(
         ...params.map(p => ({ name: p.name, wasmType: p.wasmType })),
     ];
 
-    const lambdaCtx = new FunctionContext(
-        allLambdaParams,
-        ctx.constGlobals,
-        ctx.recordLayouts,
-        ctx.enumLayouts,
-        ctx.fnTableIndices,
-        ctx.tableFunctions,
-    );
+    const lambdaCtx = new FunctionContext(allLambdaParams);
 
     // For captured variables, add locals that load from __env at known offsets.
     // We put the loads at the top of the function body.
@@ -1414,7 +1399,7 @@ function compileLambdaExpr(
     // Infer return type from last body expression
     let returnType = binaryen.i32;
     if (expr.body.length > 0) {
-        returnType = inferExprWasmType(expr.body[expr.body.length - 1]!, lambdaCtx, fnSigs);
+        returnType = inferExprWasmType(expr.body[expr.body.length - 1]!, cc, lambdaCtx);
     }
 
     // Compile body
@@ -1443,9 +1428,9 @@ function compileLambdaExpr(
 
     // Register lambda in the function table for indirect calls
     // The table is built after all functions are compiled
-    const tableIndex = ctx.tableFunctions.length;
-    ctx.fnTableIndices.set(lambdaName, tableIndex);
-    ctx.tableFunctions.push(lambdaName);
+    const tableIndex = cc.tableFunctions.length;
+    cc.fnTableIndices.set(lambdaName, tableIndex);
+    cc.tableFunctions.push(lambdaName);
 
     // Allocate environment record on the heap (if there are captures)
     let envPtrExpr: binaryen.ExpressionRef;
@@ -1472,7 +1457,7 @@ function compileLambdaExpr(
             const capturedValue = (() => {
                 const local = ctx.getLocal(capture.name);
                 if (local) return mod.local.get(local.index, local.type);
-                const globalType = ctx.constGlobals.get(capture.name);
+                const globalType = cc.constGlobals.get(capture.name);
                 if (globalType !== undefined) return mod.global.get(capture.name, globalType);
                 return mod.unreachable();
             })();
