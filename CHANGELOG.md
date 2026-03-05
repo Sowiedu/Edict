@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.0](https://github.com/Sowiedu/Edict/compare/v1.3.0...v1.4.0) (2026-03-05)
+
+
+### Features
+
+* add edict_lint MCP tool — 6 non-blocking quality warnings (closes [#42](https://github.com/Sowiedu/Edict/issues/42)) ([641d0cd](https://github.com/Sowiedu/Edict/commit/641d0cdfb682232e63fcc7e859ca0867d3a84246))
+* add HOF array builtins, closures/HOF/string examples, update test counts ([1b2f6b6](https://github.com/Sowiedu/Edict/commit/1b2f6b6a51f03f837a237f3e0eb82e1b1ec8af7b))
+* implement Option runtime support ([#26](https://github.com/Sowiedu/Edict/issues/26)) ([620b189](https://github.com/Sowiedu/Edict/commit/620b189ea694c486316946f2d90bb16503b11db3))
+
 ## [1.3.0](https://github.com/Sowiedu/Edict/compare/v1.2.0...v1.3.0) (2026-03-04)
 
 
