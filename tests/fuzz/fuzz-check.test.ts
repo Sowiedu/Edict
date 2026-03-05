@@ -5,88 +5,52 @@ import { resolve } from "../../src/resolver/resolve.js";
 import { typeCheck } from "../../src/checker/check.js";
 import { effectCheck } from "../../src/effects/effect-check.js";
 import type { EdictModule } from "../../src/ast/nodes.js";
+import {
+    arbModule,
+    arbFunctionDef,
+    arbExpression,
+    resetIdCounter,
+} from "./arbitraries.js";
 
 // =============================================================================
 // Fuzz tests for semantic stages — structurally valid but semantically wrong
 // =============================================================================
-// Strategy: take a valid AST, apply random mutations to names/types/effects,
-// then run through resolve → typeCheck → effectCheck (skipping Z3).
+// Strategy: take valid-looking ASTs (from arbitraries), then run through
+// resolve → typeCheck → effectCheck (skipping Z3).
 // Property: never throws, always returns StructuredError[].
 
-/** Base valid AST (contract-free to avoid Z3). */
-function makeBase(overrides: Partial<{
-    fnName: string;
-    paramName: string;
-    paramType: string;
-    returnType: string;
-    effects: string[];
-    bodyValue: number | string | boolean;
-    op: string;
-}> = {}): unknown {
-    const {
-        fnName = "main",
-        paramName = "x",
-        paramType = "Int",
-        returnType = "Int",
-        effects = ["pure"],
-        bodyValue = 42,
-    } = overrides;
-
-    return {
-        kind: "module",
-        id: "fuzz-mod-001",
-        name: "test",
-        imports: [],
-        definitions: [
-            {
-                kind: "fn",
-                id: "fuzz-fn-001",
-                name: fnName,
-                params: [
-                    {
-                        kind: "param",
-                        id: "fuzz-param-001",
-                        name: paramName,
-                        type: { kind: "basic", name: paramType },
-                    },
-                ],
-                effects,
-                returnType: { kind: "basic", name: returnType },
-                contracts: [],
-                body: [{ kind: "literal", id: "fuzz-lit-001", value: bodyValue }],
-            },
-        ],
-    };
-}
-
-/** Run through the semantic pipeline stages (no Z3). */
+/** Run through the semantic pipeline stages (no Z3). Returns without crashing. */
 function runSemanticPipeline(ast: unknown): {
-    validateOk: boolean;
-    resolveErrors: number;
-    typeErrors: number;
-    effectErrors: number;
+    phase: "validate" | "resolve" | "typeCheck" | "effectCheck" | "clean";
+    errorCount: number;
 } {
     const vResult = validate(ast);
     if (!vResult.ok) {
-        return { validateOk: false, resolveErrors: 0, typeErrors: 0, effectErrors: 0 };
+        return { phase: "validate", errorCount: vResult.errors.length };
     }
 
     const module = ast as EdictModule;
     const rErrors = resolve(module);
     if (rErrors.length > 0) {
-        return { validateOk: true, resolveErrors: rErrors.length, typeErrors: 0, effectErrors: 0 };
+        return { phase: "resolve", errorCount: rErrors.length };
     }
 
     const tErrors = typeCheck(module);
     if (tErrors.length > 0) {
-        return { validateOk: true, resolveErrors: 0, typeErrors: tErrors.length, effectErrors: 0 };
+        return { phase: "typeCheck", errorCount: tErrors.length };
     }
 
     const eErrors = effectCheck(module);
-    return { validateOk: true, resolveErrors: 0, typeErrors: 0, effectErrors: eErrors.length };
+    if (eErrors.length > 0) {
+        return { phase: "effectCheck", errorCount: eErrors.length };
+    }
+
+    return { phase: "clean", errorCount: 0 };
 }
 
 describe("fuzz — semantic pipeline", () => {
+    beforeEach(() => resetIdCounter());
+
     // =========================================================================
     // Property 1: Random identifier names in function body
     // =========================================================================
@@ -114,10 +78,8 @@ describe("fuzz — semantic pipeline", () => {
                     ],
                 };
 
-                // Should validate, then either resolve successfully or produce errors
                 const result = runSemanticPipeline(ast);
-                expect(result.validateOk).toBe(true);
-                // Either error or success — never crash
+                expect(result.phase).toBe("resolve"); // random names → undefined_reference
             }),
             { numRuns: 500 },
         );
@@ -134,9 +96,33 @@ describe("fuzz — semantic pipeline", () => {
                 fc.constantFrom(...typeNames),
                 fc.constantFrom(...typeNames),
                 (paramType, retType) => {
-                    const ast = makeBase({ paramType, returnType: retType });
+                    const ast = {
+                        kind: "module",
+                        id: "fuzz-mod-001",
+                        name: "test",
+                        imports: [],
+                        definitions: [
+                            {
+                                kind: "fn",
+                                id: "fuzz-fn-001",
+                                name: "main",
+                                params: [
+                                    {
+                                        kind: "param",
+                                        id: "fuzz-param-001",
+                                        name: "x",
+                                        type: { kind: "basic", name: paramType },
+                                    },
+                                ],
+                                effects: ["pure"],
+                                returnType: { kind: "basic", name: retType },
+                                contracts: [],
+                                body: [{ kind: "literal", id: "fuzz-lit-001", value: 42 }],
+                            },
+                        ],
+                    };
+
                     const result = runSemanticPipeline(ast);
-                    // Validation may fail for invalid types, that's expected
                     expect(result).toBeDefined();
                 },
             ),
@@ -145,7 +131,7 @@ describe("fuzz — semantic pipeline", () => {
     });
 
     // =========================================================================
-    // Property 3: Random effect mutations
+    // Property 3: Random effect combinations
     // =========================================================================
     it("never throws on random effect combinations", () => {
         const allEffects = ["pure", "reads", "writes", "io", "fails"];
@@ -154,7 +140,6 @@ describe("fuzz — semantic pipeline", () => {
             fc.property(
                 fc.subarray(allEffects, { minLength: 1, maxLength: 5 }),
                 (effects) => {
-                    // Create two functions: a pure one calling an effectful one
                     const ast = {
                         kind: "module",
                         id: "fuzz-mod-001",
@@ -191,9 +176,8 @@ describe("fuzz — semantic pipeline", () => {
                         ],
                     };
 
-                    // Some combinations (e.g., ["pure", "io"]) are correctly
-                    // rejected by the validator as conflicting. The property is:
-                    // no crashes, regardless of validation outcome.
+                    // Some combinations are rejected by validator (pure+io).
+                    // The property: never crashes.
                     const result = runSemanticPipeline(ast);
                     expect(result).toBeDefined();
                 },
@@ -235,11 +219,62 @@ describe("fuzz — semantic pipeline", () => {
                     ],
                 };
 
-                // Invalid operators should fail validation, never crash
                 const result = validate(ast);
                 expect(result).toBeDefined();
                 expect(typeof result.ok).toBe("boolean");
             }),
+            { numRuns: 500 },
+        );
+    });
+
+    // =========================================================================
+    // Property 5: Randomly generated modules through full semantic pipeline
+    // =========================================================================
+    it("never throws on randomly generated AST modules through pipeline", () => {
+        fc.assert(
+            fc.property(
+                arbModule({ maxFunctions: 3, maxBodyDepth: 2 }),
+                (module) => {
+                    const result = runSemanticPipeline(module);
+                    expect(result).toBeDefined();
+                    // Most random modules will have semantic errors — that's fine.
+                    // The property: no crashes.
+                },
+            ),
+            { numRuns: 500 },
+        );
+    });
+
+    // =========================================================================
+    // Property 6: Random expression trees through semantic pipeline
+    // =========================================================================
+    it("never throws on random expression trees through semantic pipeline", () => {
+        fc.assert(
+            fc.property(
+                arbExpression(3),
+                (expr) => {
+                    const ast = {
+                        kind: "module",
+                        id: "fuzz-sem-mod",
+                        name: "test",
+                        imports: [],
+                        definitions: [
+                            {
+                                kind: "fn",
+                                id: "fuzz-sem-fn",
+                                name: "main",
+                                params: [],
+                                effects: ["io"],
+                                returnType: { kind: "basic", name: "Int" },
+                                contracts: [],
+                                body: [expr],
+                            },
+                        ],
+                    };
+                    const result = runSemanticPipeline(ast);
+                    expect(result).toBeDefined();
+                },
+            ),
             { numRuns: 500 },
         );
     });
