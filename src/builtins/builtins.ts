@@ -616,6 +616,37 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
             wasmImport: ["host", "hmac"],
         },
     ],
+    // =========================================================================
+    // HTTP client builtins — network IO, returns Result<String, String>
+    // =========================================================================
+    [
+        "httpGet",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
+            wasmImport: ["host", "httpGet"],
+        },
+    ],
+    [
+        "httpPost",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
+            wasmImport: ["host", "httpPost"],
+        },
+    ],
+    [
+        "httpPut",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
+            wasmImport: ["host", "httpPut"],
+        },
+    ],
+    [
+        "httpDelete",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
+            wasmImport: ["host", "httpDelete"],
+        },
+    ],
 ]);
 
 /**

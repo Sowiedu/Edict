@@ -600,6 +600,96 @@ function createCryptoImports(state: RuntimeState): Record<string, Function> {
 }
 
 // =============================================================================
+// HTTP client builtins — httpGet, httpPost, httpPut, httpDelete
+// Sync-over-async: execFileSync spawns a child Node process that runs fetch.
+// Data passed via env vars to avoid injection/escaping issues.
+// =============================================================================
+
+import { execFileSync } from "node:child_process";
+
+/** Max response body size (1 MB) — prevents WASM memory overflow. */
+const HTTP_MAX_RESPONSE_BYTES = 1_048_576;
+
+/**
+ * Perform a synchronous HTTP request by spawning a child Node process.
+ * Returns `{ok, data}` — ok=true for 2xx responses, ok=false for errors.
+ */
+function syncFetch(url: string, method: string, body?: string): { ok: boolean; data: string } {
+    const script = `
+        (async () => {
+            try {
+                const url = process.env.__EDICT_URL;
+                const method = process.env.__EDICT_METHOD;
+                const body = process.env.__EDICT_BODY;
+                const opts = { method };
+                if (body !== undefined && body !== "") {
+                    opts.headers = {"Content-Type": "application/json"};
+                    opts.body = body;
+                }
+                const res = await fetch(url, opts);
+                let text = await res.text();
+                if (text.length > ${HTTP_MAX_RESPONSE_BYTES}) text = text.slice(0, ${HTTP_MAX_RESPONSE_BYTES});
+                if (!res.ok) {
+                    process.stdout.write(JSON.stringify({ok: false, data: res.status + " " + text}));
+                } else {
+                    process.stdout.write(JSON.stringify({ok: true, data: text}));
+                }
+            } catch (e) {
+                process.stdout.write(JSON.stringify({ok: false, data: e.message || String(e)}));
+            }
+        })();
+    `;
+
+    const env: Record<string, string> = {
+        ...process.env as Record<string, string>,
+        __EDICT_URL: url,
+        __EDICT_METHOD: method,
+    };
+    if (body !== undefined) {
+        env.__EDICT_BODY = body;
+    }
+
+    try {
+        const stdout = execFileSync(process.execPath, ["-e", script], {
+            timeout: 10_000,
+            env,
+            maxBuffer: HTTP_MAX_RESPONSE_BYTES + 1024, // room for JSON framing
+        });
+        return JSON.parse(stdout.toString("utf-8"));
+    } catch {
+        return { ok: false, data: "Request timed out or process error" };
+    }
+}
+
+function createHttpImports(state: RuntimeState): Record<string, Function> {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    function readStr(ptr: number, len: number): string {
+        return decoder.decode(new Uint8Array(getMemoryBuffer(state), ptr, len));
+    }
+
+    function makeResult(fetchResult: { ok: boolean; data: string }): number {
+        const strPtr = writeStringResult(state, fetchResult.data, encoder);
+        return writeResultValue(state, fetchResult.ok ? 0 : 1, strPtr);
+    }
+
+    return {
+        httpGet: (urlPtr: number, urlLen: number): number => {
+            return makeResult(syncFetch(readStr(urlPtr, urlLen), "GET"));
+        },
+        httpPost: (urlPtr: number, urlLen: number, bodyPtr: number, bodyLen: number): number => {
+            return makeResult(syncFetch(readStr(urlPtr, urlLen), "POST", readStr(bodyPtr, bodyLen)));
+        },
+        httpPut: (urlPtr: number, urlLen: number, bodyPtr: number, bodyLen: number): number => {
+            return makeResult(syncFetch(readStr(urlPtr, urlLen), "PUT", readStr(bodyPtr, bodyLen)));
+        },
+        httpDelete: (urlPtr: number, urlLen: number): number => {
+            return makeResult(syncFetch(readStr(urlPtr, urlLen), "DELETE"));
+        },
+    };
+}
+// =============================================================================
 // Factory — combines all groups into one import object
 // =============================================================================
 
@@ -628,6 +718,7 @@ export function createHostImports(
             ...createDateTimeImports(state),
             ...createRegexImports(state),
             ...createCryptoImports(state),
+            ...createHttpImports(state),
         },
     };
 }
