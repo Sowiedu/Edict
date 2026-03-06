@@ -429,6 +429,11 @@ function inferLet(
         return expr.type;
     }
 
+    // Backfill inferred type onto the AST node for downstream stages (codegen, contracts)
+    if (!isUnknown(valType)) {
+        (expr as { type?: TypeExpr }).type = valType;
+    }
+
     return valType;
 }
 

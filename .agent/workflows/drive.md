@@ -75,7 +75,17 @@ If the task fails any check, **pick a different task**. Don't bend the rules.
 - Check: *"Would a staff engineer approve this?"*
 - Update `.agent/rules/lessons.md` if you learned something
 
-### 7. Report — Brief the User
+### 7. Close Issue — Verify and Close the GitHub Issue
+
+If you were working on a GitHub issue, **don't skip this step**:
+
+1. **Re-read the issue** — fetch it via `issue_read` to see the full description and acceptance criteria
+2. **Compare against implementation** — for each acceptance criterion or checklist item in the issue, confirm your changes satisfy it
+3. **If fully complete** — close the issue with `state: "closed"` and `state_reason: "completed"`
+4. **If partially complete** — do NOT close. Add a comment to the issue listing what was done and what remains
+5. **If unsure** — err on the side of not closing. Ask the user in the report step
+
+### 8. Report — Brief the User
 
 Use `notify_user` with:
 
@@ -83,6 +93,7 @@ Use `notify_user` with:
 - **What you did** (bullet list of changes)
 - **Test results** (pass/fail count)
 - **Critical rules check** — confirm no violations
+- **Issue status** — closed or still open (and why)
 - **Next logical step** — what you'd do on the next `/drive` invocation
 
 Then stop and wait.
