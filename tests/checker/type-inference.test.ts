@@ -14,7 +14,7 @@ function mod(overrides: Partial<EdictModule> = {}): EdictModule {
 
 describe("return type inference", () => {
     it("infers Int return type from body", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "answer",
                 params: [], effects: ["pure"], contracts: [],
@@ -25,7 +25,7 @@ describe("return type inference", () => {
     });
 
     it("infers String return type from body", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "greet",
                 params: [], effects: ["pure"], contracts: [],
@@ -36,7 +36,7 @@ describe("return type inference", () => {
     });
 
     it("infers Float return type from body", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "pi",
                 params: [], effects: ["pure"], contracts: [],
@@ -47,7 +47,7 @@ describe("return type inference", () => {
     });
 
     it("infers Bool return type from comparison", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "isPositive",
                 params: [{ kind: "param", id: "p-x", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -63,7 +63,7 @@ describe("return type inference", () => {
     });
 
     it("infers return type from arithmetic expression", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "double",
                 params: [{ kind: "param", id: "p-n", name: "n", type: { kind: "basic", name: "Int" } }],
@@ -78,7 +78,7 @@ describe("return type inference", () => {
         expect(errors).toEqual([]);
     });
 
-    it("backfills returnType on the FunctionDef AST node", () => {
+    it("stores inferred returnType in typeInfo side-table (no AST mutation)", () => {
         const module = mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "answer",
@@ -86,13 +86,17 @@ describe("return type inference", () => {
                 body: [{ kind: "literal", id: "l-1", value: 42 }],
             } as FunctionDef],
         });
-        typeCheck(module);
+        const { errors, typeInfo } = typeCheck(module);
+        expect(errors).toEqual([]);
         const fn = module.definitions[0] as FunctionDef;
-        expect(fn.returnType).toEqual({ kind: "basic", name: "Int" });
+        // AST should NOT be mutated
+        expect(fn.returnType).toBeUndefined();
+        // Inferred type should be in the side-table
+        expect(typeInfo.inferredReturnTypes.get("fn-1")).toEqual({ kind: "basic", name: "Int" });
     });
 
     it("explicit returnType still works (backward compat)", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "add",
                 params: [
@@ -111,7 +115,7 @@ describe("return type inference", () => {
     });
 
     it("explicit returnType mismatch still errors", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -124,7 +128,7 @@ describe("return type inference", () => {
     });
 
     it("inferred function can be called by other functions", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "fn", id: "fn-1", name: "double",
@@ -154,7 +158,7 @@ describe("return type inference", () => {
 
 describe("return type inference — postconditions", () => {
     it("inferred return type works with postcondition using result", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "abs",
                 params: [{ kind: "param", id: "p-x", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -217,7 +221,7 @@ describe("return type inference — full pipeline", () => {
         const checkResult = await check(module);
         expect(checkResult).toMatchObject({ ok: true });
 
-        const compileResult = compile(module);
+        const compileResult = compile(module, { typeInfo: checkResult.typeInfo });
         expect(compileResult.ok).toBe(true);
         if (!compileResult.ok) return;
 

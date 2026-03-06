@@ -117,7 +117,7 @@ describe("e2e agent loop: hardcoded LLM response", () => {
         expect(resolveErrors).toEqual([]);
 
         // Stage 2b: Type check — type consistency
-        const typeErrors = typeCheck(module);
+        const { errors: typeErrors } = typeCheck(module);
         expect(typeErrors).toEqual([]);
 
         // Stage 3: Effect check — effect consistency
@@ -186,7 +186,7 @@ describe("e2e agent loop: self-repair", () => {
         expect(resolveErrors).toEqual([]);
 
         // Type check fails — String returned where Int expected
-        const typeErrors = typeCheck(buggyModule);
+        const { errors: typeErrors } = typeCheck(buggyModule);
         expect(typeErrors.length).toBeGreaterThan(0);
 
         // Agent inspects the structured error
@@ -225,7 +225,7 @@ describe("e2e agent loop: self-repair", () => {
         expect(v2.ok).toBe(true);
 
         expect(resolve(fixedModule)).toEqual([]);
-        expect(typeCheck(fixedModule)).toEqual([]);
+        expect(typeCheck(fixedModule).errors).toEqual([]);
         expect(effectCheck(fixedModule)).toEqual([]);
         expect(await contractVerify(fixedModule)).toEqual([]);
 
@@ -268,7 +268,7 @@ describe("e2e agent loop: all examples through explicit pipeline", () => {
             expect(resolveErrors).toEqual([]);
 
             // Stage 2b: Type check
-            const typeErrors = typeCheck(module);
+            const { errors: typeErrors } = typeCheck(module);
             expect(typeErrors).toEqual([]);
 
             // Stage 3: Effect check
@@ -413,7 +413,7 @@ describe("e2e agent loop: real LLM integration", () => {
         }
         expect(resolveErrors).toEqual([]);
 
-        const typeErrors = typeCheck(module);
+        const { errors: typeErrors } = typeCheck(module);
         if (typeErrors.length > 0) {
             console.log("LLM type errors:", JSON.stringify(typeErrors, null, 2));
         }

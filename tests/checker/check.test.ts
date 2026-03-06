@@ -11,7 +11,7 @@ function mod(overrides: Partial<EdictModule> = {}): EdictModule {
 
 describe("type checker — valid programs", () => {
     it("accepts Int arithmetic", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "add",
                 params: [
@@ -30,7 +30,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts Float arithmetic", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-a", name: "a", type: { kind: "basic", name: "Float" } }],
@@ -46,7 +46,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts Bool logic", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [
@@ -65,7 +65,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts comparison → Bool", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-a", name: "a", type: { kind: "basic", name: "Int" } }],
@@ -81,7 +81,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts if with matching then/else", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-x", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -98,7 +98,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts if without else → Option<T>", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-x", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -114,7 +114,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts let with matching type annotation", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -129,7 +129,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts let with inferred type", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -144,7 +144,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts function call with correct types", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "fn", id: "fn-1", name: "double",
@@ -164,7 +164,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts record field access", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 { kind: "record", id: "r-1", name: "Point", fields: [{ kind: "field", id: "f-1", name: "x", type: { kind: "basic", name: "Float" } }, { kind: "field", id: "f-2", name: "y", type: { kind: "basic", name: "Float" } }] },
                 {
@@ -179,7 +179,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts record_expr with correct fields", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 { kind: "record", id: "r-1", name: "Point", fields: [{ kind: "field", id: "f-1", name: "x", type: { kind: "basic", name: "Float" } }, { kind: "field", id: "f-2", name: "y", type: { kind: "basic", name: "Float" } }] },
                 {
@@ -200,7 +200,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts record_expr with optional defaults omitted", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "record", id: "r-1", name: "Config",
@@ -224,7 +224,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts enum constructor", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "enum", id: "e-1", name: "Shape",
@@ -248,7 +248,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts array of uniform type", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -260,7 +260,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts unit type arithmetic", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [
@@ -279,7 +279,7 @@ describe("type checker — valid programs", () => {
     });
 
     it("accepts string concatenation with +", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [
@@ -300,7 +300,7 @@ describe("type checker — valid programs", () => {
 
 describe("type checker — invalid programs", () => {
     it("rejects Int + String", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [
@@ -320,7 +320,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects Int + Float", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [
@@ -340,7 +340,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects non-Bool if condition", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -358,7 +358,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects if branch type mismatch", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -376,7 +376,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects wrong arg types", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "fn", id: "fn-1", name: "inc",
@@ -397,7 +397,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects wrong arity", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "fn", id: "fn-1", name: "add",
@@ -421,7 +421,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects call on non-function", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-1", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -438,7 +438,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects access on non-record", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-1", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -451,7 +451,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects unknown field access", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 { kind: "record", id: "r-1", name: "Point", fields: [{ kind: "field", id: "f-1", name: "x", type: { kind: "basic", name: "Float" } }] },
                 {
@@ -467,7 +467,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects mixing unit types", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [
@@ -487,7 +487,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects return type mismatch", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -500,7 +500,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects unknown record in record_expr", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -516,7 +516,7 @@ describe("type checker — invalid programs", () => {
     });
 
     it("rejects literal pattern type mismatch", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-1", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -546,7 +546,7 @@ describe("type checker — invalid programs", () => {
 
 describe("type checker — unknown propagation", () => {
     it("does not error when imported (unknown) function is called", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             imports: [{ kind: "import", id: "imp-1", module: "std", names: ["print"] }],
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",

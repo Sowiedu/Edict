@@ -80,7 +80,7 @@ describe("lambda param type inference", () => {
             }],
         );
 
-        const errors = typeCheck(program);
+        const { errors } = typeCheck(program);
         expect(errors).toEqual([]);
     });
 
@@ -139,7 +139,7 @@ describe("lambda param type inference", () => {
             ],
         });
 
-        const errors = typeCheck(program);
+        const { errors } = typeCheck(program);
         expect(errors).toEqual([]);
     });
 
@@ -198,7 +198,7 @@ describe("lambda param type inference", () => {
             ],
         });
 
-        const errors = typeCheck(program);
+        const { errors } = typeCheck(program);
         expect(errors).toEqual([]);
     });
 
@@ -216,7 +216,7 @@ describe("lambda param type inference", () => {
             [{ kind: "ident", id: "i-n", name: "n" }],
         );
 
-        const errors = typeCheck(program);
+        const { errors } = typeCheck(program);
         expect(errors).toEqual([]);
     });
 
@@ -243,11 +243,11 @@ describe("lambda param type inference", () => {
         });
 
         // Should not crash — param type treated as unknown
-        const errors = typeCheck(program);
+        const { errors } = typeCheck(program);
         expect(errors).toEqual([]);
     });
 
-    it("backfills inferred types onto AST params", () => {
+    it("stores inferred lambda param types in typeInfo side-table (no AST mutation)", () => {
         const lambdaParam: Param = { kind: "param", id: "p-n", name: "n" };
         const program = hofModule(
             {
@@ -261,10 +261,12 @@ describe("lambda param type inference", () => {
             [{ kind: "ident", id: "i-n", name: "n" }],
         );
 
-        const errors = typeCheck(program);
+        const { errors, typeInfo } = typeCheck(program);
         expect(errors).toEqual([]);
-        // After type checking, the param should have its type backfilled
-        expect(lambdaParam.type).toEqual({ kind: "basic", name: "Int" });
+        // AST should NOT be mutated
+        expect(lambdaParam.type).toBeUndefined();
+        // Inferred type should be in the side-table
+        expect(typeInfo.inferredLambdaParamTypes.get("p-n")).toEqual({ kind: "basic", name: "Int" });
     });
 
     it("detects type mismatch when inferred lambda body conflicts", () => {
@@ -282,7 +284,7 @@ describe("lambda param type inference", () => {
             [{ kind: "literal", id: "lit-str", value: "oops" }],
         );
 
-        const errors = typeCheck(program);
+        const { errors } = typeCheck(program);
         // Should detect type mismatch: fn returns String but expected Int
         expect(errors.some(e => e.error === "type_mismatch")).toBe(true);
     });

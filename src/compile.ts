@@ -39,7 +39,7 @@ export async function compileAndRun(ast: unknown): Promise<CompileAndRunResult> 
     }
 
     // Phase 5: compile to WASM
-    const compileResult: CompileResult = compile(checkResult.module);
+    const compileResult: CompileResult = compile(checkResult.module, { typeInfo: checkResult.typeInfo });
 
     if (!compileResult.ok) {
         return {

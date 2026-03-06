@@ -197,7 +197,7 @@ describe("isUnknown", () => {
 // =============================================================================
 describe("type checker — additional coverage", () => {
     it("handles block expression", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -212,7 +212,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles tuple expression", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -231,7 +231,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles empty array", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -243,7 +243,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles unary not on non-Bool", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-1", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -256,7 +256,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles unary minus on non-numeric", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-1", name: "x", type: { kind: "basic", name: "String" } }],
@@ -269,7 +269,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles valid unary minus", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-1", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -281,7 +281,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles surplus args in call beyond arity", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "fn", id: "fn-1", name: "noop",
@@ -306,7 +306,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles enum constructor with unknown enum name", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -321,7 +321,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles enum constructor with unknown variant", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "enum", id: "e-1", name: "Color",
@@ -342,7 +342,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles enum constructor with unknown field in variant", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "enum", id: "e-1", name: "Color",
@@ -364,7 +364,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles record_expr that isn't actually a record (it's an enum)", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "enum", id: "e-1", name: "Color",
@@ -385,7 +385,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles enum_constructor name that is a record not enum", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 { kind: "record", id: "r-1", name: "Point", fields: [] },
                 {
@@ -403,7 +403,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles missing required fields in record_expr", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "record", id: "r-1", name: "Point",
@@ -424,7 +424,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles unknown field in record_expr", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 { kind: "record", id: "r-1", name: "Point", fields: [{ kind: "field", id: "f-1", name: "x", type: { kind: "basic", name: "Float" } }] },
                 {
@@ -451,7 +451,7 @@ describe("type checker — additional coverage", () => {
             effects: [],
             returnType: { kind: "basic", name: "Int" },
         };
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -467,7 +467,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles const type mismatch", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 { kind: "const", id: "c-1", name: "PI", type: { kind: "basic", name: "Float" }, value: { kind: "literal", id: "l-1", value: "not a float" } },
             ],
@@ -476,7 +476,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles logical op with non-Bool operands", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-1", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -492,7 +492,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles non-numeric subtraction", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [
@@ -507,7 +507,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles mixed-type subtraction (Int - Float)", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [
@@ -522,7 +522,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles pre-contract type checking", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-1", name: "x", type: { kind: "basic", name: "Int" } }],
@@ -542,7 +542,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles constructor pattern with known enum variant", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "enum", id: "e-1", name: "Option",
@@ -578,7 +578,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles access on named type that isn't registered", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [{ kind: "param", id: "p-1", name: "x", type: { kind: "named", name: "UnknownRecord" } }],
@@ -590,7 +590,7 @@ describe("type checker — additional coverage", () => {
     });
 
     it("handles array with mixed types", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],

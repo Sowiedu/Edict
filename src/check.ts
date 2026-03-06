@@ -7,7 +7,7 @@
 import type { StructuredError } from "./errors/structured-errors.js";
 import { validate } from "./validator/validate.js";
 import { resolve } from "./resolver/resolve.js";
-import { typeCheck } from "./checker/check.js";
+import { typeCheck, type TypedModuleInfo } from "./checker/check.js";
 import { effectCheck } from "./effects/effect-check.js";
 import { contractVerify } from "./contracts/verify.js";
 import type { EdictModule } from "./ast/nodes.js";
@@ -17,6 +17,8 @@ export interface CheckResult {
     errors: StructuredError[];
     /** The validated module AST (only present when ok === true) */
     module?: EdictModule;
+    /** Side-table of inferred types (only present when ok === true) */
+    typeInfo?: TypedModuleInfo;
 }
 
 /**
@@ -44,7 +46,7 @@ export async function check(ast: unknown): Promise<CheckResult> {
     }
 
     // Phase 2b — Type checking
-    const typeErrors = typeCheck(module);
+    const { errors: typeErrors, typeInfo } = typeCheck(module);
     if (typeErrors.length > 0) {
         return { ok: false, errors: typeErrors };
     }
@@ -60,5 +62,5 @@ export async function check(ast: unknown): Promise<CheckResult> {
     if (contractErrors.length > 0) {
         return { ok: false, errors: contractErrors };
     }
-    return { ok: true, errors: [], module };
+    return { ok: true, errors: [], module, typeInfo };
 }

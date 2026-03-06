@@ -18,6 +18,7 @@ export { levenshteinDistance, findCandidates } from "./resolver/levenshtein.js";
 
 // Phase 2 — Type Checking
 export { typeCheck } from "./checker/check.js";
+export type { TypedModuleInfo, TypeCheckResult } from "./checker/check.js";
 export { TypeEnv } from "./checker/type-env.js";
 export { typesEqual, isUnknown, resolveType } from "./checker/types-equal.js";
 

@@ -35,7 +35,7 @@ function runSemanticPipeline(ast: unknown): {
         return { phase: "resolve", errorCount: rErrors.length };
     }
 
-    const tErrors = typeCheck(module);
+    const { errors: tErrors } = typeCheck(module);
     if (tErrors.length > 0) {
         return { phase: "typeCheck", errorCount: tErrors.length };
     }

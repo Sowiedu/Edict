@@ -37,7 +37,7 @@ async function checkCompileRun(mod: EdictModule) {
     const checkResult = await check(mod);
     expect(checkResult.ok, `check failed: ${JSON.stringify(checkResult.errors)}`).toBe(true);
 
-    const compiled = compile(mod);
+    const compiled = compile(mod, { typeInfo: checkResult.typeInfo });
     expect(compiled.ok, `compile failed: ${JSON.stringify((compiled as any).errors)}`).toBe(true);
     if (!compiled.ok) throw new Error("compile failed");
 

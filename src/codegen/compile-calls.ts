@@ -249,11 +249,14 @@ export function compileLambdaExpr(
     // Compile as a module-level helper function with a generated name
     const lambdaName = `__lambda_${cc.lambdaCounter++}`;
 
-    const params = expr.params.map((p) => ({
-        name: p.name,
-        edictType: p.type!,
-        wasmType: edictTypeToWasm(p.type!),
-    }));
+    const params = expr.params.map((p) => {
+        const resolvedType = cc.typeInfo?.inferredLambdaParamTypes.get(p.id) ?? p.type!;
+        return {
+            name: p.name,
+            edictType: resolvedType,
+            wasmType: edictTypeToWasm(resolvedType),
+        };
+    });
 
     // Detect free variables (captures from enclosing scope)
     const paramNames = new Set(expr.params.map(p => p.name));

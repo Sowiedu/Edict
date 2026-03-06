@@ -7,6 +7,7 @@ import binaryen from "binaryen";
 import type { StructuredError } from "../errors/structured-errors.js";
 import type { StringTable } from "./string-table.js";
 import type { TypeExpr } from "../ast/types.js";
+import type { TypedModuleInfo } from "../checker/check.js";
 
 // =============================================================================
 // Edict → WASM type mapping
@@ -60,6 +61,8 @@ export interface CompilationContext {
     readonly enumLayouts: Map<string, EnumLayout>;
     readonly fnTableIndices: Map<string, number>;
     readonly tableFunctions: string[];
+    /** Side-table of inferred types from type checker (optional for backward compat) */
+    readonly typeInfo?: TypedModuleInfo;
     lambdaCounter: number;
 }
 
@@ -86,6 +89,8 @@ export interface CompileOptions {
     maxMemoryPages?: number;
     /** Emit WAT text alongside binary. Default: false */
     emitWat?: boolean;
+    /** Side-table of inferred types from type checker */
+    typeInfo?: TypedModuleInfo;
 }
 
 // =============================================================================

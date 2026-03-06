@@ -206,16 +206,17 @@ export function compileLet(
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
     const { mod, strings } = cc;
-    const wasmType = expr.type
-        ? edictTypeToWasm(expr.type)
+    const resolvedLetType = cc.typeInfo?.inferredLetTypes.get(expr.id) ?? expr.type;
+    const wasmType = resolvedLetType
+        ? edictTypeToWasm(resolvedLetType)
         : inferExprWasmType(expr.value, cc, ctx);
 
     let edictTypeName: string | undefined;
-    if (expr.type && expr.type.kind === "named") {
-        edictTypeName = expr.type.name;
-    } else if (expr.type && expr.type.kind === "option") {
+    if (resolvedLetType && resolvedLetType.kind === "named") {
+        edictTypeName = resolvedLetType.name;
+    } else if (resolvedLetType && resolvedLetType.kind === "option") {
         edictTypeName = "Option";
-    } else if (expr.type && expr.type.kind === "result") {
+    } else if (resolvedLetType && resolvedLetType.kind === "result") {
         edictTypeName = "Result";
     } else if (expr.value.kind === "record_expr") {
         edictTypeName = expr.value.name;
@@ -229,7 +230,7 @@ export function compileLet(
 
     // For String-type let bindings, save __str_ret_len into a companion local
     // so the correct length is available when the variable is later used as an argument.
-    const isStringType = expr.type?.kind === "basic" && expr.type.name === "String";
+    const isStringType = resolvedLetType?.kind === "basic" && resolvedLetType.name === "String";
     if (isStringType) {
         const lenIndex = ctx.addLocal(`__str_len_${expr.name}`, binaryen.i32);
         if (expr.value.kind === "literal" && typeof expr.value.value === "string") {

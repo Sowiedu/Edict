@@ -164,7 +164,7 @@ export async function handleCompile(ast: unknown): Promise<CompileResult> {
         return { ok: false, errors: checkResult.errors };
     }
 
-    const compileResult = compile(checkResult.module);
+    const compileResult = compile(checkResult.module, { typeInfo: checkResult.typeInfo });
     if (!compileResult.ok) {
         return { ok: false, errors: compileResult.errors };
     }

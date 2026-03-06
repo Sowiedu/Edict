@@ -55,7 +55,7 @@ describe("fix suggestions — resolver", () => {
 
 describe("fix suggestions — type checker", () => {
     it("type_mismatch → suggestion.value = expected type", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [{
                 kind: "fn", id: "fn-1", name: "test",
                 params: [], effects: ["pure"],
@@ -73,7 +73,7 @@ describe("fix suggestions — type checker", () => {
     });
 
     it("unknown_record → suggestion.value = closest record name", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 { kind: "record", id: "r-1", name: "Point", fields: [{ kind: "field", id: "f-1", name: "x", type: { kind: "basic", name: "Float" } }] },
                 {
@@ -95,7 +95,7 @@ describe("fix suggestions — type checker", () => {
     });
 
     it("unknown_field with close match → suggestion", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "record", id: "r-1", name: "Point", fields: [
@@ -121,7 +121,7 @@ describe("fix suggestions — type checker", () => {
     });
 
     it("missing_record_fields → suggestion lists missing fields", () => {
-        const errors = typeCheck(mod({
+        const { errors } = typeCheck(mod({
             definitions: [
                 {
                     kind: "record", id: "r-1", name: "Point", fields: [

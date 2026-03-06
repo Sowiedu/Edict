@@ -31,13 +31,36 @@ import { TypeEnv } from "./type-env.js";
 import { typesEqual, isUnknown, resolveType } from "./types-equal.js";
 import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import { OPTION_ENUM_DEF, RESULT_ENUM_DEF } from "../builtins/builtin-enums.js";
+
+/**
+ * Side-table of inferred types produced by the type checker.
+ * Replaces AST mutation — downstream stages read from this instead.
+ */
+export interface TypedModuleInfo {
+    /** fnId → inferred return type (only for functions without explicit returnType) */
+    inferredReturnTypes: Map<string, TypeExpr>;
+    /** letExprId → inferred type (only for lets without explicit type annotation) */
+    inferredLetTypes: Map<string, TypeExpr>;
+    /** lambdaParamId → inferred type from call-site context */
+    inferredLambdaParamTypes: Map<string, TypeExpr>;
+}
+
+export interface TypeCheckResult {
+    errors: StructuredError[];
+    typeInfo: TypedModuleInfo;
+}
 import { UNKNOWN_TYPE, INT_TYPE, FLOAT_TYPE, STRING_TYPE, BOOL_TYPE } from "../ast/type-constants.js";
 
 /**
  * Entry point: type-check a validated + resolved Edict module.
  */
-export function typeCheck(module: EdictModule): StructuredError[] {
+export function typeCheck(module: EdictModule): TypeCheckResult {
     const errors: StructuredError[] = [];
+    const typeInfo: TypedModuleInfo = {
+        inferredReturnTypes: new Map(),
+        inferredLetTypes: new Map(),
+        inferredLambdaParamTypes: new Map(),
+    };
     const rootEnv = new TypeEnv();
 
     // Register built-in function signatures
@@ -71,16 +94,16 @@ export function typeCheck(module: EdictModule): StructuredError[] {
     for (const def of module.definitions) {
         switch (def.kind) {
             case "fn":
-                checkFunction(def, rootEnv, errors);
+                checkFunction(def, rootEnv, errors, typeInfo);
                 break;
             case "const":
-                checkConst(def, rootEnv, errors);
+                checkConst(def, rootEnv, errors, typeInfo);
                 break;
             // record, enum, type — no body to type-check
         }
     }
 
-    return errors;
+    return { errors, typeInfo };
 }
 
 // =============================================================================
@@ -123,6 +146,7 @@ function checkFunction(
     fn: FunctionDef,
     rootEnv: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): void {
     const fnEnv = rootEnv.child();
 
@@ -132,15 +156,15 @@ function checkFunction(
     }
 
     // Infer body type first (needed when returnType is omitted)
-    const bodyType = inferExprList(fn.body, fnEnv, errors);
+    const bodyType = inferExprList(fn.body, fnEnv, errors, typeInfo);
 
     // Determine effective return type: explicit annotation or inferred from body
     const hadExplicitReturnType = !!fn.returnType;
     const effectiveReturnType = fn.returnType ?? bodyType;
 
-    // Backfill returnType on the AST node for downstream stages (codegen, effects)
+    // Store inferred return type in side-table (no AST mutation)
     if (!fn.returnType) {
-        (fn as { returnType?: TypeExpr }).returnType = effectiveReturnType;
+        typeInfo.inferredReturnTypes.set(fn.id, effectiveReturnType);
     }
 
     // Check contracts (postconditions bind `result` to the effective return type)
@@ -148,10 +172,10 @@ function checkFunction(
         if (contract.kind === "post") {
             const postEnv = fnEnv.child();
             postEnv.bind("result", effectiveReturnType);
-            const condType = inferExpr(contract.condition, postEnv, errors);
+            const condType = inferExpr(contract.condition, postEnv, errors, typeInfo);
             checkExpectedType(condType, BOOL_TYPE, contract.id, fnEnv, errors);
         } else {
-            const condType = inferExpr(contract.condition, fnEnv, errors);
+            const condType = inferExpr(contract.condition, fnEnv, errors, typeInfo);
             checkExpectedType(condType, BOOL_TYPE, contract.id, fnEnv, errors);
         }
     }
@@ -166,8 +190,9 @@ function checkConst(
     def: { kind: "const"; id: string; name: string; type: TypeExpr; value: Expression },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): void {
-    const valType = inferExpr(def.value, env, errors);
+    const valType = inferExpr(def.value, env, errors, typeInfo);
     checkExpectedType(valType, def.type, def.id, env, errors);
 }
 
@@ -179,6 +204,7 @@ function inferExprList(
     exprs: Expression[],
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
     if (exprs.length === 0) return UNKNOWN_TYPE;
 
@@ -186,11 +212,11 @@ function inferExprList(
     let lastType: TypeExpr = UNKNOWN_TYPE;
 
     for (const expr of exprs) {
-        lastType = inferExpr(expr, currentEnv, errors);
+        lastType = inferExpr(expr, currentEnv, errors, typeInfo);
         if (expr.kind === "let") {
             currentEnv = currentEnv.child();
-            // Bind the let name in child env
-            const bindType = expr.type ?? lastType;
+            // Bind the let name in child env, using inferred type from side-table if needed
+            const bindType = expr.type ?? typeInfo.inferredLetTypes.get(expr.id) ?? lastType;
             currentEnv.bind(expr.name, bindType);
         }
     }
@@ -202,6 +228,7 @@ function inferExpr(
     expr: Expression,
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
     switch (expr.kind) {
         case "literal":
@@ -211,46 +238,46 @@ function inferExpr(
             return env.getType(expr.name) ?? UNKNOWN_TYPE;
 
         case "binop":
-            return inferBinop(expr, env, errors);
+            return inferBinop(expr, env, errors, typeInfo);
 
         case "unop":
-            return inferUnop(expr, env, errors);
+            return inferUnop(expr, env, errors, typeInfo);
 
         case "call":
-            return inferCall(expr, env, errors);
+            return inferCall(expr, env, errors, typeInfo);
 
         case "if":
-            return inferIf(expr, env, errors);
+            return inferIf(expr, env, errors, typeInfo);
 
         case "let":
-            return inferLet(expr, env, errors);
+            return inferLet(expr, env, errors, typeInfo);
 
         case "match":
-            return inferMatch(expr, env, errors);
+            return inferMatch(expr, env, errors, typeInfo);
 
         case "array":
-            return inferArray(expr, env, errors);
+            return inferArray(expr, env, errors, typeInfo);
 
         case "tuple_expr":
-            return inferTuple(expr, env, errors);
+            return inferTuple(expr, env, errors, typeInfo);
 
         case "record_expr":
-            return inferRecordExpr(expr, env, errors);
+            return inferRecordExpr(expr, env, errors, typeInfo);
 
         case "enum_constructor":
-            return inferEnumConstructor(expr, env, errors);
+            return inferEnumConstructor(expr, env, errors, typeInfo);
 
         case "access":
-            return inferAccess(expr, env, errors);
+            return inferAccess(expr, env, errors, typeInfo);
 
         case "lambda":
-            return inferLambda(expr, env, errors);
+            return inferLambda(expr, env, errors, typeInfo);
 
         case "block":
-            return inferExprList(expr.body, env.child(), errors);
+            return inferExprList(expr.body, env.child(), errors, typeInfo);
 
         case "string_interp":
-            return inferStringInterp(expr, env, errors);
+            return inferStringInterp(expr, env, errors, typeInfo);
     }
 }
 
@@ -274,9 +301,10 @@ function inferBinop(
     expr: Expression & { kind: "binop" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
-    const leftType = inferExpr(expr.left, env, errors);
-    const rightType = inferExpr(expr.right, env, errors);
+    const leftType = inferExpr(expr.left, env, errors, typeInfo);
+    const rightType = inferExpr(expr.right, env, errors, typeInfo);
 
     // unknown propagation
     if (isUnknown(leftType) || isUnknown(rightType)) return UNKNOWN_TYPE;
@@ -334,8 +362,9 @@ function inferUnop(
     expr: Expression & { kind: "unop" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
-    const operandType = inferExpr(expr.operand, env, errors);
+    const operandType = inferExpr(expr.operand, env, errors, typeInfo);
     if (isUnknown(operandType)) return UNKNOWN_TYPE;
 
     if (expr.op === "not") {
@@ -357,11 +386,12 @@ function inferCall(
     expr: Expression & { kind: "call" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
-    const fnType = inferExpr(expr.fn, env, errors);
+    const fnType = inferExpr(expr.fn, env, errors, typeInfo);
     if (isUnknown(fnType)) {
         // If fn is unknown, we can't type-check args. Infer them for side effects (let bindings)
-        for (const arg of expr.args) inferExpr(arg, env, errors);
+        for (const arg of expr.args) inferExpr(arg, env, errors, typeInfo);
         return UNKNOWN_TYPE;
     }
 
@@ -369,7 +399,7 @@ function inferCall(
     if (resolved.kind !== "fn_type") {
         errors.push(notAFunction(expr.id, fnType));
         // Still infer arg types for error propagation
-        for (const arg of expr.args) inferExpr(arg, env, errors);
+        for (const arg of expr.args) inferExpr(arg, env, errors, typeInfo);
         return UNKNOWN_TYPE;
     }
 
@@ -386,14 +416,14 @@ function inferCall(
         // If arg is a lambda and expected param is fn_type, propagate param types
         const resolvedExpected = resolveType(expectedParamType, env);
         const argType = (arg.kind === "lambda" && resolvedExpected.kind === "fn_type")
-            ? inferLambdaWithContext(arg, resolvedExpected as FunctionType, env, errors)
-            : inferExpr(arg, env, errors);
+            ? inferLambdaWithContext(arg, resolvedExpected as FunctionType, env, errors, typeInfo)
+            : inferExpr(arg, env, errors, typeInfo);
         checkExpectedType(argType, expectedParamType, arg.id, env, errors);
     }
 
     // Infer remaining surplus args
     for (let i = checkCount; i < expr.args.length; i++) {
-        inferExpr(expr.args[i]!, env, errors);
+        inferExpr(expr.args[i]!, env, errors, typeInfo);
     }
 
     return resolved.returnType;
@@ -403,14 +433,15 @@ function inferIf(
     expr: Expression & { kind: "if" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
-    const condType = inferExpr(expr.condition, env, errors);
+    const condType = inferExpr(expr.condition, env, errors, typeInfo);
     checkExpectedType(condType, BOOL_TYPE, expr.id, env, errors);
 
-    const thenType = inferExprList(expr.then, env.child(), errors);
+    const thenType = inferExprList(expr.then, env.child(), errors, typeInfo);
 
     if (expr.else) {
-        const elseType = inferExprList(expr.else, env.child(), errors);
+        const elseType = inferExprList(expr.else, env.child(), errors, typeInfo);
         if (!isUnknown(thenType) && !isUnknown(elseType)) {
             if (!typesEqual(thenType, elseType, env)) {
                 errors.push(typeMismatch(expr.id, thenType, elseType));
@@ -427,17 +458,18 @@ function inferLet(
     expr: Expression & { kind: "let" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
-    const valType = inferExpr(expr.value, env, errors);
+    const valType = inferExpr(expr.value, env, errors, typeInfo);
 
     if (expr.type) {
         checkExpectedType(valType, expr.type, expr.id, env, errors);
         return expr.type;
     }
 
-    // Backfill inferred type onto the AST node for downstream stages (codegen, contracts)
+    // Store inferred type in side-table (no AST mutation)
     if (!isUnknown(valType)) {
-        (expr as { type?: TypeExpr }).type = valType;
+        typeInfo.inferredLetTypes.set(expr.id, valType);
     }
 
     return valType;
@@ -447,14 +479,15 @@ function inferMatch(
     expr: Expression & { kind: "match" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
-    const targetType = inferExpr(expr.target, env, errors);
+    const targetType = inferExpr(expr.target, env, errors, typeInfo);
     let resultType: TypeExpr | null = null;
 
     for (const arm of expr.arms) {
         const armEnv = env.child();
         inferPattern(arm.pattern, targetType, armEnv, env, errors);
-        const bodyType = inferExprList(arm.body, armEnv, errors);
+        const bodyType = inferExprList(arm.body, armEnv, errors, typeInfo);
 
         if (resultType === null) {
             resultType = bodyType;
@@ -543,15 +576,16 @@ function inferArray(
     expr: Expression & { kind: "array" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
     if (expr.elements.length === 0) {
         return { kind: "array", element: UNKNOWN_TYPE };
     }
 
-    const firstType = inferExpr(expr.elements[0]!, env, errors);
+    const firstType = inferExpr(expr.elements[0]!, env, errors, typeInfo);
 
     for (let i = 1; i < expr.elements.length; i++) {
-        const elType = inferExpr(expr.elements[i]!, env, errors);
+        const elType = inferExpr(expr.elements[i]!, env, errors, typeInfo);
         if (!isUnknown(firstType) && !isUnknown(elType)) {
             if (!typesEqual(firstType, elType, env)) {
                 errors.push(typeMismatch(expr.elements[i]!.id, firstType, elType));
@@ -566,8 +600,9 @@ function inferTuple(
     expr: Expression & { kind: "tuple_expr" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
-    const elementTypes = expr.elements.map((el) => inferExpr(el, env, errors));
+    const elementTypes = expr.elements.map((el) => inferExpr(el, env, errors, typeInfo));
     return { kind: "tuple", elements: elementTypes };
 }
 
@@ -575,6 +610,7 @@ function inferRecordExpr(
     expr: Expression & { kind: "record_expr" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
     const def = env.lookupTypeDef(expr.name);
     if (!def) {
@@ -584,7 +620,7 @@ function inferRecordExpr(
             : undefined;
         errors.push(unknownRecord(expr.id, expr.name, cands, suggestion));
         // Still infer field value types
-        for (const f of expr.fields) inferExpr(f.value, env, errors);
+        for (const f of expr.fields) inferExpr(f.value, env, errors, typeInfo);
         return UNKNOWN_TYPE;
     }
     if (def.kind !== "record") {
@@ -593,7 +629,7 @@ function inferRecordExpr(
             ? { nodeId: expr.id, field: "name", value: findCandidates(expr.name, cands)[0] ?? cands[0] }
             : undefined;
         errors.push(unknownRecord(expr.id, expr.name, cands, suggestion));
-        for (const f of expr.fields) inferExpr(f.value, env, errors);
+        for (const f of expr.fields) inferExpr(f.value, env, errors, typeInfo);
         return UNKNOWN_TYPE;
     }
 
@@ -626,11 +662,11 @@ function inferRecordExpr(
                 availFields,
                 suggestion,
             ));
-            inferExpr(fieldInit.value, env, errors);
+            inferExpr(fieldInit.value, env, errors, typeInfo);
             continue;
         }
 
-        const valType = inferExpr(fieldInit.value, env, errors);
+        const valType = inferExpr(fieldInit.value, env, errors, typeInfo);
         checkExpectedType(valType, fieldDef.type, expr.id, env, errors);
     }
 
@@ -641,6 +677,7 @@ function inferEnumConstructor(
     expr: Expression & { kind: "enum_constructor" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
     const def = env.lookupTypeDef(expr.enumName);
     if (!def) {
@@ -649,7 +686,7 @@ function inferEnumConstructor(
             ? { nodeId: expr.id, field: "enumName", value: findCandidates(expr.enumName, cands)[0] ?? cands[0] }
             : undefined;
         errors.push(unknownEnum(expr.id, expr.enumName, cands, suggestion));
-        for (const f of expr.fields) inferExpr(f.value, env, errors);
+        for (const f of expr.fields) inferExpr(f.value, env, errors, typeInfo);
         return UNKNOWN_TYPE;
     }
     if (def.kind !== "enum") {
@@ -658,7 +695,7 @@ function inferEnumConstructor(
             ? { nodeId: expr.id, field: "enumName", value: findCandidates(expr.enumName, cands)[0] ?? cands[0] }
             : undefined;
         errors.push(unknownEnum(expr.id, expr.enumName, cands, suggestion));
-        for (const f of expr.fields) inferExpr(f.value, env, errors);
+        for (const f of expr.fields) inferExpr(f.value, env, errors, typeInfo);
         return UNKNOWN_TYPE;
     }
 
@@ -677,7 +714,7 @@ function inferEnumConstructor(
             availVariants,
             suggestion,
         ));
-        for (const f of expr.fields) inferExpr(f.value, env, errors);
+        for (const f of expr.fields) inferExpr(f.value, env, errors, typeInfo);
         return UNKNOWN_TYPE;
     }
 
@@ -697,10 +734,10 @@ function inferEnumConstructor(
                 availFields,
                 suggestion,
             ));
-            inferExpr(fieldInit.value, env, errors);
+            inferExpr(fieldInit.value, env, errors, typeInfo);
             continue;
         }
-        const valType = inferExpr(fieldInit.value, env, errors);
+        const valType = inferExpr(fieldInit.value, env, errors, typeInfo);
         checkExpectedType(valType, fieldDef.type, expr.id, env, errors);
     }
 
@@ -711,8 +748,9 @@ function inferAccess(
     expr: Expression & { kind: "access" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
-    const targetType = inferExpr(expr.target, env, errors);
+    const targetType = inferExpr(expr.target, env, errors, typeInfo);
     if (isUnknown(targetType)) return UNKNOWN_TYPE;
 
     const resolved = resolveType(targetType, env);
@@ -751,12 +789,13 @@ function inferLambda(
     expr: Expression & { kind: "lambda" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
     const lamEnv = env.child();
     for (const param of expr.params) {
         lamEnv.bind(param.name, param.type ?? UNKNOWN_TYPE);
     }
-    const bodyType = inferExprList(expr.body, lamEnv, errors);
+    const bodyType = inferExprList(expr.body, lamEnv, errors, typeInfo);
     return {
         kind: "fn_type",
         params: expr.params.map((p) => p.type ?? UNKNOWN_TYPE),
@@ -774,6 +813,7 @@ function inferLambdaWithContext(
     expectedType: FunctionType,
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
     const lamEnv = env.child();
 
@@ -785,18 +825,18 @@ function inferLambdaWithContext(
         } else if (i < expectedType.params.length) {
             // Infer from expected fn_type
             const inferred = expectedType.params[i]!;
-            // Backfill onto AST so downstream stages (codegen, effects) see it
-            (param as { type?: TypeExpr }).type = inferred;
+            // Store inferred type in side-table (no AST mutation)
+            typeInfo.inferredLambdaParamTypes.set(param.id, inferred);
             lamEnv.bind(param.name, inferred);
         } else {
             lamEnv.bind(param.name, UNKNOWN_TYPE);
         }
     }
 
-    const bodyType = inferExprList(expr.body, lamEnv, errors);
+    const bodyType = inferExprList(expr.body, lamEnv, errors, typeInfo);
     return {
         kind: "fn_type",
-        params: expr.params.map((p) => p.type ?? UNKNOWN_TYPE),
+        params: expr.params.map((p) => p.type ?? typeInfo.inferredLambdaParamTypes.get(p.id) ?? UNKNOWN_TYPE),
         effects: [],
         returnType: bodyType,
     } satisfies FunctionType;
@@ -806,9 +846,10 @@ function inferStringInterp(
     expr: Expression & { kind: "string_interp" },
     env: TypeEnv,
     errors: StructuredError[],
+    typeInfo: TypedModuleInfo,
 ): TypeExpr {
     for (const part of expr.parts) {
-        const partType = inferExpr(part, env, errors);
+        const partType = inferExpr(part, env, errors, typeInfo);
         checkExpectedType(partType, STRING_TYPE, part.id, env, errors);
     }
     return STRING_TYPE;

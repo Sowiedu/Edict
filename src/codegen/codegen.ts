@@ -253,7 +253,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
                     }
                 }
                 fnSigs.set(def.name, {
-                    returnType: def.returnType ? edictTypeToWasm(def.returnType) : binaryen.i32,
+                    returnType: def.returnType ? edictTypeToWasm(def.returnType) : (options?.typeInfo?.inferredReturnTypes.get(def.id) ? edictTypeToWasm(options.typeInfo.inferredReturnTypes.get(def.id)!) : binaryen.i32),
                     paramTypes: wasmParamTypes,
                     edictParamTypes,
                 });
@@ -335,6 +335,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
             mod, strings, fnSigs, errors,
             constGlobals, recordLayouts, enumLayouts, fnTableIndices, tableFunctions,
             lambdaCounter: 0,
+            typeInfo: options?.typeInfo,
         };
 
         for (const def of module.definitions) {
@@ -450,12 +451,15 @@ function compileFunction(
     cc: CompilationContext,
 ): void {
     const { mod } = cc;
-    const params = fn.params.map((p) => ({
-        name: p.name,
-        edictType: p.type!,
-        wasmType: edictTypeToWasm(p.type!),
-        edictTypeName: p.type!.kind === "named" ? p.type!.name : p.type!.kind === "option" ? "Option" : p.type!.kind === "result" ? "Result" : undefined,
-    }));
+    const params = fn.params.map((p) => {
+        const resolvedType = cc.typeInfo?.inferredLambdaParamTypes.get(p.id) ?? p.type!;
+        return {
+            name: p.name,
+            edictType: resolvedType,
+            wasmType: edictTypeToWasm(resolvedType),
+            edictTypeName: resolvedType.kind === "named" ? resolvedType.name : resolvedType.kind === "option" ? "Option" : resolvedType.kind === "result" ? "Result" : undefined,
+        };
+    });
 
     // Closure convention: all user functions have __env:i32 as first WASM param.
     // The __env param is ignored for non-lambda functions but ensures uniform
@@ -478,9 +482,11 @@ function compileFunction(
 
     const returnType = fn.returnType
         ? edictTypeToWasm(fn.returnType)
-        : (fn.body.length > 0
-            ? inferExprWasmType(fn.body[fn.body.length - 1]!, cc, ctx)
-            : binaryen.i32);
+        : (cc.typeInfo?.inferredReturnTypes.get(fn.id)
+            ? edictTypeToWasm(cc.typeInfo.inferredReturnTypes.get(fn.id)!)
+            : (fn.body.length > 0
+                ? inferExprWasmType(fn.body[fn.body.length - 1]!, cc, ctx)
+                : binaryen.i32));
     const paramTypes = allParams.map((p) => p.wasmType);
     const paramType =
         paramTypes.length > 0
