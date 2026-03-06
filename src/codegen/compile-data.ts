@@ -81,7 +81,7 @@ export function compileTupleExpr(
     cc: CompilationContext,
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
-    const { mod, fnSigs } = cc;
+    const { mod } = cc;
     const totalSize = expr.elements.length * 8;
     const ptrIndex = ctx.addLocal(`__tuple_ptr_${expr.id}`, binaryen.i32);
 

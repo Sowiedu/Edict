@@ -12,6 +12,7 @@ import {
     handlePatch,
     handleErrorCatalog,
     handleLint,
+    handlePatchSchema,
 } from "./handlers.js";
 import {
     promptWriteProgram,
@@ -347,6 +348,27 @@ export function createEdictServer(): McpServer {
         },
     );
 
+    server.resource(
+        "schema-patch",
+        "edict://schema/patch",
+        {
+            description: "JSON Schema defining the AST diff/patch protocol for the edict_patch tool (replace, insert, delete operations)",
+            mimeType: "application/json",
+        },
+        async () => {
+            const schema = handlePatchSchema();
+            return {
+                contents: [
+                    {
+                        uri: "edict://schema/patch",
+                        mimeType: "application/json",
+                        text: JSON.stringify(schema, null, 2),
+                    },
+                ],
+            };
+        },
+    );
+
     // =============================================================================
     // Prompts
     // =============================================================================
@@ -355,7 +377,7 @@ export function createEdictServer(): McpServer {
         "write_program",
         "System prompt for writing a new Edict program from a task description. Includes minimal schema, example, and builtin list.",
         { task: z.string().describe("Description of what the program should do") },
-        async ({ task }) => {
+        async ({ task }, _extra) => {
             const result = promptWriteProgram(task);
             return result;
         },
@@ -365,7 +387,7 @@ export function createEdictServer(): McpServer {
         "fix_error",
         "Prompt for fixing a structured Edict compiler error. Includes error taxonomy and fix strategy.",
         { error: z.string().describe("The structured error JSON from the compiler") },
-        async ({ error }) => {
+        async ({ error }, _extra) => {
             const result = promptFixError(error);
             return result;
         },
@@ -375,7 +397,7 @@ export function createEdictServer(): McpServer {
         "add_contracts",
         "Prompt for adding pre/postcondition contracts to existing Edict functions for Z3 formal verification.",
         { ast: z.string().describe("The Edict JSON AST to add contracts to") },
-        async ({ ast }) => {
+        async ({ ast }, _extra) => {
             const result = promptAddContracts(ast);
             return result;
         },
@@ -385,7 +407,7 @@ export function createEdictServer(): McpServer {
         "review_ast",
         "Prompt for reviewing an Edict AST for quality issues (unused variables, missing effects, dead code, etc.).",
         { ast: z.string().describe("The Edict JSON AST to review") },
-        async ({ ast }) => {
+        async ({ ast }, _extra) => {
             const result = promptReviewAst(ast);
             return result;
         },

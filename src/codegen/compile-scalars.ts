@@ -88,7 +88,7 @@ export function compileBinop(
     cc: CompilationContext,
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
-    const { mod, fnSigs, errors } = cc;
+    const { mod, errors } = cc;
     const left = compileExpr(expr.left, cc, ctx);
     const right = compileExpr(expr.right, cc, ctx);
 
@@ -143,7 +143,7 @@ export function compileUnop(
     cc: CompilationContext,
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
-    const { mod, fnSigs, errors } = cc;
+    const { mod, errors } = cc;
     const operand = compileExpr(expr.operand, cc, ctx);
     const opType = inferExprWasmType(expr.operand, cc, ctx);
     const isFloat = opType === binaryen.f64;
@@ -170,7 +170,7 @@ export function compileIf(
     cc: CompilationContext,
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
-    const { mod, fnSigs } = cc;
+    const { mod } = cc;
     const cond = compileExpr(expr.condition, cc, ctx);
 
     // Infer the result type from the then-branch's last expression
@@ -205,7 +205,7 @@ export function compileLet(
     cc: CompilationContext,
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
-    const { mod, strings, fnSigs } = cc;
+    const { mod, strings } = cc;
     const wasmType = expr.type
         ? edictTypeToWasm(expr.type)
         : inferExprWasmType(expr.value, cc, ctx);
@@ -247,7 +247,7 @@ export function compileBlock(
     cc: CompilationContext,
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
-    const { mod, fnSigs } = cc;
+    const { mod } = cc;
     const bodyExprs = expr.body.map((e) =>
         compileExpr(e, cc, ctx),
     );

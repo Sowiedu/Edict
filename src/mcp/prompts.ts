@@ -18,6 +18,7 @@ export interface PromptMessage {
 }
 
 export interface PromptResult {
+    [key: string]: unknown;
     description?: string;
     messages: PromptMessage[];
 }

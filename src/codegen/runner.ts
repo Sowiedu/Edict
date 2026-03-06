@@ -149,7 +149,7 @@ export async function run(
         });
 
         // Worker crashed (OOM, etc.)
-        worker.on("error", (err) => {
+        worker.on("error", (err: Error) => {
             const isOom = err.message?.includes("out of memory") ||
                 err.message?.includes("memory access") ||
                 err.message?.includes("grow");

@@ -29,6 +29,7 @@ import { expandCompact, compactSchemaReference } from "../compact/expand.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..", "..");
 const schemaPath = resolve(projectRoot, "schema", "edict.schema.json");
+const patchSchemaPath = resolve(projectRoot, "schema", "edict-patch.schema.json");
 const examplesDir = resolve(projectRoot, "examples");
 const packageJsonPath = resolve(projectRoot, "package.json");
 
@@ -38,6 +39,7 @@ const packageJsonPath = resolve(projectRoot, "package.json");
 
 let cachedSchema: string | null = null;
 let cachedMinimalSchema: unknown | null = null;
+let cachedPatchSchema: unknown | null = null;
 let cachedExamples: { name: string; ast: unknown }[] | null = null;
 let cachedVersion: string | null = null;
 
@@ -225,13 +227,20 @@ export function handleErrorCatalog(): ErrorCatalog {
     return buildErrorCatalog();
 }
 
+export function handlePatchSchema(): unknown {
+    if (!cachedPatchSchema) {
+        cachedPatchSchema = JSON.parse(readFileSync(patchSchemaPath, "utf-8"));
+    }
+    return cachedPatchSchema;
+}
+
 export function handleVersion(): VersionResult {
     if (!cachedVersion) {
         const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-        cachedVersion = pkg.version ?? "0.0.0";
+        cachedVersion = (pkg.version as string) ?? "0.0.0";
     }
     return {
-        version: cachedVersion,
+        version: cachedVersion!,
         schemaVersion: "1.0",
         builtins: Array.from(BUILTIN_FUNCTIONS.keys()),
         features: {

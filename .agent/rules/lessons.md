@@ -65,3 +65,9 @@ if (url.endsWith(".ts")) {
 - **Fix**: Always use `Object.hasOwn(map, key)` before reading from lookup maps, or use `Object.create(null)` to create prototype-free objects.
 - **Pattern**: Any `Record<string, T>` used as a lookup table needs prototype-safe access. Dangerous keys: `constructor`, `toString`, `valueOf`, `hasOwnProperty`, `__proto__`.
 
+## 10. Fix ALL Build Errors — Not Just Yours
+- **Rule**: When running `npx tsc --noEmit` or any build step and errors appear, fix them ALL — even if they're pre-existing and not caused by your changes.
+- **Why**: A green build is the baseline. Dismissing errors as "not mine" leaves broken windows. The user expects a clean project state after every session.
+- **Pattern**: After running tests, also run `npx tsc --noEmit`. If errors exist, fix them before reporting completion.
+
+

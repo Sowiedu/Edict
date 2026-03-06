@@ -124,7 +124,7 @@ function checkFunctionWarnings(module: EdictModule, warnings: LintWarning[]): vo
  */
 function checkUnusedVariables(exprs: Expression[], warnings: LintWarning[]): void {
     for (let i = 0; i < exprs.length; i++) {
-        const expr = exprs[i];
+        const expr = exprs[i]!;
 
         // Recurse into nested expression lists
         recurseIntoExprForUnused(expr, warnings);
@@ -133,7 +133,7 @@ function checkUnusedVariables(exprs: Expression[], warnings: LintWarning[]): voi
             // Check if name is referenced in subsequent siblings
             const referencedInRest = new Set<string>();
             for (let j = i + 1; j < exprs.length; j++) {
-                collectReferencedNamesFromExpr(exprs[j], referencedInRest);
+                collectReferencedNamesFromExpr(exprs[j]!, referencedInRest);
             }
             if (!referencedInRest.has(expr.name)) {
                 warnings.push(unusedVariable(expr.id, expr.name));

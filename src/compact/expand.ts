@@ -186,7 +186,7 @@ export function expandCompact(ast: unknown): unknown {
     for (const [key, value] of Object.entries(obj)) {
         // Expand the key (only remap if this object uses compact format)
         const fullKey = hasCompactKind && Object.hasOwn(KEY_MAP, key)
-            ? KEY_MAP[key]
+            ? KEY_MAP[key]!
             : key;
 
         // Expand the value

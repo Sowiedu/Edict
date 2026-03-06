@@ -1,0 +1,105 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://github.com/Sowiedu/Edict/schema/edict-patch.schema.json",
+    "title": "EdictPatchRequest",
+    "description": "AST diff protocol for surgical Edict AST patching via edict_patch MCP tool",
+    "type": "object",
+    "required": [
+        "patches"
+    ],
+    "properties": {
+        "patches": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/AstPatch"
+            }
+        }
+    },
+    "definitions": {
+        "AstPatch": {
+            "type": "object",
+            "required": [
+                "nodeId",
+                "op"
+            ],
+            "properties": {
+                "nodeId": {
+                    "type": "string",
+                    "description": "ID of the target AST node (every node has a unique 'id' field)"
+                },
+                "op": {
+                    "type": "string",
+                    "enum": [
+                        "replace",
+                        "delete",
+                        "insert"
+                    ],
+                    "description": "Operation to perform"
+                },
+                "field": {
+                    "type": "string",
+                    "description": "Field name on the target node (required for replace and insert)"
+                },
+                "value": {
+                    "description": "New value (required for replace and insert)"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Array index for insert (defaults to end of array)"
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "op": {
+                                "const": "replace"
+                            }
+                        }
+                    },
+                    "then": {
+                        "required": [
+                            "nodeId",
+                            "op",
+                            "field",
+                            "value"
+                        ]
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "op": {
+                                "const": "insert"
+                            }
+                        }
+                    },
+                    "then": {
+                        "required": [
+                            "nodeId",
+                            "op",
+                            "field",
+                            "value"
+                        ]
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "op": {
+                                "const": "delete"
+                            }
+                        }
+                    },
+                    "then": {
+                        "required": [
+                            "nodeId",
+                            "op"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}

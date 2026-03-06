@@ -16,7 +16,7 @@ export function compileMatch(
     cc: CompilationContext,
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
-    const { mod, strings, fnSigs, errors } = cc;
+    const { mod, strings, errors } = cc;
     // Attempt to determine the Edict type name of the target for enum matching
     let targetEdictTypeName: string | undefined;
     if (expr.target.kind === "ident") {
@@ -62,7 +62,7 @@ export function compileMatch(
             case "literal_pattern": {
                 const val = pattern.value;
                 // Int64 literal pattern — value may be string or number
-                if (pattern.type?.kind === "basic" && pattern.type.name === "Int64") {
+                if ((pattern as any).type?.kind === "basic" && (pattern as any).type.name === "Int64") {
                     const big = BigInt(val as string | number);
                     const low = Number(big & 0xFFFFFFFFn);
                     const high = Number((big >> 32n) & 0xFFFFFFFFn);

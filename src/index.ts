@@ -123,6 +123,11 @@ export type {
     VerificationTimeoutError,
     UndecidablePredicateError,
     PreconditionNotMetError,
+    // Patch errors
+    PatchNodeNotFoundError,
+    PatchInvalidFieldError,
+    PatchIndexOutOfRangeError,
+    PatchDeleteNotInArrayError,
 } from "./errors/structured-errors.js";
 
 // Error constructors (all phases)
@@ -155,6 +160,11 @@ export {
     verificationTimeout,
     undecidablePredicate,
     preconditionNotMet,
+    // Patch errors
+    patchNodeNotFound,
+    patchInvalidField,
+    patchIndexOutOfRange,
+    patchDeleteNotInArray,
 } from "./errors/structured-errors.js";
 
 // Phase 5 — Code generation
@@ -202,4 +212,8 @@ export {
     emptyBody,
     redundantEffect,
 } from "./lint/warnings.js";
+
+// Patch engine
+export { applyPatches } from "./patch/apply.js";
+export type { AstPatch, PatchApplyResult } from "./patch/apply.js";
 
