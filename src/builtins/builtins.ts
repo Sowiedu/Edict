@@ -5,7 +5,7 @@
 // register them automatically. The codegen imports them from the host.
 
 import type { FunctionType } from "../ast/types.js";
-import { INT_TYPE, FLOAT_TYPE, STRING_TYPE, BOOL_TYPE, ARRAY_INT_TYPE, OPTION_INT_TYPE, RESULT_INT_TYPE, RESULT_STRING_TYPE } from "../ast/type-constants.js";
+import { INT_TYPE, INT64_TYPE, FLOAT_TYPE, STRING_TYPE, BOOL_TYPE, ARRAY_INT_TYPE, OPTION_INT_TYPE, RESULT_INT_TYPE, RESULT_STRING_TYPE } from "../ast/type-constants.js";
 
 export interface BuiltinFunction {
     /** Edict-level function type signature (includes effects, params, returnType) */
@@ -221,6 +221,37 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
         {
             type: { kind: "fn_type", params: [INT_TYPE], effects: ["pure"], returnType: FLOAT_TYPE },
             wasmImport: ["host", "intToFloat"],
+        },
+    ],
+    // =========================================================================
+    // Int64 conversion builtins — widen/narrow between Int and Int64
+    // =========================================================================
+    [
+        "intToInt64",
+        {
+            type: { kind: "fn_type", params: [INT_TYPE], effects: ["pure"], returnType: INT64_TYPE },
+            wasmImport: ["host", "intToInt64"],
+        },
+    ],
+    [
+        "int64ToInt",
+        {
+            type: { kind: "fn_type", params: [INT64_TYPE], effects: ["pure"], returnType: INT_TYPE },
+            wasmImport: ["host", "int64ToInt"],
+        },
+    ],
+    [
+        "int64ToFloat",
+        {
+            type: { kind: "fn_type", params: [INT64_TYPE], effects: ["pure"], returnType: FLOAT_TYPE },
+            wasmImport: ["host", "int64ToFloat"],
+        },
+    ],
+    [
+        "int64ToString",
+        {
+            type: { kind: "fn_type", params: [INT64_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            wasmImport: ["host", "int64ToString"],
         },
     ],
     // =========================================================================

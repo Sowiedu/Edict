@@ -7,6 +7,7 @@
 import type { TypeExpr } from "./types.js";
 
 export const INT_TYPE: TypeExpr = { kind: "basic", name: "Int" };
+export const INT64_TYPE: TypeExpr = { kind: "basic", name: "Int64" };
 export const FLOAT_TYPE: TypeExpr = { kind: "basic", name: "Float" };
 export const STRING_TYPE: TypeExpr = { kind: "basic", name: "String" };
 export const BOOL_TYPE: TypeExpr = { kind: "basic", name: "Bool" };

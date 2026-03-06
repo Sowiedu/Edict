@@ -788,7 +788,7 @@ function isString(type: TypeExpr): boolean {
 function isNumeric(type: TypeExpr, env: TypeEnv): boolean {
     const resolved = resolveType(type, env);
     if (resolved.kind === "basic") {
-        return resolved.name === "Int" || resolved.name === "Float";
+        return resolved.name === "Int" || resolved.name === "Int64" || resolved.name === "Float";
     }
     if (resolved.kind === "unit_type") return true;
     return false;

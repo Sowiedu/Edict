@@ -23,6 +23,18 @@ export function compileLiteral(
     if (typeof val === "boolean") {
         return mod.i32.const(val ? 1 : 0);
     }
+    // Int64 literal — value may be string (for >2^53 precision) or number
+    if (expr.type?.kind === "basic" && expr.type.name === "Int64") {
+        try {
+            const big = BigInt(val as string | number);
+            const low = Number(big & 0xFFFFFFFFn);
+            const high = Number((big >> 32n) & 0xFFFFFFFFn);
+            return mod.i64.const(low, high);
+        } catch {
+            cc.errors.push(wasmValidationError(`invalid Int64 literal value: ${JSON.stringify(val)}`));
+            return mod.unreachable();
+        }
+    }
     if (typeof val === "number") {
         // Check type annotation first — 0.0 is integer in JS but Float in Edict
         if (expr.type && expr.type.kind === "basic" && expr.type.name === "Float") {
@@ -84,34 +96,35 @@ export function compileBinop(
     // Type checker guarantees matching types for both operands.
     const opType = inferExprWasmType(expr.left, cc, ctx);
     const isFloat = opType === binaryen.f64;
+    const isInt64 = opType === binaryen.i64;
 
     switch (expr.op) {
         case "+":
-            return isFloat ? mod.f64.add(left, right) : mod.i32.add(left, right);
+            return isFloat ? mod.f64.add(left, right) : isInt64 ? mod.i64.add(left, right) : mod.i32.add(left, right);
         case "-":
-            return isFloat ? mod.f64.sub(left, right) : mod.i32.sub(left, right);
+            return isFloat ? mod.f64.sub(left, right) : isInt64 ? mod.i64.sub(left, right) : mod.i32.sub(left, right);
         case "*":
-            return isFloat ? mod.f64.mul(left, right) : mod.i32.mul(left, right);
+            return isFloat ? mod.f64.mul(left, right) : isInt64 ? mod.i64.mul(left, right) : mod.i32.mul(left, right);
         case "/":
-            return isFloat ? mod.f64.div(left, right) : mod.i32.div_s(left, right);
+            return isFloat ? mod.f64.div(left, right) : isInt64 ? mod.i64.div_s(left, right) : mod.i32.div_s(left, right);
         case "%":
             if (isFloat) {
                 errors.push(wasmValidationError(`modulo (%) not supported for Float`));
                 return mod.unreachable();
             }
-            return mod.i32.rem_s(left, right);
+            return isInt64 ? mod.i64.rem_s(left, right) : mod.i32.rem_s(left, right);
         case "==":
-            return isFloat ? mod.f64.eq(left, right) : mod.i32.eq(left, right);
+            return isFloat ? mod.f64.eq(left, right) : isInt64 ? mod.i64.eq(left, right) : mod.i32.eq(left, right);
         case "!=":
-            return isFloat ? mod.f64.ne(left, right) : mod.i32.ne(left, right);
+            return isFloat ? mod.f64.ne(left, right) : isInt64 ? mod.i64.ne(left, right) : mod.i32.ne(left, right);
         case "<":
-            return isFloat ? mod.f64.lt(left, right) : mod.i32.lt_s(left, right);
+            return isFloat ? mod.f64.lt(left, right) : isInt64 ? mod.i64.lt_s(left, right) : mod.i32.lt_s(left, right);
         case ">":
-            return isFloat ? mod.f64.gt(left, right) : mod.i32.gt_s(left, right);
+            return isFloat ? mod.f64.gt(left, right) : isInt64 ? mod.i64.gt_s(left, right) : mod.i32.gt_s(left, right);
         case "<=":
-            return isFloat ? mod.f64.le(left, right) : mod.i32.le_s(left, right);
+            return isFloat ? mod.f64.le(left, right) : isInt64 ? mod.i64.le_s(left, right) : mod.i32.le_s(left, right);
         case ">=":
-            return isFloat ? mod.f64.ge(left, right) : mod.i32.ge_s(left, right);
+            return isFloat ? mod.f64.ge(left, right) : isInt64 ? mod.i64.ge_s(left, right) : mod.i32.ge_s(left, right);
         case "and":
             return mod.i32.and(left, right);
         case "or":
@@ -135,11 +148,15 @@ export function compileUnop(
     const opType = inferExprWasmType(expr.operand, cc, ctx);
     const isFloat = opType === binaryen.f64;
 
+    const isInt64 = opType === binaryen.i64;
+
     switch (expr.op) {
         case "-":
             return isFloat
                 ? mod.f64.neg(operand)
-                : mod.i32.sub(mod.i32.const(0), operand);
+                : isInt64
+                    ? mod.i64.sub(mod.i64.const(0, 0), operand)
+                    : mod.i32.sub(mod.i32.const(0), operand);
         case "not":
             return mod.i32.eqz(operand);
         default:

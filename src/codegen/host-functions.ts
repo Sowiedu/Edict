@@ -442,6 +442,20 @@ function createRandomImports(state: RuntimeState): Record<string, Function> {
 }
 
 // =============================================================================
+// Int64 conversion builtins — widen/narrow between Int and Int64
+// =============================================================================
+
+function createInt64Imports(state: RuntimeState): Record<string, Function> {
+    const encoder = new TextEncoder();
+    return {
+        intToInt64: (x: number): bigint => BigInt(x),
+        int64ToInt: (x: bigint): number => Number(BigInt.asIntN(32, x)),
+        int64ToFloat: (x: bigint): number => Number(x),
+        int64ToString: (x: bigint): number => writeStringResult(state, x.toString(), encoder),
+    };
+}
+
+// =============================================================================
 // Factory — combines all groups into one import object
 // =============================================================================
 
@@ -461,6 +475,7 @@ export function createHostImports(
             ...createStringImports(state),
             ...createMathImports(),
             ...createTypeConversionImports(state),
+            ...createInt64Imports(state),
             ...createArrayImports(state),
             ...createOptionImports(state),
             ...createResultImports(state),

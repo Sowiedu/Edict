@@ -23,7 +23,7 @@ export type TypeExpr =
  */
 export interface BasicType {
     kind: "basic";
-    name: "Int" | "Float" | "String" | "Bool";
+    name: "Int" | "Int64" | "Float" | "String" | "Bool";
 }
 
 /**

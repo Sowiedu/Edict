@@ -203,6 +203,7 @@
             "Bool",
             "Float",
             "Int",
+            "Int64",
             "String"
           ],
           "type": "string"

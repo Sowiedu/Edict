@@ -61,6 +61,13 @@ export function compileMatch(
         switch (pattern.kind) {
             case "literal_pattern": {
                 const val = pattern.value;
+                // Int64 literal pattern — value may be string or number
+                if (pattern.type?.kind === "basic" && pattern.type.name === "Int64") {
+                    const big = BigInt(val as string | number);
+                    const low = Number(big & 0xFFFFFFFFn);
+                    const high = Number((big >> 32n) & 0xFFFFFFFFn);
+                    return mod.i64.eq(getTarget(), mod.i64.const(low, high));
+                }
                 if (typeof val === "number" && Number.isInteger(val)) {
                     return mod.i32.eq(getTarget(), mod.i32.const(val));
                 }

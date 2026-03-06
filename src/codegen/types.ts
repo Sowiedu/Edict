@@ -17,6 +17,8 @@ export function edictTypeToWasm(type: TypeExpr): binaryen.Type {
         switch (type.name) {
             case "Int":
                 return binaryen.i32;
+            case "Int64":
+                return binaryen.i64;
             case "Float":
                 return binaryen.f64;
             case "Bool":

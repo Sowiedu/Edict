@@ -431,6 +431,7 @@ export const VALID_PATTERN_KINDS = [
 
 export const VALID_BASIC_TYPE_NAMES = [
     "Int",
+    "Int64",
     "Float",
     "String",
     "Bool",
