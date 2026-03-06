@@ -456,6 +456,63 @@ function createInt64Imports(state: RuntimeState): Record<string, Function> {
 }
 
 // =============================================================================
+// Date/time builtins — now, formatDate, parseDate, diffMs
+// =============================================================================
+
+/**
+ * Format a Date using strftime-style tokens.
+ * Supported: %Y (year), %m (month 01-12), %d (day 01-31),
+ *            %H (hour 00-23), %M (min 00-59), %S (sec 00-59), %% (literal %)
+ */
+function formatDateString(date: Date, fmt: string): string {
+    const pad2 = (n: number): string => String(n).padStart(2, "0");
+    let result = "";
+    let i = 0;
+    while (i < fmt.length) {
+        if (fmt[i] === "%" && i + 1 < fmt.length) {
+            const token = fmt[i + 1];
+            switch (token) {
+                case "Y": result += String(date.getUTCFullYear()); break;
+                case "m": result += pad2(date.getUTCMonth() + 1); break;
+                case "d": result += pad2(date.getUTCDate()); break;
+                case "H": result += pad2(date.getUTCHours()); break;
+                case "M": result += pad2(date.getUTCMinutes()); break;
+                case "S": result += pad2(date.getUTCSeconds()); break;
+                case "%": result += "%"; break;
+                default: result += "%" + token; break; // unknown token → pass through
+            }
+            i += 2;
+        } else {
+            result += fmt[i];
+            i++;
+        }
+    }
+    return result;
+}
+
+function createDateTimeImports(state: RuntimeState): Record<string, Function> {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    return {
+        now: (): bigint => BigInt(Date.now()),
+        formatDate: (timestamp: bigint, fmtPtr: number, fmtLen: number): number => {
+            const fmt = decoder.decode(new Uint8Array(getMemoryBuffer(state), fmtPtr, fmtLen));
+            const date = new Date(Number(timestamp));
+            return writeStringResult(state, formatDateString(date, fmt), encoder);
+        },
+        parseDate: (strPtr: number, strLen: number, _fmtPtr: number, _fmtLen: number): bigint => {
+            const str = decoder.decode(new Uint8Array(getMemoryBuffer(state), strPtr, strLen));
+            const ms = Date.parse(str);
+            if (isNaN(ms)) {
+                throw new Error(`parseDate: invalid date string "${str}"`);
+            }
+            return BigInt(ms);
+        },
+        diffMs: (a: bigint, b: bigint): bigint => a - b,
+    };
+}
+
+// =============================================================================
 // Factory — combines all groups into one import object
 // =============================================================================
 
@@ -481,6 +538,7 @@ export function createHostImports(
             ...createResultImports(state),
             ...createJsonImports(state),
             ...createRandomImports(state),
+            ...createDateTimeImports(state),
         },
     };
 }

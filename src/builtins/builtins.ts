@@ -497,6 +497,37 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
             wasmImport: ["host", "randomUuid"],
         },
     ],
+    // =========================================================================
+    // Date/time builtins — timestamps, formatting, parsing, and differences
+    // =========================================================================
+    [
+        "now",
+        {
+            type: { kind: "fn_type", params: [], effects: ["reads"], returnType: INT64_TYPE },
+            wasmImport: ["host", "now"],
+        },
+    ],
+    [
+        "formatDate",
+        {
+            type: { kind: "fn_type", params: [INT64_TYPE, STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
+            wasmImport: ["host", "formatDate"],
+        },
+    ],
+    [
+        "parseDate",
+        {
+            type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["fails"], returnType: INT64_TYPE },
+            wasmImport: ["host", "parseDate"],
+        },
+    ],
+    [
+        "diffMs",
+        {
+            type: { kind: "fn_type", params: [INT64_TYPE, INT64_TYPE], effects: ["pure"], returnType: INT64_TYPE },
+            wasmImport: ["host", "diffMs"],
+        },
+    ],
 ]);
 
 /**
