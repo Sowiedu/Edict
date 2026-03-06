@@ -16,7 +16,7 @@ import { StringTable } from "./string-table.js";
 import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import { type StructuredError, wasmValidationError } from "../errors/structured-errors.js";
 import { collectStrings } from "./collect-strings.js";
-import { generateArrayMap, generateArrayFilter, generateArrayReduce } from "./hof-generators.js";
+import { generateArrayMap, generateArrayFilter, generateArrayReduce, generateArrayFind, generateArraySort } from "./hof-generators.js";
 import {
     type CompilationContext,
     type CompileResult,
@@ -354,6 +354,8 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         generateArrayMap(mod);
         generateArrayFilter(mod);
         generateArrayReduce(mod);
+        generateArrayFind(mod);
+        generateArraySort(mod);
 
         // Build function table for indirect calls (call_indirect)
         // This must happen after all functions (including lambdas) are compiled

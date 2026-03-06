@@ -1044,3 +1044,372 @@ describe("array_reduce builtin", () => {
         expect(result.returnValue).toBe(24);
     });
 });
+
+// =============================================================================
+// array_find — HOF builtin, returns Option<Int>
+// =============================================================================
+
+// Helper: build a program that returns a Bool from a call on an Option result
+function optionBoolProgram(bodyExprs: unknown[]): unknown {
+    return {
+        kind: "module",
+        id: "mod-001",
+        name: "test",
+        imports: [],
+        definitions: [
+            {
+                kind: "fn",
+                id: "fn-main-001",
+                name: "main",
+                params: [],
+                effects: ["pure"],
+                returnType: { kind: "basic", name: "Bool" },
+                contracts: [],
+                body: bodyExprs,
+            },
+        ],
+    };
+}
+
+// Helper: build a program that uses unwrap on an Option result to return Int
+function optionIntProgram(bodyExprs: unknown[]): unknown {
+    return {
+        kind: "module",
+        id: "mod-001",
+        name: "test",
+        imports: [],
+        definitions: [
+            {
+                kind: "fn",
+                id: "fn-main-001",
+                name: "main",
+                params: [],
+                effects: ["fails"],
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: bodyExprs,
+            },
+        ],
+    };
+}
+
+describe("array_find builtin", () => {
+    it("finds element matching predicate — returns Some", async () => {
+        // isSome(array_find([1, 2, 3, 4, 5], (x) => x > 3)) → true
+        const ast = optionBoolProgram([
+            callExpr("call-isSome", "isSome", [
+                callExpr("call-find", "array_find", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 1),
+                        intLit("lit-002", 2),
+                        intLit("lit-003", 3),
+                        intLit("lit-004", 4),
+                        intLit("lit-005", 5),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "gt-001",
+                            op: ">",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-3", 3),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(1); // true = Some
+    });
+
+    it("returns correct value via unwrap", async () => {
+        // unwrap(array_find([10, 20, 30], (x) => x > 15)) → 20
+        const ast = optionIntProgram([
+            callExpr("call-unwrap", "unwrap", [
+                callExpr("call-find", "array_find", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 10),
+                        intLit("lit-002", 20),
+                        intLit("lit-003", 30),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "gt-001",
+                            op: ">",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-15", 15),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(20);
+    });
+
+    it("returns first match when multiple exist", async () => {
+        // unwrap(array_find([5, 10, 15, 20], (x) => x > 7)) → 10
+        const ast = optionIntProgram([
+            callExpr("call-unwrap", "unwrap", [
+                callExpr("call-find", "array_find", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 5),
+                        intLit("lit-002", 10),
+                        intLit("lit-003", 15),
+                        intLit("lit-004", 20),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "gt-001",
+                            op: ">",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-7", 7),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(10);
+    });
+
+    it("no match returns None", async () => {
+        // isNone(array_find([1, 2, 3], (x) => x > 100)) → true
+        const ast = optionBoolProgram([
+            callExpr("call-isNone", "isNone", [
+                callExpr("call-find", "array_find", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 1),
+                        intLit("lit-002", 2),
+                        intLit("lit-003", 3),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "gt-001",
+                            op: ">",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-100", 100),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(1); // true = None
+    });
+
+    it("empty array returns None", async () => {
+        // isNone(array_find([], (x) => x > 0)) → true
+        const ast = optionBoolProgram([
+            callExpr("call-isNone", "isNone", [
+                callExpr("call-find", "array_find", [
+                    arrayExpr("arr-001", []),
+                    lambdaExpr("lam-001", [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "gt-001",
+                            op: ">",
+                            left: { kind: "ident", id: "id-x", name: "x" },
+                            right: intLit("lit-0", 0),
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(1); // true = None
+    });
+});
+
+// =============================================================================
+// array_sort — HOF builtin
+// =============================================================================
+
+describe("array_sort builtin", () => {
+    it("sorts ascending with comparator", async () => {
+        // array_get(array_sort([3, 1, 2], (a, b) => a - b), 0) → 1
+        const ast = intProgram([
+            callExpr("call-get", "array_get", [
+                callExpr("call-sort", "array_sort", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 3),
+                        intLit("lit-002", 1),
+                        intLit("lit-003", 2),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "a", type: { kind: "basic", name: "Int" } },
+                        { name: "b", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "sub-001",
+                            op: "-",
+                            left: { kind: "ident", id: "id-a", name: "a" },
+                            right: { kind: "ident", id: "id-b", name: "b" },
+                        },
+                    ]),
+                ]),
+                intLit("lit-idx", 0),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(1);
+    });
+
+    it("sorts ascending — last element is max", async () => {
+        // array_get(array_sort([3, 1, 2], (a, b) => a - b), 2) → 3
+        const ast = intProgram([
+            callExpr("call-get", "array_get", [
+                callExpr("call-sort", "array_sort", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 3),
+                        intLit("lit-002", 1),
+                        intLit("lit-003", 2),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "a", type: { kind: "basic", name: "Int" } },
+                        { name: "b", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "sub-001",
+                            op: "-",
+                            left: { kind: "ident", id: "id-a", name: "a" },
+                            right: { kind: "ident", id: "id-b", name: "b" },
+                        },
+                    ]),
+                ]),
+                intLit("lit-idx", 2),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(3);
+    });
+
+    it("sorts descending with reversed comparator", async () => {
+        // array_get(array_sort([1, 3, 2], (a, b) => b - a), 0) → 3
+        const ast = intProgram([
+            callExpr("call-get", "array_get", [
+                callExpr("call-sort", "array_sort", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 1),
+                        intLit("lit-002", 3),
+                        intLit("lit-003", 2),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "a", type: { kind: "basic", name: "Int" } },
+                        { name: "b", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "sub-001",
+                            op: "-",
+                            left: { kind: "ident", id: "id-b", name: "b" },
+                            right: { kind: "ident", id: "id-a", name: "a" },
+                        },
+                    ]),
+                ]),
+                intLit("lit-idx", 0),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(3);
+    });
+
+    it("sorting empty array returns empty", async () => {
+        // array_length(array_sort([], (a, b) => a - b)) → 0
+        const ast = intProgram([
+            callExpr("call-len", "array_length", [
+                callExpr("call-sort", "array_sort", [
+                    arrayExpr("arr-001", []),
+                    lambdaExpr("lam-001", [
+                        { name: "a", type: { kind: "basic", name: "Int" } },
+                        { name: "b", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "sub-001",
+                            op: "-",
+                            left: { kind: "ident", id: "id-a", name: "a" },
+                            right: { kind: "ident", id: "id-b", name: "b" },
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(0);
+    });
+
+    it("single-element array sort is identity", async () => {
+        // array_get(array_sort([42], (a, b) => a - b), 0) → 42
+        const ast = intProgram([
+            callExpr("call-get", "array_get", [
+                callExpr("call-sort", "array_sort", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 42),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "a", type: { kind: "basic", name: "Int" } },
+                        { name: "b", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "sub-001",
+                            op: "-",
+                            left: { kind: "ident", id: "id-a", name: "a" },
+                            right: { kind: "ident", id: "id-b", name: "b" },
+                        },
+                    ]),
+                ]),
+                intLit("lit-idx", 0),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(42);
+    });
+
+    it("sort preserves array length", async () => {
+        // array_length(array_sort([5, 3, 1, 4, 2], (a, b) => a - b)) → 5
+        const ast = intProgram([
+            callExpr("call-len", "array_length", [
+                callExpr("call-sort", "array_sort", [
+                    arrayExpr("arr-001", [
+                        intLit("lit-001", 5),
+                        intLit("lit-002", 3),
+                        intLit("lit-003", 1),
+                        intLit("lit-004", 4),
+                        intLit("lit-005", 2),
+                    ]),
+                    lambdaExpr("lam-001", [
+                        { name: "a", type: { kind: "basic", name: "Int" } },
+                        { name: "b", type: { kind: "basic", name: "Int" } },
+                    ], [
+                        {
+                            kind: "binop",
+                            id: "sub-001",
+                            op: "-",
+                            left: { kind: "ident", id: "id-a", name: "a" },
+                            right: { kind: "ident", id: "id-b", name: "b" },
+                        },
+                    ]),
+                ]),
+            ]),
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.returnValue).toBe(5);
+    });
+});

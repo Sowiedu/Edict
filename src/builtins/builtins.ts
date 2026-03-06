@@ -379,6 +379,36 @@ export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map([
             wasmImport: ["__wasm", "array_reduce"],
         },
     ],
+    [
+        "array_find",
+        {
+            type: {
+                kind: "fn_type",
+                params: [
+                    ARRAY_INT_TYPE,
+                    { kind: "fn_type", params: [INT_TYPE], effects: [], returnType: BOOL_TYPE },
+                ],
+                effects: ["pure"],
+                returnType: OPTION_INT_TYPE,
+            },
+            wasmImport: ["__wasm", "array_find"],
+        },
+    ],
+    [
+        "array_sort",
+        {
+            type: {
+                kind: "fn_type",
+                params: [
+                    ARRAY_INT_TYPE,
+                    { kind: "fn_type", params: [INT_TYPE, INT_TYPE], effects: [], returnType: INT_TYPE },
+                ],
+                effects: ["pure"],
+                returnType: ARRAY_INT_TYPE,
+            },
+            wasmImport: ["__wasm", "array_sort"],
+        },
+    ],
     // =========================================================================
     // Option builtins — operate on heap-allocated [tag: i32][value: i32]
     // =========================================================================
