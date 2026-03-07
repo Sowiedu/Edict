@@ -81,3 +81,9 @@ if (url.endsWith(".ts")) {
 - **Problem**: Creating new files locally (like `host-adapter.ts`) but forgetting to `git add` them causes CI builds to fail with `ERR_MODULE_NOT_FOUND` because the files don't exist in the actual commit pushed to GitHub.
 - **Root cause**: Agent modifying or creating files but relying on the user to manually track untracked files.
 - **Fix**: When creating new files that are required for the build or tests to pass, explicitly add them to the git index or run a commit.
+
+## 13. WASM Worker Timeouts Must Account for CI Runner Slowness
+- **Problem**: Default WASM execution timeout of 5000ms was sufficient locally but caused mass test failures on GitHub Actions (ubuntu-latest with 2 vCPUs).
+- **Root cause**: Worker thread startup (tsx loader registration + dynamic import + WASM instantiation) takes 2-5s on CI. Node 20 is ~3x slower than Node 22 due to ESM loader overhead.
+- **Fix**: Set default WASM execution timeout to 15_000ms. Set vitest `testTimeout: 15_000`. Explicitly use 15_000 in tests that pass `timeoutMs` to `run()`.
+- **Pattern**: When writing tests that spawn worker threads (especially with tsx ESM loader), use 15s+ timeouts. Always test both Node matrix versions if CI runs both.
