@@ -58,7 +58,8 @@
     "validate-examples": "tsx scripts/validate-examples.ts",
     "ci:local": "npm run typecheck && npm run build && npm test && npm run validate-examples",
     "generate-schema": "tsx scripts/generate-schema.ts",
-    "mcp": "tsx src/mcp/server.ts"
+    "mcp": "tsx src/mcp/server.ts",
+    "benchmark": "tsx scripts/benchmark.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

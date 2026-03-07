@@ -21,3 +21,6 @@ Thumbs.db
 .env
 .env.local
 *.tgz
+
+# Benchmark output (transient — baseline file is committed separately)
+benchmark-results.json
