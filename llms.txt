@@ -1,0 +1,85 @@
+# Edict
+
+> A programming language designed exclusively for AI agents. No parser, no syntax — agents produce AST directly as JSON. Statically typed, effect-tracked, contract-verified via Z3, compiled to WebAssembly. Full compiler pipeline exposed via Model Context Protocol (MCP).
+
+## Overview
+
+- [README](https://github.com/Sowiedu/Edict/blob/main/README.md): Project overview, quick start, architecture diagram
+- [Feature Specification](https://github.com/Sowiedu/Edict/blob/main/FEATURE_SPEC.md): Complete language specification — types, effects, contracts, modules, execution model
+- [Roadmap](https://github.com/Sowiedu/Edict/blob/main/ROADMAP.md): Development plan and priorities
+- [Contributing](https://github.com/Sowiedu/Edict/blob/main/CONTRIBUTING.md): Setup instructions, coding standards, PR workflow
+
+## Using Edict (for AI agents)
+
+Edict is designed for agents, not humans. The canonical workflow:
+
+1. Read the AST JSON Schema to learn the program format
+2. Write a program as a JSON AST conforming to the schema
+3. Submit to the compiler — if errors, read structured error JSON, fix, resubmit
+4. Compile to WASM and execute in sandboxed runtime
+
+Install and run the MCP server:
+```
+npm install edict-lang
+npx edict-lang         # stdio transport
+```
+
+## MCP Tools
+
+- `edict_schema`: Returns the full AST JSON Schema (supports full/minimal/compact formats)
+- `edict_version`: Returns compiler version and capability info
+- `edict_examples`: Returns 18 example programs as JSON ASTs
+- `edict_validate`: Validates AST structure (fields, types, node kinds)
+- `edict_check`: Full pipeline — validate → resolve → type check → effect check → verify contracts
+- `edict_compile`: Compiles checked AST to WASM (returns base64)
+- `edict_run`: Executes WASM in sandboxed runtime with configurable limits
+- `edict_patch`: Applies targeted AST patches by nodeId and re-checks
+- `edict_errors`: Machine-readable catalog of all structured error types
+- `edict_lint`: Non-blocking quality warnings (unused vars, missing contracts, etc.)
+
+## MCP Resources
+
+- `edict://schema`: Full AST JSON Schema
+- `edict://schema/minimal`: Token-optimized schema (descriptions stripped)
+- `edict://examples`: All example programs
+- `edict://errors`: Machine-readable error catalog
+- `edict://schema/patch`: Patch protocol schema
+
+## Key Resources
+
+- [AST JSON Schema](https://github.com/Sowiedu/Edict/blob/main/schema/edict.schema.json): The formal schema for writing Edict programs
+- [Examples](https://github.com/Sowiedu/Edict/tree/main/examples): 18 example programs as JSON ASTs
+- [Agent Guide](https://github.com/Sowiedu/Edict/blob/main/AGENTS.md): Agent-facing entry point with quick orientation
+
+## Language Features
+
+- **Type system**: Int, Int64, Float, String, Bool, Array<T>, Option<T>, Result<T,E>, records, enums, refinement types, function types, semantic unit types
+- **Effect system**: pure, reads, writes, io, fails — compiler-enforced consistency
+- **Contract verification**: Pre/postconditions verified at compile time by Z3/SMT with concrete counterexamples
+- **WASM compilation**: Compiles to WebAssembly via binaryen, runs in sandboxed Node.js runtime
+- **Security model**: No ambient authority — filesystem, network, crypto access only through explicit host adapters
+
+## Architecture
+
+```
+src/
+├── ast/           # AST node interfaces
+├── validator/     # Schema validation
+├── resolver/      # Name resolution (Levenshtein suggestions)
+├── checker/       # Type checking (bidirectional)
+├── effects/       # Effect checking (call-graph propagation)
+├── contracts/     # Contract verification (Z3/SMT)
+├── codegen/       # WASM generation (binaryen) + execution
+├── builtins/      # Builtin registry
+├── compact/       # Token-efficient compact AST format
+├── lint/          # Non-blocking quality warnings
+├── patch/         # Surgical AST patching by nodeId
+├── mcp/           # MCP server (tools + resources + prompts)
+└── errors/        # Structured error types
+```
+
+## npm Package
+
+- Package: [edict-lang](https://www.npmjs.com/package/edict-lang)
+- License: MIT
+- Node.js: ≥20.0.0
