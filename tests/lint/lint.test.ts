@@ -270,4 +270,335 @@ describe("lint", () => {
         const warnings = lint(m);
         expect(warnings).toHaveLength(0);
     });
+
+    // =========================================================================
+    // Expression branch coverage — collectReferencedNamesFromExpr
+    // =========================================================================
+    // These tests exercise branches in the switch statement that checks
+    // whether imported names are used across all expression kinds.
+
+    describe("expression branch coverage — unused imports", () => {
+        it("detects import used in unop expression", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "unop", id: "un-001", op: "-",
+                        operand: { kind: "ident", id: "id-001", name: "negate" },
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "math", names: ["negate"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in array expression", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "array", id: "arr-001",
+                        elements: [{ kind: "ident", id: "id-001", name: "val" }],
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "data", names: ["val"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in tuple_expr", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "tuple_expr", id: "tup-001",
+                        elements: [{ kind: "ident", id: "id-001", name: "x" }],
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "data", names: ["x"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in record_expr", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "record_expr", id: "rec-001",
+                        recordName: "Point",
+                        fields: [{ name: "x", value: { kind: "ident", id: "id-001", name: "origin" } }],
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "geo", names: ["origin"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in enum_constructor", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "enum_constructor", id: "ec-001",
+                        enumName: "Color", variant: "RGB",
+                        fields: [{ name: "r", value: { kind: "ident", id: "id-001", name: "red" } }],
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "colors", names: ["red"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in access expression", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "access", id: "acc-001", field: "x",
+                        target: { kind: "ident", id: "id-001", name: "point" },
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "geo", names: ["point"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in lambda body", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "lambda", id: "lam-001",
+                        params: [{ kind: "param", id: "p-001", name: "y", type: INT }],
+                        returnType: INT,
+                        body: [{ kind: "ident", id: "id-001", name: "helper" }],
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "utils", names: ["helper"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in block expression", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "block", id: "blk-001",
+                        body: [{ kind: "ident", id: "id-001", name: "compute" }],
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "utils", names: ["compute"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in string_interp", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "string_interp", id: "si-001",
+                        parts: [{ kind: "ident", id: "id-001", name: "name" }],
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "data", names: ["name"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in match expression (target and arm bodies)", () => {
+            const m = mod(
+                [{
+                    kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                    returnType: INT, contracts: [],
+                    body: [{
+                        kind: "match", id: "match-001",
+                        target: { kind: "ident", id: "id-001", name: "val" },
+                        arms: [{
+                            pattern: { kind: "literal", value: 0 },
+                            body: [{ kind: "ident", id: "id-002", name: "zero_handler" }],
+                        }],
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "handlers", names: ["val", "zero_handler"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+    });
+
+    // =========================================================================
+    // Expression branch coverage — unused imports in non-fn definitions
+    // =========================================================================
+
+    describe("unused imports in const/record/enum definitions", () => {
+        it("detects import used in const definition value", () => {
+            const m = mod(
+                [{
+                    kind: "const", id: "const-001", name: "PI",
+                    type: INT,
+                    value: { kind: "ident", id: "id-001", name: "pi_value" },
+                }],
+                [{ kind: "import", id: "imp-001", module: "math", names: ["pi_value"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in record field default", () => {
+            const m = mod(
+                [{
+                    kind: "record", id: "rec-001", name: "Config",
+                    fields: [{
+                        name: "timeout", type: INT,
+                        defaultValue: { kind: "ident", id: "id-001", name: "default_timeout" },
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "defaults", names: ["default_timeout"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+
+        it("detects import used in enum variant field default", () => {
+            const m = mod(
+                [{
+                    kind: "enum", id: "enum-001", name: "Shape",
+                    variants: [{
+                        name: "Circle",
+                        fields: [{
+                            name: "radius", type: INT,
+                            defaultValue: { kind: "ident", id: "id-001", name: "unit_radius" },
+                        }],
+                    }],
+                }],
+                [{ kind: "import", id: "imp-001", module: "geometry", names: ["unit_radius"] }],
+            );
+            const unused = lint(m).filter(w => w.warning === "unused_import");
+            expect(unused).toHaveLength(0);
+        });
+    });
+
+    // =========================================================================
+    // Expression branch coverage — recurseIntoExprForUnused
+    // =========================================================================
+
+    describe("unused variable detection in nested constructs", () => {
+        it("detects unused variable inside match arm body", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                returnType: INT, contracts: [],
+                body: [{
+                    kind: "match", id: "match-001",
+                    target: { kind: "literal", id: "lit-t", value: 1 },
+                    arms: [{
+                        pattern: { kind: "literal", value: 1 },
+                        body: [
+                            { kind: "let", id: "let-001", name: "unused", type: INT, value: { kind: "literal", id: "lit-001", value: 42 } },
+                            { kind: "literal", id: "lit-002", value: 0 },
+                        ],
+                    }],
+                }],
+            }]);
+            const unused = lint(m).filter(w => w.warning === "unused_variable");
+            expect(unused).toHaveLength(1);
+            expect(unused[0]).toMatchObject({ nodeId: "let-001", name: "unused" });
+        });
+
+        it("detects unused variable inside lambda body", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                returnType: INT, contracts: [],
+                body: [{
+                    kind: "lambda", id: "lam-001",
+                    params: [{ kind: "param", id: "p-001", name: "x", type: INT }],
+                    returnType: INT,
+                    body: [
+                        { kind: "let", id: "let-001", name: "unused", type: INT, value: { kind: "literal", id: "lit-001", value: 42 } },
+                        { kind: "ident", id: "id-001", name: "x" },
+                    ],
+                }],
+            }]);
+            const unused = lint(m).filter(w => w.warning === "unused_variable");
+            expect(unused).toHaveLength(1);
+            expect(unused[0]).toMatchObject({ nodeId: "let-001", name: "unused" });
+        });
+
+        it("detects unused variable inside block body", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "main", params: [], effects: ["pure"],
+                returnType: INT, contracts: [],
+                body: [{
+                    kind: "block", id: "blk-001",
+                    body: [
+                        { kind: "let", id: "let-001", name: "unused", type: INT, value: { kind: "literal", id: "lit-001", value: 42 } },
+                        { kind: "literal", id: "lit-002", value: 0 },
+                    ],
+                }],
+            }]);
+            const unused = lint(m).filter(w => w.warning === "unused_variable");
+            expect(unused).toHaveLength(1);
+            expect(unused[0]).toMatchObject({ nodeId: "let-001", name: "unused" });
+        });
+    });
+
+    // =========================================================================
+    // Expression branch coverage — countExprNode
+    // =========================================================================
+
+    describe("oversized_function with diverse expression types", () => {
+        it("counts nodes across all expression kinds", () => {
+            // Build a body with diverse expression types that in total exceed 50 nodes
+            const body: any[] = [];
+            // Each entry contributes nodes: unop=2, array=N+1, tuple=N+1, record_expr=N+1,
+            // enum_constructor=N+1, access=2, lambda=body+1, block=body+1, string_interp=N+1, match=target+arms+1
+            for (let i = 0; i < 5; i++) {
+                body.push(
+                    { kind: "unop", id: `un-${i}`, op: "-", operand: { kind: "literal", id: `unlit-${i}`, value: i } },
+                    { kind: "array", id: `arr-${i}`, elements: [{ kind: "literal", id: `ael-${i}`, value: i }] },
+                    { kind: "tuple_expr", id: `tup-${i}`, elements: [{ kind: "literal", id: `tel-${i}`, value: i }] },
+                    { kind: "record_expr", id: `rec-${i}`, recordName: "R", fields: [{ name: "f", value: { kind: "literal", id: `rfl-${i}`, value: i } }] },
+                    { kind: "enum_constructor", id: `ec-${i}`, enumName: "E", variant: "V", fields: [{ name: "f", value: { kind: "literal", id: `efl-${i}`, value: i } }] },
+                    { kind: "access", id: `acc-${i}`, field: "x", target: { kind: "literal", id: `atgt-${i}`, value: i } },
+                    { kind: "string_interp", id: `si-${i}`, parts: [{ kind: "literal", id: `sip-${i}`, value: "hi" }] },
+                );
+            }
+            // Add lambda and block for those branches
+            body.push(
+                { kind: "lambda", id: "lam-big", params: [], returnType: INT, body: [{ kind: "literal", id: "lam-lit", value: 0 }] },
+                { kind: "block", id: "blk-big", body: [{ kind: "literal", id: "blk-lit", value: 0 }] },
+                { kind: "match", id: "match-big", target: { kind: "literal", id: "mt", value: 0 }, arms: [{ pattern: { kind: "literal", value: 0 }, body: [{ kind: "literal", id: "mb", value: 0 }] }] },
+            );
+
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "big", params: [], effects: ["pure"],
+                returnType: INT, contracts: [],
+                body,
+            }]);
+            const warnings = lint(m);
+            const oversized = warnings.filter(w => w.warning === "oversized_function");
+            expect(oversized).toHaveLength(1);
+            expect((oversized[0] as any).expressionCount).toBeGreaterThan(50);
+        });
+    });
 });
