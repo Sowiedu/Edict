@@ -60,15 +60,43 @@ export function resolve(module: EdictModule): StructuredError[] {
     // Pass 1 — Register top-level definitions + imports
     // =========================================================================
 
-    // Register imports (trusted/opaque — typed as unknown)
+    // Register imports — use declared types when available, fall back to opaque
     for (const imp of module.imports) {
         for (const name of imp.names) {
-            const err = moduleScope.define(name, {
-                name,
-                kind: "import",
-                nodeId: imp.id,
-            });
-            if (err) errors.push(err);
+            const declaredType = imp.types?.[name];
+            if (declaredType && declaredType.kind === "fn_type") {
+                // Typed import — register as a function with known signature
+                const err = moduleScope.define(name, {
+                    name,
+                    kind: "function",
+                    nodeId: imp.id,
+                    type: declaredType,
+                });
+                if (err) errors.push(err);
+            } else if (declaredType) {
+                // Non-function typed import — register with declared type
+                const err = moduleScope.define(name, {
+                    name,
+                    kind: "import",
+                    nodeId: imp.id,
+                    type: declaredType,
+                });
+                if (err) errors.push(err);
+            } else {
+                // Untyped import — opaque (backwards compat)
+                const err = moduleScope.define(name, {
+                    name,
+                    kind: "import",
+                    nodeId: imp.id,
+                });
+                if (err) errors.push(err);
+            }
+        }
+        // Resolve type expressions in declared import types
+        if (imp.types) {
+            for (const typeExpr of Object.values(imp.types)) {
+                resolveTypeExpr(typeExpr, moduleScope, errors);
+            }
         }
     }
 

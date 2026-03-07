@@ -148,10 +148,28 @@ export function buildCallGraph(module: EdictModule): {
         } as FunctionDef);
     }
 
-    // Collect imported names
+    // Collect imported names — register typed imports as synthetic FunctionDefs
+    // when they declare fn_type with effects (same pattern as builtins above)
     for (const imp of module.imports) {
         for (const name of imp.names) {
-            importedNames.add(name);
+            const declaredType = imp.types?.[name];
+            if (declaredType && declaredType.kind === "fn_type" && declaredType.effects.length > 0) {
+                // Typed import with effects — register as synthetic FunctionDef
+                // so the effect checker can verify callers declare the right effects
+                functionDefs.set(name, {
+                    kind: "fn",
+                    id: `import-${imp.module}-${name}`,
+                    name,
+                    params: [],
+                    returnType: declaredType.returnType,
+                    effects: [...declaredType.effects],
+                    contracts: [],
+                    body: [],
+                } as FunctionDef);
+            } else {
+                // Untyped or pure import — effect-opaque
+                importedNames.add(name);
+            }
         }
     }
 

@@ -116,6 +116,7 @@ export const KEY_MAP: Record<string, string> = {
     df: "definition",
     md: "module",
     ns: "names",
+    ts: "types",
     en: "enumName",
     vr: "variant",
     fd: "field",

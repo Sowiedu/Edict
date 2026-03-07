@@ -179,6 +179,36 @@ export function compileCall(
             return mod.call(fnName, wasmArgs, returnType);
         }
 
+        // For typed imports (non-user functions) with String params, expand similarly
+        // but without __env prefix since imports don't use the closure convention
+        if (!isUserFn && sig?.edictParamTypes) {
+            const wasmArgs: binaryen.ExpressionRef[] = [];
+
+            for (let i = 0; i < expr.args.length; i++) {
+                const arg = expr.args[i]!;
+                const isStringParam = sig.edictParamTypes[i] === "String";
+
+                if (isStringParam) {
+                    wasmArgs.push(...expandStringArg(arg, cc, ctx, strings));
+                } else {
+                    const compiled = compileExpr(arg, cc, ctx);
+                    if (sig.paramTypes) {
+                        const wasmIdx = wasmArgs.length;
+                        if (sig.paramTypes[wasmIdx] === binaryen.f64) {
+                            const argType = inferExprWasmType(arg, cc, ctx);
+                            if (argType === binaryen.i32) {
+                                wasmArgs.push(mod.f64.convert_s.i32(compiled));
+                                continue;
+                            }
+                        }
+                    }
+                    wasmArgs.push(compiled);
+                }
+            }
+
+            return mod.call(fnName, wasmArgs, returnType);
+        }
+
         // Non-user function (builtins without String params, imports)
         const args = expr.args.map((a, i) => {
             const compiled = compileExpr(a, cc, ctx);

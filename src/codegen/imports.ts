@@ -21,8 +21,11 @@ export interface ImportSig {
 // =============================================================================
 
 /**
- * Scan function bodies for calls to imported names and infer WASM types
+ * FALLBACK: Scan function bodies for calls to imported names and infer WASM types
  * from the function's declared param/return types at call sites.
+ *
+ * When imports declare typed signatures (Import.types), the codegen uses those
+ * directly. This inference is only needed for backwards-compatible untyped imports.
  */
 export function inferImportSignatures(
     module: EdictModule,

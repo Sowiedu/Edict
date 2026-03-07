@@ -52,6 +52,9 @@
           "items": {
             "type": "string"
           }
+        },
+        "types": {
+          "$ref": "#/definitions/Record<string,TypeExpr>"
         }
       },
       "required": [
@@ -60,6 +63,9 @@
         "module",
         "names"
       ]
+    },
+    "Record<string,TypeExpr>": {
+      "type": "object"
     },
     "Definition": {
       "anyOf": [

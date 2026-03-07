@@ -87,3 +87,9 @@ if (url.endsWith(".ts")) {
 - **Root cause**: Worker thread startup (tsx loader registration + dynamic import + WASM instantiation) takes 2-5s on CI. Node 20 is ~3x slower than Node 22 due to ESM loader overhead.
 - **Fix**: Set default WASM execution timeout to 15_000ms. Set vitest `testTimeout: 15_000`. Explicitly use 15_000 in tests that pass `timeoutMs` to `run()`.
 - **Pattern**: When writing tests that spawn worker threads (especially with tsx ESM loader), use 15s+ timeouts. Always test both Node matrix versions if CI runs both.
+
+## 14. String Param Expansion Applies to ALL Functions with edictParamTypes
+- **Problem**: When adding typed imports with String params, WASM validation failed because `compile-calls.ts` only expanded String args to (ptr, len) pairs for user functions (`fnTableIndices.has(fnName)`), not for typed imports.
+- **Root cause**: The String param expansion code path was guarded by `isUserFn && sig?.edictParamTypes`. Typed imports are not in `fnTableIndices`. 
+- **Fix**: Added a second expansion path for `!isUserFn && sig?.edictParamTypes` (without `__env` prefix since imports don't use the closure convention). Also register `edictParamTypes` in `fnSigs` for typed imports in `codegen.ts`.
+- **Pattern**: When adding new function-like entities (typed imports, builtins, etc.), ensure `edictParamTypes` is registered in `fnSigs` AND that the call compilation path handles String expansion for them. The `__env` convention only applies to user funcs and lambdas.

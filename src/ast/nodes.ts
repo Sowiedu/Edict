@@ -50,6 +50,7 @@ export interface Import {
     id: string;
     module: string;
     names: string[];
+    types?: Record<string, TypeExpr>;
 }
 
 // =============================================================================

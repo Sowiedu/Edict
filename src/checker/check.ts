@@ -83,10 +83,11 @@ export function typeCheck(module: EdictModule): TypeCheckResult {
         registerValueDef(def, rootEnv);
     }
 
-    // Register imports as unknown
+    // Register imports — use declared types when available, fall back to unknown
     for (const imp of module.imports) {
         for (const name of imp.names) {
-            rootEnv.bind(name, UNKNOWN_TYPE);
+            const declaredType = imp.types?.[name];
+            rootEnv.bind(name, declaredType ?? UNKNOWN_TYPE);
         }
     }
 

@@ -203,18 +203,47 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         }
 
         // Import module-level imports as WASM host imports
-        // Infer param/return types from call sites in the module's functions
+        // Use declared types when available, fall back to inference for untyped imports
         const importedNames = new Set<string>();
+        const typedImportNames = new Set<string>();
         for (const imp of module.imports) {
             for (const name of imp.names) {
                 if (!BUILTIN_FUNCTIONS.has(name)) {
-                    importedNames.add(name);
+                    const declaredType = imp.types?.[name];
+                    if (declaredType && declaredType.kind === "fn_type") {
+                        // Typed import — derive WASM signature from declared type
+                        const wasmParams: binaryen.Type[] = [];
+                        const edictParamTypes: ("String" | "other")[] = [];
+                        for (const param of declaredType.params) {
+                            if (param.kind === "basic" && param.name === "String") {
+                                wasmParams.push(binaryen.i32, binaryen.i32); // ptr, len
+                                edictParamTypes.push("String");
+                            } else {
+                                wasmParams.push(edictTypeToWasm(param));
+                                edictParamTypes.push("other");
+                            }
+                        }
+                        const wasmReturnType = edictTypeToWasm(declaredType.returnType);
+                        mod.addFunctionImport(
+                            name,
+                            imp.module,
+                            name,
+                            wasmParams.length > 0
+                                ? binaryen.createType(wasmParams)
+                                : binaryen.none,
+                            wasmReturnType,
+                        );
+                        fnSigs.set(name, { returnType: wasmReturnType, paramTypes: wasmParams, edictParamTypes });
+                        typedImportNames.add(name);
+                    } else {
+                        importedNames.add(name);
+                    }
                 }
             }
         }
 
         if (importedNames.size > 0) {
-            // Scan function bodies for calls to imported names to infer types
+            // Fallback: infer WASM types from call sites for untyped imports
             const importSigs = inferImportSignatures(module, importedNames);
             for (const [name, sig] of importSigs) {
                 const imp = module.imports.find(i => i.names.includes(name));

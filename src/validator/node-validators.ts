@@ -249,6 +249,7 @@ function validateImport(
     requireString(node, "module", path, errors);
 
     const names = requireArray(node, "names", path, errors);
+    const nameSet = new Set<string>();
     if (names) {
         for (let i = 0; i < names.length; i++) {
             if (!isString(names[i])) {
@@ -261,6 +262,52 @@ function validateImport(
                         typeof names[i],
                     ),
                 );
+            } else {
+                nameSet.add(names[i] as string);
+            }
+        }
+    }
+
+    // Optional typed import declarations
+    const types = node["types"];
+    if (types !== undefined && types !== null) {
+        if (!isObject(types)) {
+            errors.push(
+                invalidFieldType(path, getNodeId(node), "types", "object", typeof types),
+            );
+        } else {
+            for (const [key, value] of Object.entries(types)) {
+                // Each key must be a name that appears in `names`
+                if (nameSet.size > 0 && !nameSet.has(key)) {
+                    errors.push(
+                        invalidFieldType(
+                            `${path}.types.${key}`,
+                            getNodeId(node),
+                            `types.${key}`,
+                            "name from imports.names",
+                            `"${key}" (not in names)`,
+                        ),
+                    );
+                }
+                // Each value must be a valid type expression
+                if (!isObject(value)) {
+                    errors.push(
+                        invalidFieldType(
+                            `${path}.types.${key}`,
+                            getNodeId(node),
+                            `types.${key}`,
+                            "object (TypeExpr)",
+                            typeof value,
+                        ),
+                    );
+                } else {
+                    validateTypeExpr(
+                        value,
+                        `${path}.types.${key}`,
+                        errors,
+                        idTracker,
+                    );
+                }
             }
         }
     }
