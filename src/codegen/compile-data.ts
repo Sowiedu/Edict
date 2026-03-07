@@ -10,7 +10,7 @@ import {
     type CompilationContext,
     FunctionContext,
 } from "./types.js";
-import { compileExpr, inferExprWasmType } from "./codegen.js";
+import { compileExpr, inferExprWasmType } from "./compile-expr.js";
 
 export function compileRecordExpr(
     expr: Expression & { kind: "record_expr" },

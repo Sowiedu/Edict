@@ -11,7 +11,7 @@ import {
     edictTypeToWasm,
 } from "./types.js";
 import { collectFreeVariables, allocClosurePair } from "./closures.js";
-import { compileExpr, inferExprWasmType } from "./codegen.js";
+import { compileExpr, inferExprWasmType } from "./compile-expr.js";
 import { StringTable } from "./string-table.js";
 
 // =============================================================================

@@ -169,7 +169,7 @@ async function verifyFunction(
                 errors.push(undecidablePredicate(fn.id, post.id, fn.name, "untranslatable_precondition"));
             }
             flushTranslationErrors(tctx, fn.id, errors);
-            return errors;
+            return { errors, diagnostics };
         }
         translatedPres.push(z3Pre);
     }

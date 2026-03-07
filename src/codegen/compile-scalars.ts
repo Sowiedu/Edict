@@ -11,7 +11,7 @@ import {
     edictTypeToWasm,
 } from "./types.js";
 import { allocClosurePair } from "./closures.js";
-import { compileExpr, inferExprWasmType } from "./codegen.js";
+import { compileExpr, inferExprWasmType } from "./compile-expr.js";
 
 export function compileLiteral(
     expr: Expression & { kind: "literal" },
