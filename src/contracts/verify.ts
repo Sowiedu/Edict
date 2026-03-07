@@ -15,6 +15,8 @@ import {
     verificationTimeout,
     undecidablePredicate,
     preconditionNotMet,
+    analysisDiagnostic,
+    type AnalysisDiagnostic,
 } from "../errors/structured-errors.js";
 import { getZ3 } from "./z3-context.js";
 import {
@@ -29,12 +31,20 @@ const TIMEOUT_MS = 5000;
 type Z3Context = Context<"main">;
 
 /**
+ * Result of contract verification: errors (violations) + diagnostics (skipped checks).
+ */
+export interface ContractVerifyResult {
+    errors: StructuredError[];
+    diagnostics: AnalysisDiagnostic[];
+}
+
+/**
  * Verify all contracts in the module.
- * Returns StructuredError[] — empty if all contracts are proven.
+ * Returns errors and INFO-level diagnostics for skipped verifications.
  */
 export async function contractVerify(
     module: EdictModule,
-): Promise<StructuredError[]> {
+): Promise<ContractVerifyResult> {
     // Build function defs map (once)
     const functionDefs = new Map<string, FunctionDef>();
     const allFunctions: FunctionDef[] = [];
@@ -52,38 +62,47 @@ export async function contractVerify(
     );
 
     // No contracts at all → nothing to verify
-    if (fnsWithContracts.length === 0 && !hasPreconditions) return [];
+    if (fnsWithContracts.length === 0 && !hasPreconditions) return { errors: [], diagnostics: [] };
 
     const ctx = await getZ3();
     const errors: StructuredError[] = [];
+    const diagnostics: AnalysisDiagnostic[] = [];
 
     // Phase 1: Verify postconditions for functions with contracts
     for (const fn of fnsWithContracts) {
-        const fnErrors = await verifyFunction(ctx, fn, module);
-        errors.push(...fnErrors);
+        const fnResult = await verifyFunction(ctx, fn, module);
+        errors.push(...fnResult.errors);
+        diagnostics.push(...fnResult.diagnostics);
     }
 
     // Phase 2: Verify callsite preconditions for ALL functions
     if (hasPreconditions) {
         for (const fn of allFunctions) {
-            const csErrors = await verifyCallSitePreconditions(ctx, fn, functionDefs, module);
-            errors.push(...csErrors);
+            const csResult = await verifyCallSitePreconditions(ctx, fn, functionDefs, module);
+            errors.push(...csResult.errors);
+            diagnostics.push(...csResult.diagnostics);
         }
     }
 
-    return errors;
+    return { errors, diagnostics };
 }
 
 // ---------------------------------------------------------------------------
 // Per-function verification
 // ---------------------------------------------------------------------------
 
+interface VerifyFunctionResult {
+    errors: StructuredError[];
+    diagnostics: AnalysisDiagnostic[];
+}
+
 async function verifyFunction(
     ctx: Z3Context,
     fn: FunctionDef,
     module: EdictModule,
-): Promise<StructuredError[]> {
+): Promise<VerifyFunctionResult> {
     const errors: StructuredError[] = [];
+    const diagnostics: AnalysisDiagnostic[] = [];
 
     // Create translation context
     const tctx: TranslationContext = {
@@ -97,8 +116,15 @@ async function verifyFunction(
     const allParamsSupported = createParamVariables(tctx, fn.params);
 
     if (!allParamsSupported) {
-        // Can't verify functions with unsupported param types — skip silently
-        return errors;
+        // Can't verify functions with unsupported param types — report diagnostic
+        diagnostics.push(analysisDiagnostic(
+            "contract_skipped_unsupported_params",
+            fn.name,
+            fn.id,
+            "contracts",
+            fn.params.map(p => p.name).join(", "),
+        ));
+        return { errors, diagnostics };
     }
 
     // Translate body to bind `result` (supports multi-expression bodies)
@@ -131,7 +157,7 @@ async function verifyFunction(
     }
 
     // If no postconditions, nothing to verify
-    if (postconds.length === 0) return errors;
+    if (postconds.length === 0) return { errors, diagnostics };
 
     // Translate all preconditions
     const translatedPres: any[] = [];
@@ -220,7 +246,7 @@ async function verifyFunction(
     // Flush any remaining translation errors
     flushTranslationErrors(tctx, fn.id, errors);
 
-    return errors;
+    return { errors, diagnostics };
 }
 
 // ---------------------------------------------------------------------------
@@ -325,19 +351,20 @@ async function verifyCallSitePreconditions(
     callerFn: FunctionDef,
     functionDefs: Map<string, FunctionDef>,
     module: EdictModule,
-): Promise<StructuredError[]> {
+): Promise<VerifyFunctionResult> {
     const errors: StructuredError[] = [];
+    const diagnostics: AnalysisDiagnostic[] = [];
 
     // Find all call sites in the caller's body
     const callSites = collectCallSites(callerFn.body);
-    if (callSites.length === 0) return errors;
+    if (callSites.length === 0) return { errors, diagnostics };
 
     // Filter to calls with preconditions (self-recursive calls now supported via path conditions)
     const relevantSites = callSites.filter(site => {
         const callee = functionDefs.get(site.calleeName);
         return callee && callee.contracts.some(c => c.kind === "pre");
     });
-    if (relevantSites.length === 0) return errors;
+    if (relevantSites.length === 0) return { errors, diagnostics };
 
     // Create translation context for the caller
     const tctx: TranslationContext = {
@@ -349,7 +376,16 @@ async function verifyCallSitePreconditions(
 
     // Create Z3 variables for caller's params
     const allParamsSupported = createParamVariables(tctx, callerFn.params);
-    if (!allParamsSupported) return errors;
+    if (!allParamsSupported) {
+        diagnostics.push(analysisDiagnostic(
+            "contract_skipped_unsupported_params",
+            callerFn.name,
+            callerFn.id,
+            "contracts",
+            callerFn.params.map(p => p.name).join(", "),
+        ));
+        return { errors, diagnostics };
+    }
 
     // Translate caller's preconditions (assumptions)
     const callerPres: any[] = [];
@@ -463,7 +499,7 @@ async function verifyCallSitePreconditions(
         }
     }
 
-    return errors;
+    return { errors, diagnostics };
 }
 
 // ---------------------------------------------------------------------------

@@ -40,7 +40,7 @@ function runSemanticPipeline(ast: unknown): {
         return { phase: "typeCheck", errorCount: tErrors.length };
     }
 
-    const eErrors = effectCheck(module);
+    const { errors: eErrors } = effectCheck(module);
     if (eErrors.length > 0) {
         return { phase: "effectCheck", errorCount: eErrors.length };
     }

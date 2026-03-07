@@ -24,11 +24,13 @@ export { typesEqual, isUnknown, resolveType } from "./checker/types-equal.js";
 
 // Phase 3 — Effect Checking
 export { effectCheck } from "./effects/effect-check.js";
+export type { EffectCheckResult } from "./effects/effect-check.js";
 export { buildCallGraph, collectCalls } from "./effects/call-graph.js";
 export type { CallEdge, CallGraph } from "./effects/call-graph.js";
 
 // Phase 4 — Contract Verification
 export { contractVerify } from "./contracts/verify.js";
+export type { ContractVerifyResult } from "./contracts/verify.js";
 export { getZ3, resetZ3 } from "./contracts/z3-context.js";
 export { translateExpr, translateExprList, createParamVariables } from "./contracts/translate.js";
 export type { TranslationContext, TranslationError } from "./contracts/translate.js";
@@ -129,6 +131,10 @@ export type {
     PatchInvalidFieldError,
     PatchIndexOutOfRangeError,
     PatchDeleteNotInArrayError,
+    // Analysis diagnostics
+    AnalysisDiagnostic,
+    AnalysisDiagnosticKind,
+    VerificationCoverage,
 } from "./errors/structured-errors.js";
 
 // Error constructors (all phases)
@@ -166,6 +172,8 @@ export {
     patchInvalidField,
     patchIndexOutOfRange,
     patchDeleteNotInArray,
+    // Analysis diagnostics
+    analysisDiagnostic,
 } from "./errors/structured-errors.js";
 
 // Phase 5 — Code generation

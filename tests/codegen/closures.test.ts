@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from "vitest";
 import { compile } from "../../src/codegen/codegen.js";
-import { run } from "../../src/codegen/runner.js";
+import { runDirect } from "../../src/codegen/runner.js";
 import type { EdictModule, FunctionDef, Expression } from "../../src/ast/nodes.js";
 
 // ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ async function compileAndRunModule(mod: EdictModule) {
     }
     expect(compiled.ok).toBe(true);
     if (!compiled.ok) throw new Error(JSON.stringify(compiled.errors));
-    return run(compiled.wasm);
+    return runDirect(compiled.wasm);
 }
 
 // ---------------------------------------------------------------------------

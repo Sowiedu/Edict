@@ -604,6 +604,43 @@ export function patchDeleteNotInArray(
 }
 
 // =============================================================================
+// Analysis Diagnostics (INFO-level, not errors)
+// =============================================================================
+// These signal "not checked" rather than "check failed". An agent receiving
+// diagnostics knows exactly which functions were verified vs. skipped.
+
+export type AnalysisDiagnosticKind =
+    | "effect_skipped_import"
+    | "effect_skipped_unknown_callee"
+    | "contract_skipped_unsupported_params";
+
+export interface AnalysisDiagnostic {
+    diagnostic: AnalysisDiagnosticKind;
+    functionName: string;
+    nodeId: string;
+    phase: "effects" | "contracts";
+    /** Additional context, e.g. the import name or unsupported param type */
+    detail?: string;
+}
+
+export interface VerificationCoverage {
+    effects: { checked: number; skipped: number; total: number };
+    contracts: { proven: number; skipped: number; total: number };
+}
+
+export function analysisDiagnostic(
+    diagnostic: AnalysisDiagnosticKind,
+    functionName: string,
+    nodeId: string,
+    phase: "effects" | "contracts",
+    detail?: string,
+): AnalysisDiagnostic {
+    const d: AnalysisDiagnostic = { diagnostic, functionName, nodeId, phase };
+    if (detail !== undefined) d.detail = detail;
+    return d;
+}
+
+// =============================================================================
 // Phase 5 — Codegen errors
 // =============================================================================
 

@@ -8,7 +8,7 @@
 import { describe, it, expect } from "vitest";
 import { check } from "../../src/check.js";
 import { compile } from "../../src/codegen/codegen.js";
-import { run } from "../../src/codegen/runner.js";
+import { runDirect } from "../../src/codegen/runner.js";
 
 // Helper: check → compile → run and return the result
 async function compileAndRun(ast: unknown) {
@@ -20,7 +20,7 @@ async function compileAndRun(ast: unknown) {
     if (!compileResult.ok) {
         throw new Error(`Compile failed: ${JSON.stringify(compileResult.errors)}`);
     }
-    return run(compileResult.wasm);
+    return runDirect(compileResult.wasm);
 }
 
 // =============================================================================

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { effectCheck } from "../../src/effects/effect-check.js";
 import type { EdictModule, FunctionDef, Expression, Effect } from "../../src/ast/nodes.js";
+import type { EffectCheckResult } from "../../src/effects/effect-check.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -53,7 +54,7 @@ describe("effectCheck — valid programs", () => {
         const mod = mkModule([
             mkFn("f", [{ kind: "literal", id: "l1", value: 1 }]),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 
     it("pure calling pure passes", () => {
@@ -61,7 +62,7 @@ describe("effectCheck — valid programs", () => {
             mkFn("a", [mkCall("b")]),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }]),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 
     it("io calling io passes", () => {
@@ -69,7 +70,7 @@ describe("effectCheck — valid programs", () => {
             mkFn("a", [mkCall("b")], ["io"]),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }], ["io"]),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 
     it("[io, fails] calling [io] passes (superset)", () => {
@@ -77,7 +78,7 @@ describe("effectCheck — valid programs", () => {
             mkFn("a", [mkCall("b")], ["io", "fails"]),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }], ["io"]),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 
     it("calling imported function passes (opaque)", () => {
@@ -85,7 +86,7 @@ describe("effectCheck — valid programs", () => {
             [mkFn("fetchData", [mkCall("http_get")], ["io", "fails"])],
             [{ kind: "import", id: "imp-1", module: "http", names: ["http_get"] }],
         );
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 
     it("chain: A(pure)→B(pure)→C(pure) passes", () => {
@@ -94,7 +95,7 @@ describe("effectCheck — valid programs", () => {
             mkFn("b", [mkCall("c")]),
             mkFn("c", [{ kind: "literal", id: "l1", value: 1 }]),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 
     it("[reads, writes] calling [reads] passes", () => {
@@ -102,21 +103,21 @@ describe("effectCheck — valid programs", () => {
             mkFn("a", [mkCall("b")], ["reads", "writes"]),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }], ["reads"]),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 
     it("function with empty effects and no calls passes", () => {
         const mod = mkModule([
             mkFn("a", [{ kind: "literal", id: "l1", value: 1 }], []),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 
     it("recursive pure self-call passes", () => {
         const mod = mkModule([
             mkFn("fib", [mkCall("fib")], ["pure"]),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 
     it("contract condition containing calls passes (contracts excluded)", () => {
@@ -138,7 +139,7 @@ describe("effectCheck — valid programs", () => {
             fn,
             mkFn("validator", [{ kind: "literal", id: "l2", value: true }], ["io"]),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
     });
 });
 
@@ -152,7 +153,7 @@ describe("effectCheck — invalid programs", () => {
             mkFn("a", [mkCall("b")], ["pure"]),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }], ["io"]),
         ]);
-        const errors = effectCheck(mod);
+        const { errors } = effectCheck(mod);
         expect(errors).toHaveLength(1);
         expect(errors[0]).toMatchObject({
             error: "effect_in_pure",
@@ -167,7 +168,7 @@ describe("effectCheck — invalid programs", () => {
             mkFn("a", [mkCall("b")], ["pure"]),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }], ["fails"]),
         ]);
-        const errors = effectCheck(mod);
+        const { errors } = effectCheck(mod);
         expect(errors).toHaveLength(1);
         expect(errors[0]).toMatchObject({
             error: "effect_in_pure",
@@ -180,7 +181,7 @@ describe("effectCheck — invalid programs", () => {
             mkFn("a", [mkCall("b")], ["pure"]),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }], ["reads"]),
         ]);
-        const errors = effectCheck(mod);
+        const { errors } = effectCheck(mod);
         expect(errors).toHaveLength(1);
         expect(errors[0]).toMatchObject({
             error: "effect_in_pure",
@@ -193,7 +194,7 @@ describe("effectCheck — invalid programs", () => {
             mkFn("a", [mkCall("b")], ["reads"]),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }], ["io"]),
         ]);
-        const errors = effectCheck(mod);
+        const { errors } = effectCheck(mod);
         expect(errors).toHaveLength(1);
         expect(errors[0]).toMatchObject({
             error: "effect_violation",
@@ -208,7 +209,7 @@ describe("effectCheck — invalid programs", () => {
             mkFn("a", [mkCall("b")], ["io"]),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }], ["io", "fails"]),
         ]);
-        const errors = effectCheck(mod);
+        const { errors } = effectCheck(mod);
         expect(errors).toHaveLength(1);
         expect(errors[0]).toMatchObject({
             error: "effect_violation",
@@ -222,7 +223,7 @@ describe("effectCheck — invalid programs", () => {
             mkFn("b", [mkCall("c")], ["pure"]),
             mkFn("c", [{ kind: "literal", id: "l1", value: 1 }], ["io"]),
         ]);
-        const errors = effectCheck(mod);
+        const { errors } = effectCheck(mod);
         // B calls C(io) while being pure → error
         // A calls B(pure) → A trusts B's declaration → A passes
         expect(errors).toHaveLength(1);
@@ -238,7 +239,7 @@ describe("effectCheck — invalid programs", () => {
             mkFn("a", [mkCall("b")], ["io"]),
             mkFn("b", [mkCall("a")], ["pure"]),
         ]);
-        const errors = effectCheck(mod);
+        const { errors } = effectCheck(mod);
         // A([io]) calls B(pure) → callee has no non-pure effects → A passes
         // B(pure) calls A([io]) → B is pure calling effectful → effect_in_pure
         expect(errors).toHaveLength(1);
@@ -261,7 +262,7 @@ describe("effectCheck — edge cases", () => {
             mkFn("caller", [mkCall("callee", [], "call-site-123")], ["pure"]),
             mkFn("callee", [{ kind: "literal", id: "l1", value: 1 }], ["io"]),
         ]);
-        const errors = effectCheck(mod);
+        const { errors } = effectCheck(mod);
         expect(errors).toHaveLength(1);
         expect(errors[0]).toMatchObject({
             nodeId: "fn-caller",
@@ -274,7 +275,7 @@ describe("effectCheck — edge cases", () => {
             mkFn("a", [mkCall("b")], []),
             mkFn("b", [{ kind: "literal", id: "l1", value: 1 }], ["io", "fails", "reads"]),
         ]);
-        const errors = effectCheck(mod);
+        const { errors } = effectCheck(mod);
         expect(errors).toHaveLength(1);
         expect(errors[0]).toMatchObject({
             error: "effect_violation",
@@ -287,6 +288,53 @@ describe("effectCheck — edge cases", () => {
         const mod = mkModule([
             mkFn("a", [mkCall("callback")], ["pure"]),
         ]);
-        expect(effectCheck(mod)).toEqual([]);
+        expect(effectCheck(mod).errors).toEqual([]);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Diagnostics — skipped analyses
+// ---------------------------------------------------------------------------
+
+describe("effectCheck — diagnostics", () => {
+    it("reports effect_skipped_import for imported function calls", () => {
+        const mod = mkModule(
+            [mkFn("fetchData", [mkCall("http_get")], ["io", "fails"])],
+            [{ kind: "import", id: "imp-1", module: "http", names: ["http_get"] }],
+        );
+        const { errors, diagnostics } = effectCheck(mod);
+        expect(errors).toEqual([]);
+        expect(diagnostics).toHaveLength(1);
+        expect(diagnostics[0]).toMatchObject({
+            diagnostic: "effect_skipped_import",
+            functionName: "fetchData",
+            phase: "effects",
+            detail: "http_get",
+        });
+    });
+
+    it("reports effect_skipped_unknown_callee for param-variable calls", () => {
+        const mod = mkModule([
+            mkFn("a", [mkCall("callback")], ["pure"]),
+        ]);
+        const { errors, diagnostics } = effectCheck(mod);
+        expect(errors).toEqual([]);
+        expect(diagnostics).toHaveLength(1);
+        expect(diagnostics[0]).toMatchObject({
+            diagnostic: "effect_skipped_unknown_callee",
+            functionName: "a",
+            phase: "effects",
+            detail: "callback",
+        });
+    });
+
+    it("returns no diagnostics when all calls are fully checked", () => {
+        const mod = mkModule([
+            mkFn("a", [mkCall("b")]),
+            mkFn("b", [{ kind: "literal", id: "l1", value: 1 }]),
+        ]);
+        const { errors, diagnostics } = effectCheck(mod);
+        expect(errors).toEqual([]);
+        expect(diagnostics).toEqual([]);
     });
 });

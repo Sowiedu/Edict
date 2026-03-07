@@ -91,7 +91,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("+", mkIdent("x"), mkLit(1))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -104,7 +104,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("*", mkIdent("x"), mkIdent("x"))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -120,13 +120,13 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("+", mkIdent("a"), mkIdent("b"))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
     it("4. no contracts → zero errors", async () => {
         const fn = mkFn({ params: [mkParam("x", "Int")], contracts: [] });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -135,7 +135,7 @@ describe("contract verifier — provable contracts", () => {
             params: [mkParam("x", "Int")],
             contracts: [mkPre(mkBinop(">", mkIdent("x"), mkLit(0)))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -148,7 +148,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -161,7 +161,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkIdent("a")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -175,7 +175,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("+", mkIdent("x"), mkIdent("y"))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -187,7 +187,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("-", mkIdent("x"), mkIdent("x"))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -200,7 +200,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -216,7 +216,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("+", mkIdent("x"), mkIdent("y"))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -229,7 +229,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("-", mkIdent("x"), mkLit(5))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -242,7 +242,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkIdent("a")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -256,7 +256,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkIdent("b")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -269,7 +269,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkIdent("n")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -282,7 +282,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("+", mkIdent("x"), mkLit(1))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -298,7 +298,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("*", mkIdent("x"), mkIdent("y"))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -311,7 +311,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -324,7 +324,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkLit(42)],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -339,7 +339,7 @@ describe("contract verifier — provable contracts", () => {
             ],
             body: [mkBinop("-", mkIdent("a"), mkIdent("b"))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 });
@@ -355,7 +355,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             contracts: [mkPost(mkBinop(">", mkIdent("x"), mkLit(0)))],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         expect(errors[0]!.error).toBe("contract_failure");
         const ce = (errors[0] as any).counterexample;
@@ -371,7 +371,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             ],
             body: [mkBinop("-", mkIdent("x"), mkLit(10))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         expect(errors[0]!.error).toBe("contract_failure");
         const ce = (errors[0] as any).counterexample;
@@ -391,7 +391,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             ],
             body: [mkBinop("/", mkIdent("n"), mkIdent("d"))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         expect(errors[0]!.error).toBe("contract_failure");
     });
@@ -402,7 +402,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             contracts: [mkPost(mkLit(false))],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         expect(errors[0]!.error).toBe("contract_failure");
     });
@@ -416,7 +416,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             ],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         expect(errors[0]!.error).toBe("contract_failure");
     });
@@ -427,7 +427,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             contracts: [mkPost(mkBinop(">", mkIdent("result"), mkLit(0)))],
             body: [mkUnop("-", mkIdent("x"))],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         expect(errors[0]!.error).toBe("contract_failure");
     });
@@ -442,7 +442,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             ],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         expect(errors[0]!.error).toBe("contract_failure");
     });
@@ -459,7 +459,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             ],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         expect(errors[0]!.error).toBe("contract_failure");
     });
@@ -473,7 +473,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             ],
             body: [mkIdent("a")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         expect(errors[0]!.error).toBe("contract_failure");
     });
@@ -484,7 +484,7 @@ describe("contract verifier — failing contracts (with counterexamples)", () =>
             contracts: [mkPost(mkBinop(">", mkIdent("myVar"), mkLit(0)))],
             body: [mkIdent("myVar")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(1);
         const err = errors[0] as any;
         expect(err.error).toBe("contract_failure");
@@ -508,7 +508,7 @@ describe("contract verifier — undecidable scenarios", () => {
             } as any)],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors.length).toBeGreaterThanOrEqual(1);
         expect(errors.some(e => e.error === "undecidable_predicate")).toBe(true);
     });
@@ -524,7 +524,7 @@ describe("contract verifier — undecidable scenarios", () => {
             } as any)],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors.some(e => e.error === "undecidable_predicate")).toBe(true);
     });
 
@@ -538,7 +538,7 @@ describe("contract verifier — undecidable scenarios", () => {
             } as any)],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors.some(e => e.error === "undecidable_predicate")).toBe(true);
     });
 
@@ -548,7 +548,7 @@ describe("contract verifier — undecidable scenarios", () => {
             contracts: [mkPost(mkLit(true))],
             body: [mkLit(0)],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         // Unsupported param types → skip silently (no errors)
         expect(errors).toHaveLength(0);
     });
@@ -559,7 +559,7 @@ describe("contract verifier — undecidable scenarios", () => {
             contracts: [mkPost(mkLit(true))],
             body: [mkLit(0)],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         // Unsupported param types → skip silently (no errors)
         expect(errors).toHaveLength(0);
     });
@@ -571,7 +571,7 @@ describe("contract verifier — undecidable scenarios", () => {
 
 describe("contract verifier — edge cases", () => {
     it("empty module → zero errors", async () => {
-        const errors = await contractVerify(mkModule([]));
+        const { errors } = await contractVerify(mkModule([]));
         expect(errors).toHaveLength(0);
     });
 
@@ -586,7 +586,7 @@ describe("contract verifier — edge cases", () => {
             ],
             body: [mkIdent("x")],
         });
-        const errors = await contractVerify(mkModule([fn1, fn2]));
+        const { errors } = await contractVerify(mkModule([fn1, fn2]));
         expect(errors).toHaveLength(0);
     });
 });
@@ -618,7 +618,7 @@ describe("contract verifier — multi-expression bodies", () => {
                 [mkUnop("-", mkIdent("x"))],
             )],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -633,7 +633,7 @@ describe("contract verifier — multi-expression bodies", () => {
             ],
             body: [mkLet("y", mkIdent("x")), mkIdent("y")],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 
@@ -648,7 +648,7 @@ describe("contract verifier — multi-expression bodies", () => {
             ],
             body: [mkBlock([mkLet("y", mkIdent("x")), mkIdent("y")])],
         });
-        const errors = await contractVerify(mkModule([fn]));
+        const { errors } = await contractVerify(mkModule([fn]));
         expect(errors).toHaveLength(0);
     });
 });
@@ -673,7 +673,7 @@ describe("contract verifier — callsite precondition checking", () => {
             contracts: [mkPre(mkBinop(">", mkIdent("n"), mkLit(0)))],
             body: [{ kind: "call", id: uid(), fn: mkIdent("callee"), args: [mkIdent("n")] } as any],
         });
-        const errors = await contractVerify(mkModule([callee, caller]));
+        const { errors } = await contractVerify(mkModule([callee, caller]));
         expect(errors).toHaveLength(0);
     });
 
@@ -691,7 +691,7 @@ describe("contract verifier — callsite precondition checking", () => {
             params: [mkParam("n", "Int")],
             body: [{ kind: "call", id: uid(), fn: mkIdent("callee"), args: [mkIdent("n")] } as any],
         });
-        const errors = await contractVerify(mkModule([callee, caller]));
+        const { errors } = await contractVerify(mkModule([callee, caller]));
         expect(errors.some(e => e.error === "precondition_not_met")).toBe(true);
     });
 
@@ -707,7 +707,7 @@ describe("contract verifier — callsite precondition checking", () => {
             params: [mkParam("n", "Int")],
             body: [{ kind: "call", id: uid(), fn: mkIdent("callee"), args: [mkIdent("n")] } as any],
         });
-        const errors = await contractVerify(mkModule([callee, caller]));
+        const { errors } = await contractVerify(mkModule([callee, caller]));
         const pnm = errors.find(e => e.error === "precondition_not_met");
         expect(pnm).toBeDefined();
         if (pnm && "counterexample" in pnm) {
@@ -726,7 +726,7 @@ describe("contract verifier — callsite precondition checking", () => {
             params: [mkParam("n", "Int")],
             body: [{ kind: "call", id: uid(), fn: mkIdent("callee"), args: [mkIdent("n")] } as any],
         });
-        const errors = await contractVerify(mkModule([callee, caller]));
+        const { errors } = await contractVerify(mkModule([callee, caller]));
         expect(errors).toHaveLength(0);
     });
 
@@ -736,7 +736,7 @@ describe("contract verifier — callsite precondition checking", () => {
             params: [mkParam("n", "Int")],
             body: [{ kind: "call", id: uid(), fn: mkIdent("unknownFn"), args: [mkIdent("n")] } as any],
         });
-        const errors = await contractVerify(mkModule([caller]));
+        const { errors } = await contractVerify(mkModule([caller]));
         expect(errors).toHaveLength(0);
     });
 
@@ -760,7 +760,7 @@ describe("contract verifier — callsite precondition checking", () => {
                 { kind: "call", id: uid(), fn: mkIdent("strict"), args: [mkIdent("n")] } as any,
             )],
         });
-        const errors = await contractVerify(mkModule([safe, strict, caller]));
+        const { errors } = await contractVerify(mkModule([safe, strict, caller]));
         expect(errors.filter(e => e.error === "precondition_not_met")).toHaveLength(1);
     });
 
@@ -776,7 +776,7 @@ describe("contract verifier — callsite precondition checking", () => {
             params: [mkParam("n", "Int")],
             body: [mkBinop("+", mkIdent("n"), mkLit(1))],
         });
-        const errors = await contractVerify(mkModule([callee, noCalls]));
+        const { errors } = await contractVerify(mkModule([callee, noCalls]));
         expect(errors).toHaveLength(0);
     });
 
@@ -792,7 +792,7 @@ describe("contract verifier — callsite precondition checking", () => {
             params: [mkParam("s", "String")],
             body: [{ kind: "call", id: uid(), fn: mkIdent("callee"), args: [mkLit(42)] } as any],
         });
-        const errors = await contractVerify(mkModule([callee, caller]));
+        const { errors } = await contractVerify(mkModule([callee, caller]));
         // Skipped because caller has unsupported param types
         expect(errors.filter(e => e.error === "precondition_not_met")).toHaveLength(0);
     });
@@ -820,7 +820,7 @@ describe("contract verifier — branch-aware callsite checking", () => {
                 ),
             ],
         });
-        const errors = await contractVerify(mkModule([fib]));
+        const { errors } = await contractVerify(mkModule([fib]));
         // Branch condition not(n <= 1) → n > 1, so n-1 >= 0 and n-2 >= 0
         expect(errors.filter(e => e.error === "precondition_not_met")).toHaveLength(0);
     });
@@ -835,7 +835,7 @@ describe("contract verifier — branch-aware callsite checking", () => {
                 { kind: "call", id: uid(), fn: mkIdent("bad"), args: [mkBinop("-", mkIdent("n"), mkLit(1))] } as any,
             ],
         });
-        const errors = await contractVerify(mkModule([bad]));
+        const { errors } = await contractVerify(mkModule([bad]));
         // No branch condition to protect, n-1 >= 0 not guaranteed by n >= 0 alone (n=0 is counterexample)
         expect(errors.filter(e => e.error === "precondition_not_met").length).toBeGreaterThanOrEqual(1);
     });
@@ -866,7 +866,7 @@ describe("contract verifier — branch-aware callsite checking", () => {
                 ),
             ],
         });
-        const errors = await contractVerify(mkModule([g, f]));
+        const { errors } = await contractVerify(mkModule([g, f]));
         expect(errors.filter(e => e.error === "precondition_not_met")).toHaveLength(0);
     });
 
@@ -891,7 +891,7 @@ describe("contract verifier — branch-aware callsite checking", () => {
                 ),
             ],
         });
-        const errors = await contractVerify(mkModule([g, f]));
+        const { errors } = await contractVerify(mkModule([g, f]));
         expect(errors.filter(e => e.error === "precondition_not_met")).toHaveLength(0);
     });
 });

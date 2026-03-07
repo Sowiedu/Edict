@@ -156,7 +156,7 @@ describe("fix suggestions — type checker", () => {
 
 describe("fix suggestions — effect checker", () => {
     it("effect_violation → suggestion expands effects list", () => {
-        const errors = effectCheck(mod({
+        const { errors } = effectCheck(mod({
             definitions: [
                 {
                     kind: "fn", id: "fn-io", name: "doIO",
@@ -186,7 +186,7 @@ describe("fix suggestions — effect checker", () => {
     });
 
     it("effect_in_pure → suggestion replaces pure with callee effects", () => {
-        const errors = effectCheck(mod({
+        const { errors } = effectCheck(mod({
             definitions: [
                 {
                     kind: "fn", id: "fn-io", name: "doIO",

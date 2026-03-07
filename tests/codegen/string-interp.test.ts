@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import { validate } from "../../src/validator/validate.js";
 import { check } from "../../src/check.js";
 import { compile } from "../../src/codegen/codegen.js";
-import { run } from "../../src/codegen/runner.js";
+import { runDirect } from "../../src/codegen/runner.js";
 
 // Helper: check → compile → run
 async function compileAndRun(ast: unknown) {
@@ -18,7 +18,7 @@ async function compileAndRun(ast: unknown) {
     if (!compileResult.ok) {
         throw new Error(`Compile failed: ${compileResult.errors.join(", ")}`);
     }
-    return run(compileResult.wasm);
+    return runDirect(compileResult.wasm);
 }
 
 // Helper: build a program that prints a string_interp result and returns 0

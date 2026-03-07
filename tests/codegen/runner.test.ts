@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { compile } from "../../src/codegen/codegen.js";
-import { run } from "../../src/codegen/runner.js";
+import { runDirect } from "../../src/codegen/runner.js";
 import type { EdictModule, FunctionDef, Expression } from "../../src/ast/nodes.js";
 
 // ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ async function compileAndRunModule(mod: EdictModule) {
     const compiled = compile(mod);
     expect(compiled.ok).toBe(true);
     if (!compiled.ok) throw new Error(compiled.errors.join(", "));
-    return run(compiled.wasm);
+    return runDirect(compiled.wasm);
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +230,7 @@ describe("runner — missing entry function", () => {
         expect(compiled.ok).toBe(true);
         if (!compiled.ok) return;
 
-        const result = await run(compiled.wasm, "main");
+        const result = await runDirect(compiled.wasm, "main");
         expect(result.exitCode).toBe(1);
         expect(result.output).toBe("");
     });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { check } from "../../src/check.js";
 import { compile } from "../../src/codegen/codegen.js";
-import { run } from "../../src/codegen/runner.js";
+import { runDirect } from "../../src/codegen/runner.js";
 import type { EdictModule, FunctionDef, Expression, Definition } from "../../src/ast/nodes.js";
 
 // ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ async function checkCompileRun(mod: EdictModule) {
     expect(compiled.ok, `compile failed: ${JSON.stringify((compiled as any).errors)}`).toBe(true);
     if (!compiled.ok) throw new Error("compile failed");
 
-    return run(compiled.wasm);
+    return runDirect(compiled.wasm);
 }
 
 // ---------------------------------------------------------------------------

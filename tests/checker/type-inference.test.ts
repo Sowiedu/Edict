@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { typeCheck } from "../../src/checker/check.js";
 import { check } from "../../src/check.js";
 import { compile } from "../../src/codegen/codegen.js";
-import { run } from "../../src/codegen/runner.js";
+import { runDirect } from "../../src/codegen/runner.js";
 import type { EdictModule, FunctionDef } from "../../src/ast/nodes.js";
 
 function mod(overrides: Partial<EdictModule> = {}): EdictModule {
@@ -225,7 +225,7 @@ describe("return type inference — full pipeline", () => {
         expect(compileResult.ok).toBe(true);
         if (!compileResult.ok) return;
 
-        const runResult = await run(compileResult.wasm);
+        const runResult = await runDirect(compileResult.wasm);
         expect(runResult.exitCode).toBe(0);
         expect(runResult.returnValue).toBe(42);
     });

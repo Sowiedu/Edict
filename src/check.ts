@@ -4,7 +4,7 @@
 // Runs the full pipeline: validate → resolve → typeCheck → effectCheck → contractVerify
 // Stops early if an earlier phase fails.
 
-import type { StructuredError } from "./errors/structured-errors.js";
+import type { StructuredError, AnalysisDiagnostic, VerificationCoverage } from "./errors/structured-errors.js";
 import { validate } from "./validator/validate.js";
 import { resolve } from "./resolver/resolve.js";
 import { typeCheck, type TypedModuleInfo } from "./checker/check.js";
@@ -19,6 +19,10 @@ export interface CheckResult {
     module?: EdictModule;
     /** Side-table of inferred types (only present when ok === true) */
     typeInfo?: TypedModuleInfo;
+    /** INFO-level diagnostics about skipped analyses (present even when ok === true) */
+    diagnostics?: AnalysisDiagnostic[];
+    /** Summary of what was verified vs. skipped */
+    coverage?: VerificationCoverage;
 }
 
 /**
@@ -28,7 +32,7 @@ export interface CheckResult {
  * If resolution fails, returns resolution errors (later phases skipped).
  * If type checking fails, returns type errors (effect checking skipped).
  * If effect checking fails, returns effect errors (contract verification skipped).
- * If all passes succeed, returns `{ ok: true, errors: [] }`.
+ * If all passes succeed, returns `{ ok: true, errors: [] }` with diagnostics and coverage.
  */
 export async function check(ast: unknown): Promise<CheckResult> {
     // Phase 1 — Structural validation
@@ -52,15 +56,46 @@ export async function check(ast: unknown): Promise<CheckResult> {
     }
 
     // Phase 3 — Effect checking
-    const effectErrors = effectCheck(module);
-    if (effectErrors.length > 0) {
-        return { ok: false, errors: effectErrors };
+    const effectResult = effectCheck(module);
+    if (effectResult.errors.length > 0) {
+        return { ok: false, errors: effectResult.errors, diagnostics: effectResult.diagnostics };
     }
 
     // Phase 4 — Contract verification
-    const contractErrors = await contractVerify(module);
-    if (contractErrors.length > 0) {
-        return { ok: false, errors: contractErrors };
+    const contractResult = await contractVerify(module);
+    if (contractResult.errors.length > 0) {
+        return { ok: false, errors: contractResult.errors, diagnostics: [...effectResult.diagnostics, ...contractResult.diagnostics] };
     }
-    return { ok: true, errors: [], module, typeInfo };
+
+    // Combine all diagnostics
+    const diagnostics = [...effectResult.diagnostics, ...contractResult.diagnostics];
+
+    // Compute verification coverage
+    const fnCount = module.definitions.filter(d => d.kind === "fn").length;
+    const effectSkipped = new Set(
+        effectResult.diagnostics.map(d => d.functionName),
+    ).size;
+    const contractSkipped = new Set(
+        contractResult.diagnostics
+            .filter(d => d.diagnostic === "contract_skipped_unsupported_params")
+            .map(d => d.functionName),
+    ).size;
+    const fnsWithContracts = module.definitions.filter(
+        d => d.kind === "fn" && d.contracts.length > 0,
+    ).length;
+
+    const coverage: VerificationCoverage = {
+        effects: {
+            checked: fnCount - effectSkipped,
+            skipped: effectSkipped,
+            total: fnCount,
+        },
+        contracts: {
+            proven: fnsWithContracts - contractSkipped,
+            skipped: contractSkipped,
+            total: fnsWithContracts,
+        },
+    };
+
+    return { ok: true, errors: [], module, typeInfo, diagnostics, coverage };
 }

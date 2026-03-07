@@ -14,7 +14,7 @@ import { compile } from "../codegen/codegen.js";
 import { run } from "../codegen/runner.js";
 import type { RunLimits } from "../codegen/runner.js";
 import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
-import type { StructuredError } from "../errors/structured-errors.js";
+import type { StructuredError, AnalysisDiagnostic, VerificationCoverage } from "../errors/structured-errors.js";
 import { applyPatches, type AstPatch } from "../patch/apply.js";
 import { buildErrorCatalog, type ErrorCatalog } from "../errors/error-catalog.js";
 import { stripDescriptions } from "./minimal-schema.js";
@@ -86,6 +86,8 @@ export interface ValidateResult {
 export interface CheckResult {
     ok: boolean;
     errors?: StructuredError[];
+    diagnostics?: AnalysisDiagnostic[];
+    coverage?: VerificationCoverage;
 }
 
 export interface CompileResult {
@@ -151,9 +153,14 @@ export async function handleCheck(ast: unknown): Promise<CheckResult> {
     const expanded = expandCompact(ast);
     const result = await check(expanded);
     if (result.ok) {
-        return { ok: true };
+        const res: CheckResult = { ok: true };
+        if (result.diagnostics && result.diagnostics.length > 0) res.diagnostics = result.diagnostics;
+        if (result.coverage) res.coverage = result.coverage;
+        return res;
     }
-    return { ok: false, errors: result.errors };
+    const res: CheckResult = { ok: false, errors: result.errors };
+    if (result.diagnostics && result.diagnostics.length > 0) res.diagnostics = result.diagnostics;
+    return res;
 }
 
 export async function handleCompile(ast: unknown): Promise<CompileResult> {

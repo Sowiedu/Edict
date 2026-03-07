@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { compile } from "../../src/codegen/codegen.js";
-import { run } from "../../src/codegen/runner.js";
+import { runDirect } from "../../src/codegen/runner.js";
 import type { EdictModule, FunctionDef, Expression } from "../../src/ast/nodes.js";
 import { resolve } from "../../src/resolver/resolve.js";
 
@@ -46,7 +46,7 @@ async function compileAndRunModule(mod: EdictModule) {
     const compiled = compile(mod);
     expect(compiled.ok).toBe(true);
     if (!compiled.ok) throw new Error(compiled.errors.map(e => JSON.stringify(e)).join(", "));
-    return run(compiled.wasm);
+    return runDirect(compiled.wasm);
 }
 
 // ---------------------------------------------------------------------------

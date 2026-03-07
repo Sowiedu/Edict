@@ -6,8 +6,22 @@
 
 import type { EdictModule } from "../ast/nodes.js";
 import type { StructuredError } from "../errors/structured-errors.js";
-import { effectViolation, effectInPure, type FixSuggestion } from "../errors/structured-errors.js";
+import {
+    effectViolation,
+    effectInPure,
+    analysisDiagnostic,
+    type FixSuggestion,
+    type AnalysisDiagnostic,
+} from "../errors/structured-errors.js";
 import { buildCallGraph } from "./call-graph.js";
+
+/**
+ * Result of effect checking: errors (violations) + diagnostics (skipped checks).
+ */
+export interface EffectCheckResult {
+    errors: StructuredError[];
+    diagnostics: AnalysisDiagnostic[];
+}
 
 /**
  * Check effect consistency across all functions in the module.
@@ -16,11 +30,12 @@ import { buildCallGraph } from "./call-graph.js";
  * - If caller is `pure`: any callee with non-pure effects → `effect_in_pure` error
  * - If caller is not `pure`: missing caller effects → `effect_violation` error
  *
- * Returns an empty array if all effects are consistent.
+ * Skipped checks produce INFO-level diagnostics instead of silent success.
  */
-export function effectCheck(module: EdictModule): StructuredError[] {
+export function effectCheck(module: EdictModule): EffectCheckResult {
     const { graph, functionDefs, importedNames } = buildCallGraph(module);
     const errors: StructuredError[] = [];
+    const diagnostics: AnalysisDiagnostic[] = [];
 
     for (const [fnName, fn] of functionDefs) {
         const edges = graph.get(fnName) ?? [];
@@ -28,12 +43,30 @@ export function effectCheck(module: EdictModule): StructuredError[] {
         const isPure = callerEffects.has("pure");
 
         for (const edge of edges) {
-            // Skip imported functions — effect-opaque
-            if (importedNames.has(edge.calleeName)) continue;
+            // Skip imported functions — effect-opaque, but report it
+            if (importedNames.has(edge.calleeName)) {
+                diagnostics.push(analysisDiagnostic(
+                    "effect_skipped_import",
+                    fnName,
+                    fn.id,
+                    "effects",
+                    edge.calleeName,
+                ));
+                continue;
+            }
 
-            // Skip unknown callees (e.g., parameters used as functions)
+            // Skip unknown callees (e.g., parameters used as functions), but report it
             const callee = functionDefs.get(edge.calleeName);
-            if (!callee) continue;
+            if (!callee) {
+                diagnostics.push(analysisDiagnostic(
+                    "effect_skipped_unknown_callee",
+                    fnName,
+                    fn.id,
+                    "effects",
+                    edge.calleeName,
+                ));
+                continue;
+            }
 
             const calleeNonPure = callee.effects.filter(e => e !== "pure");
             if (calleeNonPure.length === 0) continue;
@@ -73,5 +106,5 @@ export function effectCheck(module: EdictModule): StructuredError[] {
         }
     }
 
-    return errors;
+    return { errors, diagnostics };
 }

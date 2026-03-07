@@ -121,11 +121,11 @@ describe("e2e agent loop: hardcoded LLM response", () => {
         expect(typeErrors).toEqual([]);
 
         // Stage 3: Effect check — effect consistency
-        const effectErrors = effectCheck(module);
+        const { errors: effectErrors } = effectCheck(module);
         expect(effectErrors).toEqual([]);
 
         // Stage 4: Contract verify — pre/post conditions (no contracts here, but runs clean)
-        const contractErrors = await contractVerify(module);
+        const { errors: contractErrors } = await contractVerify(module);
         expect(contractErrors).toEqual([]);
 
         // Stage 5: Compile — AST → WASM
@@ -226,8 +226,8 @@ describe("e2e agent loop: self-repair", () => {
 
         expect(resolve(fixedModule)).toEqual([]);
         expect(typeCheck(fixedModule).errors).toEqual([]);
-        expect(effectCheck(fixedModule)).toEqual([]);
-        expect(await contractVerify(fixedModule)).toEqual([]);
+        expect(effectCheck(fixedModule).errors).toEqual([]);
+        expect((await contractVerify(fixedModule)).errors).toEqual([]);
 
         const compiled = compile(fixedModule);
         expect(compiled.ok).toBe(true);
@@ -272,11 +272,11 @@ describe("e2e agent loop: all examples through explicit pipeline", () => {
             expect(typeErrors).toEqual([]);
 
             // Stage 3: Effect check
-            const effectErrors = effectCheck(module);
+            const { errors: effectErrors } = effectCheck(module);
             expect(effectErrors).toEqual([]);
 
             // Stage 4: Contract verify (includes Z3 for examples with contracts)
-            const contractErrors = await contractVerify(module);
+            const { errors: contractErrors } = await contractVerify(module);
             expect(contractErrors).toEqual([]);
 
             // Stage 5: Compile to WASM
@@ -419,11 +419,11 @@ describe("e2e agent loop: real LLM integration", () => {
         }
         expect(typeErrors).toEqual([]);
 
-        const effectErrors = effectCheck(module);
+        const { errors: effectErrors } = effectCheck(module);
         expect(effectErrors).toEqual([]);
 
-        const contractErrors = await contractVerify(module);
-        expect(contractErrors).toEqual([]);
+        const { errors: contractErrors2 } = await contractVerify(module);
+        expect(contractErrors2).toEqual([]);
 
         const compileResult = compile(module);
         expect(compileResult.ok).toBe(true);
