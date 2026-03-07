@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.7.0](https://github.com/Sowiedu/Edict/compare/v1.6.0...v1.7.0) (2026-03-07)
+
+
+### Features
+
+* CI improvements — typecheck, coverage enforcement, validate-examples script, local CI mirror ([#99](https://github.com/Sowiedu/Edict/issues/99), [#100](https://github.com/Sowiedu/Edict/issues/100), [#101](https://github.com/Sowiedu/Edict/issues/101), [#103](https://github.com/Sowiedu/Edict/issues/103)) ([402a98a](https://github.com/Sowiedu/Edict/commit/402a98acd8ac279b22da1a07751e3ac1a6b5521e))
+* **examples:** add option.edict.json example program ([820188c](https://github.com/Sowiedu/Edict/commit/820188c1392a979caadf6f341bbeaae50c80391e))
+
+
+### Bug Fixes
+
+* correct schema drift check paths in CI and pre-commit ([#98](https://github.com/Sowiedu/Edict/issues/98)) ([9ad6b8b](https://github.com/Sowiedu/Edict/commit/9ad6b8b5f16f96a13e1cc981bc008da19cf1371d))
+* meet CI coverage thresholds with targeted tests + exclusions ([8008fa3](https://github.com/Sowiedu/Edict/commit/8008fa35d181e324b7e8df7200976676cb1fc0fe))
+* scope coverage/ gitignore to root only ([43ba743](https://github.com/Sowiedu/Edict/commit/43ba743d7918ca805dc8b9a3426ee8e77e5ccb5b))
+* update example count 18→19, skip unimplemented tuple-access tests, update docs ([d96f1a2](https://github.com/Sowiedu/Edict/commit/d96f1a2c9d6d3899bfb1dcd2b04974f9af25b03b))
+
+
+### Performance Improvements
+
+* skip vitest in pre-commit when no test/example files staged ([400937f](https://github.com/Sowiedu/Edict/commit/400937f8a3232ac7f3a3b9b150a0d2c1cbbc5699))
+* **tests:** switch slow tests to runDirect, add shared WASM fixtures ([9ee7a21](https://github.com/Sowiedu/Edict/commit/9ee7a21bb9946ec7a23cb84610f2e5d68d0e7575))
+
 ## [1.6.0](https://github.com/Sowiedu/Edict/compare/v1.5.0...v1.6.0) (2026-03-07)
 
 
