@@ -36,11 +36,22 @@ Contract Verifier ── unproven? → StructuredError + counterexample → Agen
 - **WASM compilation** — Verified programs compile to WebAssembly via binaryen and run in Node.js.
 - **MCP interface** — All tools exposed via [Model Context Protocol](https://modelcontextprotocol.io/) for direct agent integration.
 
+## Execution Model
+
+Edict compiles to **WebAssembly** and runs in a sandboxed VM. This is a deliberate security decision — not a limitation:
+
+- **No ambient authority** — compiled WASM cannot access the filesystem, network, or OS unless the host explicitly provides those capabilities via the pluggable `EdictHostAdapter` interface
+- **Compile-time capability declaration** — the effect system (`io`, `reads`, `writes`, `fails`) lets the host inspect what a program requires _before_ running it
+- **Runtime enforcement** — `RunLimits` controls execution timeout, memory ceiling, and filesystem sandboxing
+- **Defense-in-depth** — agent-generated code that runs immediately needs stronger isolation than human-reviewed code. The effect system + WASM sandbox + host adapter pattern provides exactly that
+
+Host capabilities available through adapters: filesystem (sandboxed), HTTP, crypto (SHA-256, MD5, HMAC), environment variables, CLI arguments. New capabilities are added by extending `EdictHostAdapter`.
+
 ## Quick Start
 
 ```bash
 npm install
-npm test          # 488 tests, ~1.5s
+npm test          # 1073 tests across 62 files
 npm run mcp       # start MCP server (stdio transport)
 ```
 
@@ -49,18 +60,25 @@ npm run mcp       # start MCP server (stdio transport)
 | Tool | Description |
 |---|---|
 | `edict_schema` | Returns the full AST JSON Schema — the spec for how to write programs |
-| `edict_examples` | Returns 10 example programs as JSON ASTs |
+| `edict_version` | Returns compiler version and capability info |
+| `edict_examples` | Returns 18 example programs as JSON ASTs |
 | `edict_validate` | Validates AST structure (field names, types, node kinds) |
 | `edict_check` | Full pipeline: validate → resolve names → type check → effect check → verify contracts |
 | `edict_compile` | Compiles a checked AST to WASM (returns base64-encoded binary) |
 | `edict_run` | Executes a compiled WASM binary, returns output and exit code |
+| `edict_patch` | Applies targeted AST patches by nodeId and re-checks |
+| `edict_errors` | Returns machine-readable catalog of all error types |
+| `edict_lint` | Runs non-blocking quality analysis and returns warnings |
 
 ### MCP Resources
 
 | URI | Description |
 |---|---|
-| `edict://schema` | The AST JSON Schema |
+| `edict://schema` | The full AST JSON Schema |
+| `edict://schema/minimal` | Minimal schema variant for token-efficient bootstrap |
 | `edict://examples` | All example programs |
+| `edict://errors` | Machine-readable error catalog |
+| `edict://schema/patch` | JSON Schema for the AST patch protocol |
 
 ## Example Program
 
@@ -134,15 +152,23 @@ src/
 ├── effects/       # Effect checking (call-graph propagation)
 ├── contracts/     # Contract verification (Z3/SMT integration)
 ├── codegen/       # WASM code generation (binaryen)
-│   ├── codegen.ts    # AST → WASM compilation
-│   ├── runner.ts     # WASM execution (Node.js WebAssembly API)
-│   ├── builtins.ts   # Built-in functions (print)
+│   ├── codegen.ts       # AST → WASM module orchestration
+│   ├── compile-expr.ts  # Expression compilation
+│   ├── compile-*.ts     # Specialized compilers (calls, data, match, scalars)
+│   ├── runner.ts        # WASM execution (Node.js WebAssembly API)
+│   ├── host-adapter.ts  # EdictHostAdapter interface
+│   ├── closures.ts      # Closure capture and compilation
+│   ├── hof-generators.ts # Higher-order function WASM generators
 │   └── string-table.ts  # String interning for WASM memory
-├── mcp/           # MCP server (tools + resources)
+├── builtins/      # Builtin registry and domain-specific builtins
+├── compact/       # Compact AST format (token-efficient for agents)
+├── lint/          # Non-blocking quality warnings
+├── patch/         # Surgical AST patching by nodeId
+├── mcp/           # MCP server (tools + resources + prompts)
 └── errors/        # Structured error types
 
-tests/             # 488 tests across 21 files
-examples/          # 10 example programs as JSON ASTs
+tests/             # 1073 tests across 62 files
+examples/          # 18 example programs as JSON ASTs
 schema/            # Auto-generated JSON Schema
 ```
 
@@ -150,7 +176,7 @@ schema/            # Auto-generated JSON Schema
 
 | Type | Example |
 |---|---|
-| Basic | `Int`, `Float`, `String`, `Bool` |
+| Basic | `Int`, `Int64`, `Float`, `String`, `Bool` |
 | Array | `Array<Int>` |
 | Option | `Option<String>` |
 | Result | `Result<String, String>` |
@@ -178,9 +204,9 @@ Pre/post conditions are verified at compile time using Z3:
   "kind": "post",
   "id": "post-001",
   "condition": {
-    "kind": "binop", "op": ">",
-    "left": { "kind": "ident", "name": "result" },
-    "right": { "kind": "ident", "name": "x" }
+    "kind": "binop", "id": "binop-001", "op": ">",
+    "left": { "kind": "ident", "id": "ident-result-001", "name": "result" },
+    "right": { "kind": "ident", "id": "ident-x-001", "name": "x" }
   }
 }
 ```

@@ -1,6 +1,6 @@
 # Edict Feature Specification v1
 
-> **Status**: Phase 1 — AST Schema & Validator
+> **Status**: All phases implemented (v1.5.0) — AST → Validate → Resolve → Type Check → Effect Check → Contracts → Codegen → Execute
 > **Implementation**: TypeScript · **Pipeline**: AST-first · **Users**: Agents only
 > **Canonical format**: JSON AST · **Interface**: MCP structured output
 
@@ -22,7 +22,7 @@ These decisions were made by the agent (the primary user of this language). Rati
 |---|---|---|
 | **User-defined data structures** | Records & Enums in Phase 1 | You can't write any real program without structs. Deferring this would make Phase 1 useless. |
 | **Refinement type predicates** | Open (any `Expression`) | The AST should not encode Z3's capabilities. Keep predicates general; the contract verifier (Phase 4) reports `undecidable_predicate` for what it can't prove. Mixing concerns is worse than accepting some predicates will be rejected later. |
-| **Compilation target** | WASM only | LLVM is premature optimization. WASM gives sandboxing (critical for agent-generated code), portability, and faster iteration. LLVM can be Phase 7 if performance demands it. |
+| **Compilation target** | WASM only | WASM's sandboxed execution model is a **security requirement** for agent-generated code — programs run in an isolated VM with no ambient authority. Filesystem, network, and crypto access are only available through explicit host-provided adapters (see §7.1). This is defense-in-depth: the effect system declares capabilities at compile time, the sandbox enforces them at runtime. LLVM can be Phase 7 if performance demands it. |
 | **Exhaustive pattern matching** | Required | One of my biggest error sources is missing edge cases. The compiler must reject non-exhaustive matches. |
 | **Result type** | Built-in (not user-defined) | Error handling is too important to leave to user definition. `Result<T, E>` is first-class, interacts with the `"fails"` effect. |
 | **JSON AST vs. compact syntax** | JSON AST | The research noted JSON is token-inefficient for reading, but I *produce* structured output natively. JSON is my native medium. The token cost is only relevant when reading code back (context window), and the schema is compact enough for that. |
@@ -76,7 +76,7 @@ The canonical representation of an Edict program is a **JSON object** conforming
 > Inspiration: F# Units of Measure, Liquid Haskell Refinement Types, Idris Dependent Types
 
 #### Basic Types
-`Int`, `Float`, `String`, `Bool`, `Array<T>`, `Option<T>`
+`Int`, `Int64`, `Float`, `String`, `Bool`, `Array<T>`, `Option<T>`
 
 #### Semantic Unit Types
 Types carry domain meaning — not just structure. Prevents the entire class of "wrong units" bugs.
@@ -214,6 +214,7 @@ interface Import {
   id: string
   module: string
   names: string[]
+  types?: Record<string, TypeExpr>  // typed imports for cross-module type safety
 }
 
 // Definitions
@@ -225,7 +226,7 @@ interface FunctionDef {
   name: string
   params: Param[]
   effects: Effect[]
-  returnType: TypeExpr
+  returnType?: TypeExpr       // optional — inferred from body when omitted
   contracts: Contract[]
   body: Expression[]
 }
@@ -281,7 +282,7 @@ interface Param {
   kind: "param"
   id: string
   name: string
-  type: TypeExpr
+  type?: TypeExpr              // optional — inferred from context (lambda args)
 }
 
 // Effects
@@ -308,7 +309,7 @@ type TypeExpr =
 
 interface BasicType {
   kind: "basic"
-  name: "Int" | "Float" | "String" | "Bool"
+  name: "Int" | "Int64" | "Float" | "String" | "Bool"
 }
 
 interface ArrayType {
@@ -375,6 +376,7 @@ type Expression =
   | FieldAccess
   | LambdaExpr
   | BlockExpr
+  | StringInterp
 
 interface Literal {
   kind: "literal"
@@ -407,7 +409,7 @@ interface UnaryOp {
 interface Call {
   kind: "call"
   id: string
-  fn: string
+  fn: Expression              // Expression (not string) — enables higher-order calls
   args: Expression[]
 }
 
@@ -416,7 +418,7 @@ interface IfExpr {
   id: string
   condition: Expression
   then: Expression[]
-  else: Expression[]
+  else?: Expression[]         // optional — omit for if-without-else
 }
 
 interface LetExpr {
@@ -470,7 +472,7 @@ interface RecordExpr {
   kind: "record_expr"
   id: string
   name: string         // name of the RecordDef
-  fields: { name: string; value: Expression }[]
+  fields: FieldInit[]
 }
 
 interface EnumConstructor {
@@ -478,7 +480,13 @@ interface EnumConstructor {
   id: string
   enumName: string     // name of the EnumDef
   variant: string      // name of the variant
-  fields: { name: string; value: Expression }[]
+  fields: FieldInit[]
+}
+
+interface FieldInit {
+  kind: "field_init"
+  name: string
+  value: Expression
 }
 
 interface LambdaExpr {
@@ -492,6 +500,12 @@ interface BlockExpr {
   kind: "block"
   id: string
   body: Expression[]   // last expression is the return value
+}
+
+interface StringInterp {
+  kind: "string_interp"
+  id: string
+  parts: Expression[]  // all parts must evaluate to String
 }
 ```
 
@@ -576,11 +590,15 @@ The complete agent interface. An MCP server exposing the Edict compiler as tools
 
 ```
 edict.schema()          → JSON Schema (the full AST spec)
-edict.examples()        → 10 example programs as AST JSON
+edict.version()         → Compiler version and capability info
+edict.examples()        → 18 example programs as AST JSON
 edict.validate(ast)     → StructuredError[] | "ok"
 edict.check(ast)        → StructuredError[] | "ok"         // types + effects + contracts
 edict.compile(ast)      → { wasm: Base64 } | StructuredError[]
 edict.run(wasm)         → { output: string, exitCode: number }
+edict.patch(ast, ops)   → Apply targeted AST patches by nodeId and re-check
+edict.errors()          → Machine-readable catalog of all error types
+edict.lint(ast)         → Non-blocking quality warnings
 ```
 
 **Example agent session**:
@@ -598,7 +616,7 @@ Agent: edict.run("AGFzbQEAAAA...")
 Edict: { output: "42", exitCode: 0 }
 ```
 
-**Agent onboarding**: The agent receives the AST schema (TypeScript interfaces) and 5–10 few-shot example programs as part of its system prompt or MCP resource. No documentation needed — the schema _is_ the spec.
+**Agent onboarding**: The agent receives the AST schema (TypeScript interfaces) and 18 example programs as part of its system prompt or MCP resource. No documentation needed — the schema _is_ the spec.
 
 ---
 
@@ -614,6 +632,40 @@ Edict: { output: "42", exitCode: 0 }
 3. Conditionals and pattern matching
 4. Arrays and data structures (via WASM GC structs or linear memory)
 5. IO effects (via WASI interface)
+
+### 7.1 Execution Model & Security
+
+> WASM sandboxing with explicit host bridging is a **deliberate security feature**, not a limitation.
+
+AI agents write Edict programs. Unlike human-authored code reviewed before deployment, agent-generated code may execute immediately and iteratively. This demands a security model where the _host_ controls what the code can do, not the code itself.
+
+**Defense-in-depth model:**
+
+| Layer | Mechanism | What it controls |
+|---|---|---|
+| **Compile-time** | Effect system (`io`, `reads`, `writes`, `fails`) | Declares what capabilities a program _requires_. The host can inspect effects before execution and reject programs that request unwanted capabilities. |
+| **Runtime — adapter** | `EdictHostAdapter` interface | Pluggable contract that controls _how_ platform capabilities are provided. Implementations exist for Node.js (full-featured) and browser (restricted). Custom adapters can restrict, audit, or mock any capability. |
+| **Runtime — limits** | `RunLimits` API | Fine-grained enforcement: execution timeout (`timeoutMs`), memory ceiling (`maxMemoryMb`), filesystem sandbox (`sandboxDir`). |
+| **Runtime — WASM VM** | WebAssembly sandbox | The WASM VM itself provides memory isolation, no ambient authority, and no access to host APIs unless explicitly imported. |
+
+**Why this matters for agents:**
+- A compiled WASM module **cannot** access the filesystem, network, or OS unless the host explicitly provides those capabilities via `EdictHostAdapter`
+- The effect system means the host can know _before execution_ whether a program needs IO, networking, or other capabilities — and can refuse to run it
+- The `sandboxDir` constraint ensures file IO is always scoped to a specific directory, preventing path traversal
+- Timeout and memory limits prevent infinite loops and memory exhaustion from agent-generated code
+
+**Available host capabilities (via adapters):**
+
+| Capability | Effect required | Adapter method |
+|---|---|---|
+| File read/write | `io` | `readFile()`, `writeFile()` |
+| HTTP requests | `io` | `fetch()` |
+| Crypto (SHA-256, MD5, HMAC) | `pure` | `sha256()`, `md5()`, `hmac()` |
+| Environment variables | `reads` | `env()` |
+| CLI arguments | `reads` | `args()` |
+| Process exit | `io` | `exit()` |
+
+New capabilities are added by extending the `EdictHostAdapter` interface and implementing them per platform. The code inside the WASM module calls these through imported host functions — it never has direct access to the underlying APIs.
 
 ---
 
