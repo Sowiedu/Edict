@@ -1,0 +1,358 @@
+{
+    "kind": "module",
+    "id": "mod-option-demo",
+    "name": "option",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-findEven",
+            "name": "findEven",
+            "params": [
+                {
+                    "kind": "param",
+                    "id": "p-n",
+                    "name": "n",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    }
+                }
+            ],
+            "effects": [
+                "pure"
+            ],
+            "returnType": {
+                "kind": "option",
+                "inner": {
+                    "kind": "basic",
+                    "name": "Int"
+                }
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "if",
+                    "id": "if-even",
+                    "condition": {
+                        "kind": "binop",
+                        "id": "b-mod",
+                        "op": "==",
+                        "left": {
+                            "kind": "binop",
+                            "id": "b-rem",
+                            "op": "%",
+                            "left": {
+                                "kind": "ident",
+                                "id": "i-n",
+                                "name": "n"
+                            },
+                            "right": {
+                                "kind": "literal",
+                                "id": "l-2",
+                                "value": 2
+                            }
+                        },
+                        "right": {
+                            "kind": "literal",
+                            "id": "l-0",
+                            "value": 0
+                        }
+                    },
+                    "then": [
+                        {
+                            "kind": "enum_constructor",
+                            "id": "ec-some",
+                            "enumName": "Option",
+                            "variant": "Some",
+                            "fields": [
+                                {
+                                    "kind": "field_init",
+                                    "name": "value",
+                                    "value": {
+                                        "kind": "ident",
+                                        "id": "i-n2",
+                                        "name": "n"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "else": [
+                        {
+                            "kind": "enum_constructor",
+                            "id": "ec-none",
+                            "enumName": "Option",
+                            "variant": "None",
+                            "fields": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-main",
+            "name": "main",
+            "params": [],
+            "effects": [
+                "io"
+            ],
+            "returnType": {
+                "kind": "basic",
+                "name": "Int"
+            },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let",
+                    "id": "let-opt1",
+                    "name": "opt1",
+                    "type": {
+                        "kind": "option",
+                        "inner": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "c-find1",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "i-find1",
+                            "name": "findEven"
+                        },
+                        "args": [
+                            {
+                                "kind": "literal",
+                                "id": "l-100",
+                                "value": 100
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-opt2",
+                    "name": "opt2",
+                    "type": {
+                        "kind": "option",
+                        "inner": {
+                            "kind": "basic",
+                            "name": "Int"
+                        }
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "c-find2",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "i-find2",
+                            "name": "findEven"
+                        },
+                        "args": [
+                            {
+                                "kind": "literal",
+                                "id": "l-7",
+                                "value": 7
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-v1",
+                    "name": "v1",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    },
+                    "value": {
+                        "kind": "match",
+                        "id": "m-opt1",
+                        "target": {
+                            "kind": "ident",
+                            "id": "i-opt1",
+                            "name": "opt1"
+                        },
+                        "arms": [
+                            {
+                                "kind": "arm",
+                                "id": "arm-some1",
+                                "pattern": {
+                                    "kind": "constructor",
+                                    "name": "Some",
+                                    "fields": [
+                                        {
+                                            "kind": "binding",
+                                            "name": "val"
+                                        }
+                                    ]
+                                },
+                                "body": [
+                                    {
+                                        "kind": "ident",
+                                        "id": "i-val1",
+                                        "name": "val"
+                                    }
+                                ]
+                            },
+                            {
+                                "kind": "arm",
+                                "id": "arm-none1",
+                                "pattern": {
+                                    "kind": "constructor",
+                                    "name": "None",
+                                    "fields": []
+                                },
+                                "body": [
+                                    {
+                                        "kind": "literal",
+                                        "id": "l-neg1",
+                                        "value": -1
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "let",
+                    "id": "let-v2",
+                    "name": "v2",
+                    "type": {
+                        "kind": "basic",
+                        "name": "Int"
+                    },
+                    "value": {
+                        "kind": "call",
+                        "id": "c-unwrapOr",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "i-unwrapOr",
+                            "name": "unwrapOr"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "i-opt2",
+                                "name": "opt2"
+                            },
+                            {
+                                "kind": "literal",
+                                "id": "l-42",
+                                "value": 42
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "if",
+                    "id": "if-isSome",
+                    "condition": {
+                        "kind": "call",
+                        "id": "c-isSome",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "i-isSome",
+                            "name": "isSome"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "i-opt1-2",
+                                "name": "opt1"
+                            }
+                        ]
+                    },
+                    "then": [
+                        {
+                            "kind": "call",
+                            "id": "c-print1",
+                            "fn": {
+                                "kind": "ident",
+                                "id": "i-print1",
+                                "name": "print"
+                            },
+                            "args": [
+                                {
+                                    "kind": "literal",
+                                    "id": "l-msg1",
+                                    "value": "opt1 is Some"
+                                }
+                            ]
+                        }
+                    ],
+                    "else": [
+                        {
+                            "kind": "literal",
+                            "id": "l-empty1",
+                            "value": ""
+                        }
+                    ]
+                },
+                {
+                    "kind": "if",
+                    "id": "if-isNone",
+                    "condition": {
+                        "kind": "call",
+                        "id": "c-isNone",
+                        "fn": {
+                            "kind": "ident",
+                            "id": "i-isNone",
+                            "name": "isNone"
+                        },
+                        "args": [
+                            {
+                                "kind": "ident",
+                                "id": "i-opt2-2",
+                                "name": "opt2"
+                            }
+                        ]
+                    },
+                    "then": [
+                        {
+                            "kind": "call",
+                            "id": "c-print2",
+                            "fn": {
+                                "kind": "ident",
+                                "id": "i-print2",
+                                "name": "print"
+                            },
+                            "args": [
+                                {
+                                    "kind": "literal",
+                                    "id": "l-msg2",
+                                    "value": "opt2 is None"
+                                }
+                            ]
+                        }
+                    ],
+                    "else": [
+                        {
+                            "kind": "literal",
+                            "id": "l-empty2",
+                            "value": ""
+                        }
+                    ]
+                },
+                {
+                    "kind": "binop",
+                    "id": "b-final",
+                    "op": "+",
+                    "left": {
+                        "kind": "ident",
+                        "id": "i-v1",
+                        "name": "v1"
+                    },
+                    "right": {
+                        "kind": "ident",
+                        "id": "i-v2",
+                        "name": "v2"
+                    }
+                }
+            ]
+        }
+    ]
+}
