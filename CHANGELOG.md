@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.0](https://github.com/Sowiedu/Edict/compare/v1.7.0...v1.8.0) (2026-03-07)
+
+
+### Features
+
+* **benchmarks:** add benchmark suite for pipeline performance (closes [#48](https://github.com/Sowiedu/Edict/issues/48)) ([f7c4ce3](https://github.com/Sowiedu/Edict/commit/f7c4ce309c9d70872307609883d9e1dd3eca2b70))
+* implement semantic unit types (issue [#28](https://github.com/Sowiedu/Edict/issues/28)) ([88acbe7](https://github.com/Sowiedu/Edict/commit/88acbe7068e9db4dae2a14e2353ce9a8fa77c474))
+
+
+### Bug Fixes
+
+* **codegen:** implement tuple field access in type checker and codegen ([e5c1d52](https://github.com/Sowiedu/Edict/commit/e5c1d52b3bb966ad57762b1a2e65f01e936a99a4))
+
 ## [1.7.0](https://github.com/Sowiedu/Edict/compare/v1.6.0...v1.7.0) (2026-03-07)
 
 
