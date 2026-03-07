@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.0](https://github.com/Sowiedu/Edict/compare/v1.5.0...v1.6.0) (2026-03-07)
+
+
+### Features
+
+* report analysis uncertainty instead of silently passing ([#85](https://github.com/Sowiedu/Edict/issues/85)) ([d3f3049](https://github.com/Sowiedu/Edict/commit/d3f3049d6c80cb1673ddf809f02876da422c2128))
+* typed import declarations — stop guessing ABI at codegen time ([#86](https://github.com/Sowiedu/Edict/issues/86)) ([0caa6b2](https://github.com/Sowiedu/Edict/commit/0caa6b2e833e49d5ababaf058639987385e5dc51))
+* unify builtin registration — single source of truth ([#84](https://github.com/Sowiedu/Edict/issues/84)) ([0c2bb07](https://github.com/Sowiedu/Edict/commit/0c2bb07bff8e1d5f464f4352385e98ce6731307d))
+
+
+### Bug Fixes
+
+* **#83:** stop AST mutation in type checker — use TypedModuleInfo side-table ([8e14447](https://github.com/Sowiedu/Edict/commit/8e14447721882e22ac4faedfae96e191809c762b)), closes [#83](https://github.com/Sowiedu/Edict/issues/83)
+* **ci:** increase WASM execution timeouts for CI runners ([52384f9](https://github.com/Sowiedu/Edict/commit/52384f90bb93a88ebecc136f224484c2b8671ad6))
+
 ## [1.5.0](https://github.com/Sowiedu/Edict/compare/v1.4.0...v1.5.0) (2026-03-06)
 
 
