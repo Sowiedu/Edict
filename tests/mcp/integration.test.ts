@@ -152,6 +152,9 @@ const HELLO_MODULE = {
 // =============================================================================
 
 describe("MCP integration — tools", () => {
+    // Pre-compiled WASM for HELLO_MODULE — populated by edict_compile test,
+    // reused by edict_run tests to avoid redundant compile+run cycles.
+    let helloWasm: string;
     // ─── edict_version ───────────────────────────────────────────────────────
     it("edict_version returns capability info", async () => {
         const { parsed } = await callTool("edict_version");
@@ -261,6 +264,8 @@ describe("MCP integration — tools", () => {
         expect(parsed.wasm).toBeDefined();
         expect(parsed.wasm.length).toBeGreaterThan(0);
         expect(parsed.message).toContain("successful");
+        // Cache for reuse by edict_run tests
+        helloWasm = parsed.wasm;
     });
 
     it("edict_compile returns errors for invalid program", async () => {
@@ -275,12 +280,10 @@ describe("MCP integration — tools", () => {
 
     // ─── edict_run ───────────────────────────────────────────────────────────
     it("edict_run executes compiled WASM", async () => {
-        // First compile
-        const { parsed: compiled } = await callTool("edict_compile", { ast: HELLO_MODULE });
-        expect(compiled.wasm).toBeDefined();
+        // Reuse pre-compiled WASM from edict_compile test
+        expect(helloWasm).toBeDefined();
 
-        // Then run
-        const { parsed: run } = await callTool("edict_run", { wasmBase64: compiled.wasm });
+        const { parsed: run } = await callTool("edict_run", { wasmBase64: helloWasm });
         expect(run.exitCode).toBe(0);
         expect(run.output).toContain("integration test");
         expect(run.returnValue).toBe(42);
@@ -309,11 +312,12 @@ describe("MCP integration — tools", () => {
     });
 
     it("edict_run respects sandbox limits", async () => {
-        const { parsed: compiled } = await callTool("edict_compile", { ast: HELLO_MODULE });
+        // Reuse pre-compiled WASM from edict_compile test
+        expect(helloWasm).toBeDefined();
 
         // Run with custom limits
         const { parsed: run } = await callTool("edict_run", {
-            wasmBase64: compiled.wasm,
+            wasmBase64: helloWasm,
             limits: { timeoutMs: 15_000 },
         });
         expect(run.exitCode).toBe(0);

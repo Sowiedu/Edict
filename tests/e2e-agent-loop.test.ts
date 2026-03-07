@@ -37,8 +37,8 @@ import {
     contractVerify,
     resetZ3,
     compile,
-    run,
 } from "../src/index.js";
+import { runDirect } from "../src/codegen/runner.js";
 import type { EdictModule } from "../src/index.js";
 
 afterAll(() => resetZ3());
@@ -135,7 +135,7 @@ describe("e2e agent loop: hardcoded LLM response", () => {
         expect(compileResult.wasm).toBeInstanceOf(Uint8Array);
 
         // Stage 6: Run — execute WASM
-        const runResult = await run(compileResult.wasm);
+        const runResult = await runDirect(compileResult.wasm);
         expect(runResult.output).toContain("Hello from the agent!");
         expect(runResult.returnValue).toBe(42);
         expect(runResult.exitCode).toBe(0);
@@ -233,7 +233,7 @@ describe("e2e agent loop: self-repair", () => {
         expect(compiled.ok).toBe(true);
         if (!compiled.ok) return;
 
-        const result = await run(compiled.wasm);
+        const result = await runDirect(compiled.wasm);
         expect(result.exitCode).toBe(0);
         expect(result.returnValue).toBe(0);
     });
@@ -429,7 +429,7 @@ describe("e2e agent loop: real LLM integration", () => {
         expect(compileResult.ok).toBe(true);
         if (!compileResult.ok) return;
 
-        const runResult = await run(compileResult.wasm);
+        const runResult = await runDirect(compileResult.wasm);
         expect(runResult.exitCode).toBe(0);
         expect(runResult.returnValue).toBe(120); // 5! = 120
     }, 60_000); // 60s timeout for LLM API call

@@ -17,11 +17,11 @@ import {
 import {
     handleValidate,
     handleCompile,
-    handleRun,
     handleSchema,
     handleVersion,
     handleLint,
 } from "../../src/mcp/handlers.js";
+import { runDirect } from "../../src/codegen/runner.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const examplesDir = resolve(__dirname, "..", "..", "examples");
@@ -382,7 +382,8 @@ describe("E2E — compact AST through pipeline", () => {
         expect(compileResult.ok).toBe(true);
         expect(compileResult.wasm).toBeDefined();
 
-        const runResult = await handleRun(compileResult.wasm!);
+        const wasmBytes = new Uint8Array(Buffer.from(compileResult.wasm!, "base64"));
+        const runResult = await runDirect(wasmBytes);
         expect(runResult.exitCode).toBe(0);
         expect(runResult.output).toContain("Hello, World!");
     });
@@ -418,7 +419,8 @@ describe("E2E — compact AST through pipeline", () => {
         const compileResult = await handleCompile(compactArith);
         expect(compileResult.ok).toBe(true);
 
-        const runResult = await handleRun(compileResult.wasm!);
+        const wasmBytes = new Uint8Array(Buffer.from(compileResult.wasm!, "base64"));
+        const runResult = await runDirect(wasmBytes);
         expect(runResult.exitCode).toBe(0);
         expect(runResult.returnValue).toBe(7);
     });

@@ -52,6 +52,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:fast": "vitest run --exclude tests/mcp/integration.test.ts --exclude tests/mcp/agent-simulation.test.ts --exclude tests/e2e-agent-loop.test.ts --exclude tests/compact/expand.test.ts",
+    "test:slow": "vitest run tests/mcp/integration.test.ts tests/mcp/agent-simulation.test.ts tests/e2e-agent-loop.test.ts tests/compact/expand.test.ts",
     "typecheck": "tsc --noEmit",
     "validate-examples": "tsx scripts/validate-examples.ts",
     "ci:local": "npm run typecheck && npm run build && npm test && npm run validate-examples",

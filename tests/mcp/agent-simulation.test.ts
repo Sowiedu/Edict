@@ -19,8 +19,8 @@ import {
     handleValidate,
     handleCheck,
     handleCompile,
-    handleRun,
 } from "../../src/mcp/handlers.js";
+import { runDirect } from "../../src/codegen/runner.js";
 
 describe("agent simulation: full loop", () => {
     it("schema → write buggy program → fix → compile → run", async () => {
@@ -132,7 +132,8 @@ describe("agent simulation: full loop", () => {
         // ─────────────────────────────────────────────────────────
         // Step 4: Agent runs the compiled WASM
         // ─────────────────────────────────────────────────────────
-        const result = await handleRun(attempt2.wasm!);
+        const wasmBytes = new Uint8Array(Buffer.from(attempt2.wasm!, "base64"));
+        const result = await runDirect(wasmBytes);
         expect(result.exitCode).toBe(0);
         expect(result.output).toContain("Agent says hello!");
         expect(result.returnValue).toBe(0);
@@ -195,7 +196,8 @@ describe("agent simulation: full loop", () => {
         const compiled = await handleCompile(fixed);
         expect(compiled.ok).toBe(true);
 
-        const result = await handleRun(compiled.wasm!);
+        const wasmBytes = new Uint8Array(Buffer.from(compiled.wasm!, "base64"));
+        const result = await runDirect(wasmBytes);
         expect(result.exitCode).toBe(0);
         expect(result.output).toContain("sneaky io");
     });
@@ -277,7 +279,8 @@ describe("agent simulation: full loop", () => {
         const compiled = await handleCompile(program);
         expect(compiled.ok).toBe(true);
 
-        const result = await handleRun(compiled.wasm!);
+        const wasmBytes = new Uint8Array(Buffer.from(compiled.wasm!, "base64"));
+        const result = await runDirect(wasmBytes);
         expect(result.exitCode).toBe(0);
         expect(result.returnValue).toBe(6); // increment(5) = 6
     });
