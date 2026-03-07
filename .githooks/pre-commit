@@ -3,4 +3,4 @@
 npm run generate-schema
 
 # If the schema file changed, stage it
-git diff --quiet -- src/schema/edict-ast.schema.json || git add src/schema/edict-ast.schema.json
+git diff --quiet -- schema/edict.schema.json || git add schema/edict.schema.json

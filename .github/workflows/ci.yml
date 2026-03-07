@@ -29,7 +29,7 @@ jobs:
       - name: Verify schema is up to date
         run: |
           npm run generate-schema
-          git diff --exit-code -- src/schema/edict-ast.schema.json
+          git diff --exit-code -- schema/edict.schema.json
 
       - name: Run tests
         run: npm test
