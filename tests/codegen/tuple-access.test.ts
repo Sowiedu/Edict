@@ -7,8 +7,7 @@ import { EdictModule } from "../../src/ast/nodes.js";
 import * as fs from "node:fs";
 
 describe("Tuple Access", () => {
-    // TODO: inferAccess in check.ts only handles records, not tuples — extend to support tuple index access
-    it.skip("should allow accessing tuple fields", async () => {
+    it("should allow accessing tuple fields", async () => {
         const mod: EdictModule = {
             kind: "module",
             id: "tup-test",
@@ -62,7 +61,8 @@ describe("Tuple Access", () => {
         const result = await run(compileResult.wasm);
         expect(result.returnValue).toBe(42);
     });
-    // TODO: same as above — tuple index access not yet supported in type checker
+    // Skipped due to Issue #95: String lengths are lost when stored in data structures
+    // because they are not length-prefixed on the heap.
     it.skip("should allow accessing string fields in tuples", async () => {
         const mod: EdictModule = {
             kind: "module",

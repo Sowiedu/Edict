@@ -755,6 +755,27 @@ function inferAccess(
     if (isUnknown(targetType)) return UNKNOWN_TYPE;
 
     const resolved = resolveType(targetType, env);
+
+    // Tuple access — field is a numeric index like "0", "1", etc.
+    if (resolved.kind === "tuple") {
+        const index = parseInt(expr.field, 10);
+        if (isNaN(index)) {
+            errors.push(typeMismatch(expr.id, resolved, targetType));
+            return UNKNOWN_TYPE;
+        }
+        if (index < 0 || index >= resolved.elements.length) {
+            const availFields = resolved.elements.map((_, i) => String(i));
+            errors.push(unknownField(
+                expr.id,
+                "tuple",
+                expr.field,
+                availFields,
+            ));
+            return UNKNOWN_TYPE;
+        }
+        return resolved.elements[index]!;
+    }
+
     if (resolved.kind !== "named") {
         errors.push(typeMismatch(expr.id, UNKNOWN_TYPE, targetType)); // expected record type
         return UNKNOWN_TYPE;

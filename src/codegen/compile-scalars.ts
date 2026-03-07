@@ -4,6 +4,7 @@
 
 import binaryen from "binaryen";
 import type { Expression } from "../ast/nodes.js";
+import type { TypeExpr } from "../ast/types.js";
 import { wasmValidationError } from "../errors/structured-errors.js";
 import {
     type CompilationContext,
@@ -212,19 +213,26 @@ export function compileLet(
         : inferExprWasmType(expr.value, cc, ctx);
 
     let edictTypeName: string | undefined;
+    let edictType: TypeExpr | undefined;
     if (resolvedLetType && resolvedLetType.kind === "named") {
         edictTypeName = resolvedLetType.name;
     } else if (resolvedLetType && resolvedLetType.kind === "option") {
         edictTypeName = "Option";
     } else if (resolvedLetType && resolvedLetType.kind === "result") {
         edictTypeName = "Result";
+    } else if (resolvedLetType && resolvedLetType.kind === "tuple") {
+        edictTypeName = "__tuple";
+        edictType = resolvedLetType;
     } else if (expr.value.kind === "record_expr") {
         edictTypeName = expr.value.name;
     } else if (expr.value.kind === "enum_constructor") {
         edictTypeName = expr.value.enumName;
+    } else if (expr.value.kind === "tuple_expr" && expr.type?.kind === "tuple") {
+        edictTypeName = "__tuple";
+        edictType = expr.type;
     }
 
-    const index = ctx.addLocal(expr.name, wasmType, edictTypeName);
+    const index = ctx.addLocal(expr.name, wasmType, edictTypeName, edictType);
     const value = compileExpr(expr.value, cc, ctx);
     const localSet = mod.local.set(index, value);
 

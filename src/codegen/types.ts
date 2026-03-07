@@ -114,6 +114,8 @@ export interface LocalEntry {
     index: number;
     type: binaryen.Type;
     edictTypeName?: string;
+    /** Full Edict type — used for tuple element access type resolution */
+    edictType?: TypeExpr;
 }
 
 export interface FieldLayout {
@@ -153,11 +155,11 @@ export class FunctionContext {
     readonly varTypes: binaryen.Type[] = [];
 
     constructor(
-        params: { name: string; wasmType: binaryen.Type; edictTypeName?: string }[],
+        params: { name: string; wasmType: binaryen.Type; edictTypeName?: string; edictType?: TypeExpr }[],
     ) {
         this.nextIndex = 0;
         for (const p of params) {
-            this.locals.set(p.name, { index: this.nextIndex, type: p.wasmType, edictTypeName: p.edictTypeName });
+            this.locals.set(p.name, { index: this.nextIndex, type: p.wasmType, edictTypeName: p.edictTypeName, edictType: p.edictType });
             this.nextIndex++;
         }
     }
@@ -166,9 +168,9 @@ export class FunctionContext {
         return this.locals.get(name);
     }
 
-    addLocal(name: string, type: binaryen.Type, edictTypeName?: string): number {
+    addLocal(name: string, type: binaryen.Type, edictTypeName?: string, edictType?: TypeExpr): number {
         const index = this.nextIndex++;
-        this.locals.set(name, { index, type, edictTypeName });
+        this.locals.set(name, { index, type, edictTypeName, edictType });
         this.varTypes.push(type);
         return index;
     }

@@ -8,6 +8,7 @@
 
 import binaryen from "binaryen";
 import type { Expression } from "../ast/nodes.js";
+import type { TypeExpr } from "../ast/types.js";
 import { wasmValidationError } from "../errors/structured-errors.js";
 import {
     type CompilationContext,
@@ -94,13 +95,23 @@ export function inferExprWasmType(
             return binaryen.i32; // string pointer
         case "access": {
             let recordTypeName: string | undefined;
+            let edictType: TypeExpr | undefined;
             if (expr.target.kind === "ident") {
                 const local = ctx.getLocal(expr.target.name);
                 if (local && local.edictTypeName) {
                     recordTypeName = local.edictTypeName;
+                    edictType = local.edictType;
                 }
             } else if (expr.target.kind === "record_expr") {
                 recordTypeName = expr.target.name;
+            }
+            // Tuple access — resolve element type
+            if (recordTypeName === "__tuple" && edictType?.kind === "tuple") {
+                const index = parseInt(expr.field, 10);
+                if (!isNaN(index) && index >= 0 && index < edictType.elements.length) {
+                    return edictTypeToWasm(edictType.elements[index]!);
+                }
+                return binaryen.i32; // fallback
             }
             if (recordTypeName) {
                 const layout = cc.recordLayouts.get(recordTypeName);

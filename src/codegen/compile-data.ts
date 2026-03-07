@@ -5,10 +5,12 @@
 
 import binaryen from "binaryen";
 import type { Expression } from "../ast/nodes.js";
+import type { TypeExpr } from "../ast/types.js";
 import { wasmValidationError } from "../errors/structured-errors.js";
 import {
     type CompilationContext,
     FunctionContext,
+    edictTypeToWasm,
 } from "./types.js";
 import { compileExpr, inferExprWasmType } from "./compile-expr.js";
 
@@ -172,32 +174,56 @@ export function compileAccess(
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
     const { mod, errors } = cc;
-    let recordTypeName: string | undefined;
 
-    // Try to infer record type from target
+    // Try to resolve the target's type info from its local entry
+    let edictTypeName: string | undefined;
+    let edictType: TypeExpr | undefined;
+
     if (expr.target.kind === "ident") {
         const local = ctx.getLocal(expr.target.name);
-        if (local && local.edictTypeName) {
-            recordTypeName = local.edictTypeName;
+        if (local) {
+            edictTypeName = local.edictTypeName;
+            edictType = local.edictType;
         }
     } else if (expr.target.kind === "record_expr") {
-        recordTypeName = expr.target.name;
+        edictTypeName = expr.target.name;
     }
 
-    if (!recordTypeName) {
+    // Tuple access — field is a numeric index, each element is 8 bytes
+    if (edictTypeName === "__tuple" && edictType?.kind === "tuple") {
+        const index = parseInt(expr.field, 10);
+        if (isNaN(index) || index < 0 || index >= edictType.elements.length) {
+            errors.push(wasmValidationError(`invalid tuple index: ${expr.field}`));
+            return mod.unreachable();
+        }
+
+        const elementType = edictType.elements[index]!;
+        const wasmType = edictTypeToWasm(elementType);
+        const offset = index * 8;
+        const ptrExpr = compileExpr(expr.target, cc, ctx);
+
+        if (wasmType === binaryen.f64) {
+            return mod.f64.load(offset, 0, ptrExpr);
+        } else {
+            return mod.i32.load(offset, 0, ptrExpr);
+        }
+    }
+
+    // Record access — existing path
+    if (!edictTypeName || edictTypeName === "__tuple") {
         errors.push(wasmValidationError(`cannot resolve record type for field access '${expr.field}'`));
         return mod.unreachable();
     }
 
-    const layout = cc.recordLayouts.get(recordTypeName);
+    const layout = cc.recordLayouts.get(edictTypeName);
     if (!layout) {
-        errors.push(wasmValidationError(`unknown record type: ${recordTypeName}`));
+        errors.push(wasmValidationError(`unknown record type: ${edictTypeName}`));
         return mod.unreachable();
     }
 
     const fieldLayout = layout.fields.find((f) => f.name === expr.field);
     if (!fieldLayout) {
-        errors.push(wasmValidationError(`unknown field '${expr.field}' on record '${recordTypeName}'`));
+        errors.push(wasmValidationError(`unknown field '${expr.field}' on record '${edictTypeName}'`));
         return mod.unreachable();
     }
 
