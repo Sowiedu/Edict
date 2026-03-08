@@ -117,9 +117,20 @@ if (url.endsWith(".ts")) {
 - **Fix**: Move all `strings.intern()` calls (including debug fn names) to before `toMemorySegments()`.
 - **Pattern**: Any new strings added to the `StringTable` must be interned in the pre-scan phase, before `toMemorySegments()` is called. Order matters: intern → segments → setMemory → compile.
 
+## 19. Structured Error Field Inconsistency Across Error Types
+- **Problem**: Cache filtering in `contractVerify` checked for `"functionName" in error` to map errors to functions, but `PreconditionNotMetError` uses `callerName` instead. This caused callsite errors to be incorrectly cached as "proven" (0 errors).
+- **Root cause**: Different Phase 4 error types use different field names for the same concept: `ContractFailureError` has `functionName`, `PreconditionNotMetError` has `callerName`.
+- **Fix**: Check both `functionName` and `callerName` when filtering errors by function name.
+- **Pattern**: When filtering structured errors by function identity, always check ALL field name variants across the error type union. Don't assume a single field name covers all types.
+
 ## 19. Never Cache StructuredErrors Keyed by Structural Hash
 - **Problem**: Z3 verification caching initially cached all results (including errors) keyed by a structural hash that strips `id` fields. If an agent resubmits a structurally identical function with different node IDs, cached errors would reference stale `nodeId` values — making the error non-actionable.
 - **Root cause**: The structural hash intentionally strips `id` fields for content-addressability. But `StructuredError.nodeId` references those same IDs. Caching errors creates a mismatch between the cached error's `nodeId` and the new submission's IDs.
 - **Fix**: Only cache **proven** results (`errors.length === 0`). Error results are always re-verified, ensuring fresh `nodeId` references.
 - **Pattern**: When caching results keyed by content hash, never cache data that contains identity-based references (like `nodeId`) that were excluded from the hash. Either include them in the hash (breaking content-addressability) or only cache identity-free results.
 
+## 20. Automation-First: Never Hand-Write What Can Be Derived
+- **Problem**: When planning schema-driven validation (#90), initially proposed hand-written "table-driven descriptors" — effectively re-encoding the same structural information already present in the generated JSON Schema (which itself is derived from TypeScript interfaces).
+- **Root cause**: Defaulted to "write code that encodes the rules" instead of asking "does a machine-readable source of truth already exist that encodes these rules?"
+- **Fix**: Use the JSON Schema directly at runtime as the validation source. Zero hand-written structural checks. Only semantic checks not expressible in the schema remain manual.
+- **Pattern**: Before writing any validation, configuration, or routing logic, ask: **"Is there an existing artifact (schema, type definition, config file, AST) that already encodes this information?"** If yes, derive the behavior from that artifact automatically. Hand-written code that duplicates machine-readable sources is a maintenance liability and a correctness risk. Automate over hand-write, always.

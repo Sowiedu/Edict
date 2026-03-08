@@ -9,7 +9,7 @@
 
 import type { StructuredError } from "../errors/structured-errors.js";
 import { IdTracker } from "./id-tracker.js";
-import { validateModule, validateFragment } from "./node-validators.js";
+import { validateModule, validateFragment } from "./schema-walker.js";
 
 export interface ValidationSuccess {
     ok: true;

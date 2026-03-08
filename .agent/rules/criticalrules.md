@@ -104,6 +104,7 @@ The compiler is infrastructure built by engineers. The language is a product con
 - **Structured everything** — errors, results, diagnostics: typed JSON objects, never prose
 - **MCP is the sole interface** — no CLI, no API, no library — MCP tools only
 - **Schema = spec = docs** — the JSON Schema is both the validation rule and the documentation
+- **Automate over hand-write** — if an existing artifact (schema, types, config) already encodes information, derive behavior from it at build/runtime. Never hand-write logic that duplicates a machine-readable source of truth.
 
 ---
 

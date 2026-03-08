@@ -52,6 +52,7 @@ Check your chosen task against:
 | Priority Order | Agent round-trips > Error actionability > Token efficiency > Correctness surface |
 | Subtle Drift | Does the motivation include "readable", "intuitive", "user-friendly"? If so, challenge it |
 | Architectural Invariants | JSON AST only, no parser, deterministic, one canonical form, structured everything, MCP-only |
+| **Automation-First** | Does the implementation hand-write logic that could be derived from an existing artifact (schema, types, config)? If yes, automate it. |
 
 If the task fails any check, **pick a different task**. Don't bend the rules.
 
