@@ -116,3 +116,10 @@ if (url.endsWith(".ts")) {
 - **Root cause**: The string interning was placed alongside the debug import declarations, after memory setup. But `toMemorySegments()` serializes whatever is in the StringTable at call time.
 - **Fix**: Move all `strings.intern()` calls (including debug fn names) to before `toMemorySegments()`.
 - **Pattern**: Any new strings added to the `StringTable` must be interned in the pre-scan phase, before `toMemorySegments()` is called. Order matters: intern → segments → setMemory → compile.
+
+## 19. Never Cache StructuredErrors Keyed by Structural Hash
+- **Problem**: Z3 verification caching initially cached all results (including errors) keyed by a structural hash that strips `id` fields. If an agent resubmits a structurally identical function with different node IDs, cached errors would reference stale `nodeId` values — making the error non-actionable.
+- **Root cause**: The structural hash intentionally strips `id` fields for content-addressability. But `StructuredError.nodeId` references those same IDs. Caching errors creates a mismatch between the cached error's `nodeId` and the new submission's IDs.
+- **Fix**: Only cache **proven** results (`errors.length === 0`). Error results are always re-verified, ensuring fresh `nodeId` references.
+- **Pattern**: When caching results keyed by content hash, never cache data that contains identity-based references (like `nodeId`) that were excluded from the hash. Either include them in the hash (breaking content-addressability) or only cache identity-free results.
+
