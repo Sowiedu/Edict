@@ -10,7 +10,7 @@
 
 import { Worker } from "node:worker_threads";
 import { createHostImports } from "../builtins/registry.js";
-import { type RuntimeState, EdictOomError } from "../builtins/host-helpers.js";
+import { type RuntimeState, EdictOomError, getHeapUsage } from "../builtins/host-helpers.js";
 import type { EdictHostAdapter } from "./host-adapter.js";
 
 /* eslint-disable @typescript-eslint/no-namespace */
@@ -58,6 +58,8 @@ export interface RunResult {
     error?: "execution_timeout" | "execution_oom";
     /** Limit values that were enforced */
     limitInfo?: { timeoutMs?: number; maxMemoryMb?: number };
+    /** Heap bytes consumed by the program's allocations (only set on success) */
+    heapUsed?: number;
 }
 
 /**
@@ -240,10 +242,14 @@ export async function runDirect(
         }
     }
 
+    // Read heap usage after execution (zero-cost — one WASM global read)
+    const heapUsed = state.instance ? getHeapUsage(state).used : undefined;
+
     return {
         output: state.outputParts.join(""),
         exitCode,
         returnValue,
+        ...(heapUsed !== undefined && heapUsed > 0 ? { heapUsed } : {}),
     };
 }
 

@@ -79,6 +79,47 @@ export function allocateHeap(state: RuntimeState, size: number): number {
 }
 
 /**
+ * Reset the heap to its initial state (full arena wipe).
+ * All heap-allocated data (records, arrays, strings, closures) is invalidated.
+ * Use between logical execution phases on a reused WASM instance.
+ */
+export function resetHeap(state: RuntimeState): void {
+    const heapReset = state.instance!.exports.__heap_reset as (() => void) | undefined;
+    if (heapReset) {
+        heapReset();
+    }
+}
+
+/**
+ * Read current heap utilization — bytes used and total available.
+ * Zero-cost (reads one WASM global + memory buffer size).
+ */
+export function getHeapUsage(state: RuntimeState): { used: number; total: number } {
+    const getHeapPtr = state.instance!.exports.__get_heap_ptr as () => number;
+    const getHeapStart = state.instance!.exports.__get_heap_start as (() => number) | undefined;
+    const heapPtr = getHeapPtr();
+    const heapStart = getHeapStart ? getHeapStart() : 0;
+    const total = getMemoryBuffer(state).byteLength;
+    return { used: heapPtr - heapStart, total };
+}
+
+/**
+ * Mark/release wrapper — saves __heap_ptr, runs fn, restores.
+ * Useful for host-side code that creates temporary WASM heap allocations
+ * (e.g., intermediate string processing) that should be reclaimed after.
+ */
+export function withTemporaryHeap<T>(state: RuntimeState, fn: () => T): T {
+    const getHeapPtr = state.instance!.exports.__get_heap_ptr as () => number;
+    const setHeapPtr = state.instance!.exports.__set_heap_ptr as (v: number) => void;
+    const saved = getHeapPtr();
+    try {
+        return fn();
+    } finally {
+        setHeapPtr(saved);
+    }
+}
+
+/**
  * Read a length-prefixed string from WASM memory.
  * Memory format: [len:i32][data:bytes] at the given pointer.
  * Returns the decoded JS string.

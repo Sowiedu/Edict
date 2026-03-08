@@ -143,6 +143,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         // Initialize bump allocator heap pointer
         // Ensure heap starts at an 8-byte aligned offset after the string table, min 8
         const heapStart = Math.max(8, Math.ceil(strings.totalBytes / 8) * 8);
+        mod.addGlobal("__heap_start", binaryen.i32, false, mod.i32.const(heapStart));
         mod.addGlobal("__heap_ptr", binaryen.i32, true, mod.i32.const(heapStart));
 
         // Pre-scan: build function signature registry
@@ -326,6 +327,20 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
             mod.global.set("__heap_ptr", mod.local.get(0, binaryen.i32)),
         );
         mod.addFunctionExport("__set_heap_ptr", "__set_heap_ptr");
+
+        // Arena reset — restore __heap_ptr to __heap_start (full arena wipe)
+        mod.addFunction(
+            "__heap_reset", binaryen.none, binaryen.none, [],
+            mod.global.set("__heap_ptr", mod.global.get("__heap_start", binaryen.i32)),
+        );
+        mod.addFunctionExport("__heap_reset", "__heap_reset");
+
+        // Heap start getter — expose the arena base address
+        mod.addFunction(
+            "__get_heap_start", binaryen.none, binaryen.i32, [],
+            mod.global.get("__heap_start", binaryen.i32),
+        );
+        mod.addFunctionExport("__get_heap_start", "__get_heap_start");
 
         // Memory is already exported via setMemory's exportName parameter
 
