@@ -98,3 +98,9 @@ if (url.endsWith(".ts")) {
 - **Location**: Global workflows live in `~/.gemini/antigravity/global_workflows/`, NOT per-project `.agent/workflows/`.
 - **Distinction**: Per-project workflows go in `<project>/.agent/workflows/`. Global workflows (available across all projects) go in the global directory.
 - **Pattern**: When creating a workflow the user wants across all projects, save it to the global directory. Don't duplicate across per-project dirs.
+
+## 16. WASM-Level Type Indistinguishability Requires Edict-Level Tracking
+- **Problem**: Strings and Ints are both `i32` in WASM (strings are memory pointers). `compileBinop` had no way to distinguish them, so `+` on strings emitted `i32.add` (pointer arithmetic) instead of `string_concat`.
+- **Root cause**: `edictTypeName` was only set for records, enums, options, results, and tuples — not for basic types like `String`. Function parameters and let bindings didn't propagate String type info to codegen locals.
+- **Fix**: Set `edictTypeName = "String"` in three places: `compileLet` (for String-typed let bindings), `compileFunction` (for String-typed params), and added `isStringExpr()` helper to check the Edict-level type from literals, locals, and function signatures.
+- **Pattern**: When adding codegen that needs to distinguish types that share the same WASM type, always check `edictTypeName`/`edictType` on `LocalEntry`, not just the WASM type.
