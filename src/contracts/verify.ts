@@ -25,6 +25,7 @@ import {
     translateExprList,
     type TranslationContext,
 } from "./translate.js";
+import { computeVerificationHash } from "./hash.js";
 
 const TIMEOUT_MS = 5000;
 
@@ -36,6 +37,24 @@ type Z3Context = Context<"main">;
 export interface ContractVerifyResult {
     errors: StructuredError[];
     diagnostics: AnalysisDiagnostic[];
+    /** Cache hit/miss statistics for this verification run. */
+    cacheStats?: { hits: number; misses: number };
+}
+
+// ---------------------------------------------------------------------------
+// Verification Cache
+// ---------------------------------------------------------------------------
+
+interface CachedResult {
+    errors: StructuredError[];
+    diagnostics: AnalysisDiagnostic[];
+}
+
+const verificationCache = new Map<string, CachedResult>();
+
+/** Clear the verification cache. Used by tests for isolation. */
+export function clearVerificationCache(): void {
+    verificationCache.clear();
 }
 
 /**
@@ -64,13 +83,41 @@ export async function contractVerify(
     // No contracts at all → nothing to verify
     if (fnsWithContracts.length === 0 && !hasPreconditions) return { errors: [], diagnostics: [] };
 
-    const ctx = await getZ3();
+    // Build dependency map: for each function, which callee FunctionDefs have preconditions?
+    const calleeDepsWithPre = new Map<string, Map<string, FunctionDef>>();
+    for (const fn of allFunctions) {
+        const deps = new Map<string, FunctionDef>();
+        collectCalleeDeps(fn.body, functionDefs, deps);
+        if (deps.size > 0) calleeDepsWithPre.set(fn.name, deps);
+    }
+
+    let cacheHits = 0;
+    let cacheMisses = 0;
+    let z3Initialized = false;
+    let ctx!: Z3Context;
+
     const errors: StructuredError[] = [];
     const diagnostics: AnalysisDiagnostic[] = [];
 
     // Phase 1: Verify postconditions for functions with contracts
     for (const fn of fnsWithContracts) {
+        const deps = calleeDepsWithPre.get(fn.name) ?? new Map();
+        const hash = "post:" + computeVerificationHash(fn, deps);
+        const cached = verificationCache.get(hash);
+        if (cached) {
+            cacheHits++;
+            errors.push(...cached.errors);
+            diagnostics.push(...cached.diagnostics);
+            continue;
+        }
+        cacheMisses++;
+        if (!z3Initialized) { ctx = await getZ3(); z3Initialized = true; }
         const fnResult = await verifyFunction(ctx, fn, module);
+        // Only cache proven results (no errors). Cached errors would carry
+        // stale nodeIds if the function is resubmitted with different IDs.
+        if (fnResult.errors.length === 0) {
+            verificationCache.set(hash, { errors: [], diagnostics: [...fnResult.diagnostics] });
+        }
         errors.push(...fnResult.errors);
         diagnostics.push(...fnResult.diagnostics);
     }
@@ -78,13 +125,101 @@ export async function contractVerify(
     // Phase 2: Verify callsite preconditions for ALL functions
     if (hasPreconditions) {
         for (const fn of allFunctions) {
+            const deps = calleeDepsWithPre.get(fn.name) ?? new Map();
+            const hash = "cs:" + computeVerificationHash(fn, deps);
+            const cached = verificationCache.get(hash);
+            if (cached) {
+                cacheHits++;
+                errors.push(...cached.errors);
+                diagnostics.push(...cached.diagnostics);
+                continue;
+            }
+            cacheMisses++;
+            if (!z3Initialized) { ctx = await getZ3(); z3Initialized = true; }
             const csResult = await verifyCallSitePreconditions(ctx, fn, functionDefs, module);
+            // Only cache proven results — see comment above
+            if (csResult.errors.length === 0) {
+                verificationCache.set(hash, { errors: [], diagnostics: [...csResult.diagnostics] });
+            }
             errors.push(...csResult.errors);
             diagnostics.push(...csResult.diagnostics);
         }
     }
 
-    return { errors, diagnostics };
+    return { errors, diagnostics, cacheStats: { hits: cacheHits, misses: cacheMisses } };
+}
+
+/**
+ * Collect callee FunctionDefs that have preconditions, from an expression list.
+ */
+function collectCalleeDeps(
+    exprs: Expression[],
+    functionDefs: Map<string, FunctionDef>,
+    out: Map<string, FunctionDef>,
+): void {
+    for (const expr of exprs) walkForDeps(expr, functionDefs, out);
+}
+
+function walkForDeps(
+    expr: Expression,
+    functionDefs: Map<string, FunctionDef>,
+    out: Map<string, FunctionDef>,
+): void {
+    switch (expr.kind) {
+        case "call":
+            if (expr.fn.kind === "ident") {
+                const callee = functionDefs.get(expr.fn.name);
+                if (callee && callee.contracts.some(c => c.kind === "pre") && !out.has(expr.fn.name)) {
+                    out.set(expr.fn.name, callee);
+                }
+            }
+            for (const arg of expr.args) walkForDeps(arg, functionDefs, out);
+            break;
+        case "if":
+            walkForDeps(expr.condition, functionDefs, out);
+            for (const e of expr.then) walkForDeps(e, functionDefs, out);
+            if (expr.else) for (const e of expr.else) walkForDeps(e, functionDefs, out);
+            break;
+        case "let":
+            walkForDeps(expr.value, functionDefs, out);
+            break;
+        case "block":
+            for (const e of expr.body) walkForDeps(e, functionDefs, out);
+            break;
+        case "binop":
+            walkForDeps(expr.left, functionDefs, out);
+            walkForDeps(expr.right, functionDefs, out);
+            break;
+        case "unop":
+            walkForDeps(expr.operand, functionDefs, out);
+            break;
+        case "match":
+            walkForDeps(expr.target, functionDefs, out);
+            for (const arm of expr.arms) for (const e of arm.body) walkForDeps(e, functionDefs, out);
+            break;
+        case "lambda":
+            for (const e of expr.body) walkForDeps(e, functionDefs, out);
+            break;
+        case "array":
+        case "tuple_expr":
+            for (const e of expr.elements) walkForDeps(e, functionDefs, out);
+            break;
+        case "record_expr":
+        case "enum_constructor":
+            for (const f of expr.fields) walkForDeps(f.value, functionDefs, out);
+            break;
+        case "access":
+            walkForDeps(expr.target, functionDefs, out);
+            break;
+        case "forall":
+        case "exists":
+            walkForDeps(expr.range.from, functionDefs, out);
+            walkForDeps(expr.range.to, functionDefs, out);
+            walkForDeps(expr.body, functionDefs, out);
+            break;
+        default:
+            break;
+    }
 }
 
 // ---------------------------------------------------------------------------

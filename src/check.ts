@@ -23,6 +23,8 @@ export interface CheckResult {
     diagnostics?: AnalysisDiagnostic[];
     /** Summary of what was verified vs. skipped */
     coverage?: VerificationCoverage;
+    /** Contract verification cache statistics */
+    cacheStats?: { hits: number; misses: number };
 }
 
 /**
@@ -97,5 +99,5 @@ export async function check(ast: unknown): Promise<CheckResult> {
         },
     };
 
-    return { ok: true, errors: [], module, typeInfo, diagnostics, coverage };
+    return { ok: true, errors: [], module, typeInfo, diagnostics, coverage, cacheStats: contractResult.cacheStats };
 }
