@@ -206,7 +206,7 @@ export function compileLet(
     cc: CompilationContext,
     ctx: FunctionContext,
 ): binaryen.ExpressionRef {
-    const { mod, strings } = cc;
+    const { mod } = cc;
     const resolvedLetType = cc.typeInfo?.inferredLetTypes.get(expr.id) ?? expr.type;
     const wasmType = resolvedLetType
         ? edictTypeToWasm(resolvedLetType)
@@ -234,30 +234,8 @@ export function compileLet(
 
     const index = ctx.addLocal(expr.name, wasmType, edictTypeName, edictType);
     const value = compileExpr(expr.value, cc, ctx);
-    const localSet = mod.local.set(index, value);
 
-    // For String-type let bindings, save __str_ret_len into a companion local
-    // so the correct length is available when the variable is later used as an argument.
-    const isStringType = resolvedLetType?.kind === "basic" && resolvedLetType.name === "String";
-    if (isStringType) {
-        const lenIndex = ctx.addLocal(`__str_len_${expr.name}`, binaryen.i32);
-        if (expr.value.kind === "literal" && typeof expr.value.value === "string") {
-            // String literal — length known at compile time
-            const interned = strings.intern(expr.value.value);
-            return mod.block(null, [
-                localSet,
-                mod.local.set(lenIndex, mod.i32.const(interned.length)),
-            ], binaryen.none);
-        } else {
-            // Non-literal (host call result, etc.) — capture __str_ret_len
-            return mod.block(null, [
-                localSet,
-                mod.local.set(lenIndex, mod.global.get("__str_ret_len", binaryen.i32)),
-            ], binaryen.none);
-        }
-    }
-
-    return localSet;
+    return mod.local.set(index, value);
 }
 
 export function compileBlock(

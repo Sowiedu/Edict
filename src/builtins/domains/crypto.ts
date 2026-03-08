@@ -4,7 +4,7 @@
 
 import type { BuiltinDef } from "../builtin-types.js";
 import { STRING_TYPE } from "../../ast/type-constants.js";
-import { getMemoryBuffer, writeStringResult, type HostContext } from "../host-helpers.js";
+import { readString, writeStringResult, type HostContext } from "../host-helpers.js";
 
 export const CRYPTO_BUILTINS: BuiltinDef[] = [
     {
@@ -12,8 +12,8 @@ export const CRYPTO_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (ptr: number, len: number): number => {
-                const str = ctx.decoder.decode(new Uint8Array(getMemoryBuffer(ctx.state), ptr, len));
+            factory: (ctx: HostContext) => (ptr: number): number => {
+                const str = readString(ctx.state, ptr, ctx.decoder);
                 return writeStringResult(ctx.state, ctx.adapter.sha256(str), ctx.encoder);
             },
         },
@@ -23,8 +23,8 @@ export const CRYPTO_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (ptr: number, len: number): number => {
-                const str = ctx.decoder.decode(new Uint8Array(getMemoryBuffer(ctx.state), ptr, len));
+            factory: (ctx: HostContext) => (ptr: number): number => {
+                const str = readString(ctx.state, ptr, ctx.decoder);
                 return writeStringResult(ctx.state, ctx.adapter.md5(str), ctx.encoder);
             },
         },
@@ -40,14 +40,13 @@ export const CRYPTO_BUILTINS: BuiltinDef[] = [
         impl: {
             kind: "host",
             factory: (ctx: HostContext) => (
-                algoPtr: number, algoLen: number,
-                keyPtr: number, keyLen: number,
-                dataPtr: number, dataLen: number,
+                algoPtr: number,
+                keyPtr: number,
+                dataPtr: number,
             ): number => {
-                const buf = getMemoryBuffer(ctx.state);
-                const algo = ctx.decoder.decode(new Uint8Array(buf, algoPtr, algoLen));
-                const key = ctx.decoder.decode(new Uint8Array(buf, keyPtr, keyLen));
-                const data = ctx.decoder.decode(new Uint8Array(buf, dataPtr, dataLen));
+                const algo = readString(ctx.state, algoPtr, ctx.decoder);
+                const key = readString(ctx.state, keyPtr, ctx.decoder);
+                const data = readString(ctx.state, dataPtr, ctx.decoder);
                 return writeStringResult(ctx.state, ctx.adapter.hmac(algo, key, data), ctx.encoder);
             },
         },

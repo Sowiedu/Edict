@@ -4,7 +4,7 @@
 
 import type { BuiltinDef } from "../builtin-types.js";
 import { STRING_TYPE } from "../../ast/type-constants.js";
-import { getMemoryBuffer, writeStringResult, type HostContext } from "../host-helpers.js";
+import { readString, writeStringResult, type HostContext } from "../host-helpers.js";
 
 export const CORE_BUILTINS: BuiltinDef[] = [
     {
@@ -17,9 +17,8 @@ export const CORE_BUILTINS: BuiltinDef[] = [
         },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (ptr: number, len: number): number => {
-                const bytes = new Uint8Array(getMemoryBuffer(ctx.state), ptr, len);
-                const text = ctx.decoder.decode(bytes);
+            factory: (ctx: HostContext) => (ptr: number): number => {
+                const text = readString(ctx.state, ptr, ctx.decoder);
                 ctx.state.outputParts.push(text);
                 return ptr;
             },
@@ -36,14 +35,13 @@ export const CORE_BUILTINS: BuiltinDef[] = [
         impl: {
             kind: "host",
             factory: (ctx: HostContext) => (
-                hayPtr: number, hayLen: number,
-                needlePtr: number, needleLen: number,
-                replPtr: number, replLen: number,
+                hayPtr: number,
+                needlePtr: number,
+                replPtr: number,
             ): number => {
-                const memoryBuffer = getMemoryBuffer(ctx.state);
-                const haystack = ctx.decoder.decode(new Uint8Array(memoryBuffer, hayPtr, hayLen));
-                const needle = ctx.decoder.decode(new Uint8Array(memoryBuffer, needlePtr, needleLen));
-                const replacement = ctx.decoder.decode(new Uint8Array(memoryBuffer, replPtr, replLen));
+                const haystack = readString(ctx.state, hayPtr, ctx.decoder);
+                const needle = readString(ctx.state, needlePtr, ctx.decoder);
+                const replacement = readString(ctx.state, replPtr, ctx.decoder);
                 return writeStringResult(ctx.state, haystack.replaceAll(needle, replacement), ctx.encoder);
             },
         },

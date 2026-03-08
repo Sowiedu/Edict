@@ -1,14 +1,26 @@
 
 import { describe, it, expect } from "vitest";
-import { typeCheck } from "../../src/checker/check.js";
+import { check } from "../../src/check.js";
 import { compile } from "../../src/codegen/codegen.js";
-import { run } from "../../src/codegen/runner.js";
+import { run, runDirect } from "../../src/codegen/runner.js";
 import { EdictModule } from "../../src/ast/nodes.js";
-import * as fs from "node:fs";
+
+// Helper: check → compile → run and return the result
+async function compileAndRun(ast: unknown) {
+    const checkResult = await check(ast);
+    if (!checkResult.ok) {
+        throw new Error(`Check failed: ${JSON.stringify(checkResult.errors)}`);
+    }
+    const compileResult = compile(checkResult.module!);
+    if (!compileResult.ok) {
+        throw new Error(`Compile failed: ${JSON.stringify(compileResult.errors)}`);
+    }
+    return runDirect(compileResult.wasm);
+}
 
 describe("Tuple Access", () => {
     it("should allow accessing tuple fields", async () => {
-        const mod: EdictModule = {
+        const ast = {
             kind: "module",
             id: "tup-test",
             name: "test",
@@ -48,23 +60,12 @@ describe("Tuple Access", () => {
             ]
         };
 
-        const checkResult = typeCheck(mod);
-        expect(checkResult.errors).toHaveLength(0);
-
-        const compileResult = compile(mod);
-        if (!compileResult.ok) {
-            throw new Error(`Compilation failed: ${JSON.stringify(compileResult.errors, null, 2)}`);
-        }
-        expect(compileResult.ok).toBe(true);
-        if (!compileResult.ok) return;
-
-        const result = await run(compileResult.wasm);
+        const result = await compileAndRun(ast);
         expect(result.returnValue).toBe(42);
     });
-    // Skipped due to Issue #95: String lengths are lost when stored in data structures
-    // because they are not length-prefixed on the heap.
-    it.skip("should allow accessing string fields in tuples", async () => {
-        const mod: EdictModule = {
+
+    it("should allow accessing string fields in tuples", async () => {
+        const ast = {
             kind: "module",
             id: "tup-test-string",
             name: "test",
@@ -112,13 +113,7 @@ describe("Tuple Access", () => {
             ]
         };
 
-        const compileResult = compile(mod, { emitWat: true });
-        if (!compileResult.ok) {
-            throw new Error(`Compilation failed: ${JSON.stringify(compileResult.errors, null, 2)}`);
-        }
-        fs.writeFileSync("/tmp/debug.wat", compileResult.wat || "");
-
-        const result = await run(compileResult.wasm);
+        const result = await compileAndRun(ast);
         expect(result.output).toBe("hello");
     });
 });

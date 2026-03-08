@@ -4,11 +4,7 @@
 
 import type { BuiltinDef } from "../builtin-types.js";
 import { INT_TYPE, STRING_TYPE, RESULT_STRING_TYPE } from "../../ast/type-constants.js";
-import { getMemoryBuffer, writeStringResult, writeResultValue, type HostContext } from "../host-helpers.js";
-
-function readStr(ctx: HostContext, ptr: number, len: number): string {
-    return ctx.decoder.decode(new Uint8Array(getMemoryBuffer(ctx.state), ptr, len));
-}
+import { readString, writeStringResult, writeResultValue, type HostContext } from "../host-helpers.js";
 
 export const IO_BUILTINS: BuiltinDef[] = [
     {
@@ -16,8 +12,8 @@ export const IO_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (pathPtr: number, pathLen: number): number => {
-                const result = ctx.adapter.readFile(readStr(ctx, pathPtr, pathLen));
+            factory: (ctx: HostContext) => (pathPtr: number): number => {
+                const result = ctx.adapter.readFile(readString(ctx.state, pathPtr, ctx.decoder));
                 if (result.ok) {
                     const strPtr = writeStringResult(ctx.state, result.data, ctx.encoder);
                     return writeResultValue(ctx.state, 0, strPtr);
@@ -33,8 +29,11 @@ export const IO_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (pathPtr: number, pathLen: number, contentPtr: number, contentLen: number): number => {
-                const result = ctx.adapter.writeFile(readStr(ctx, pathPtr, pathLen), readStr(ctx, contentPtr, contentLen));
+            factory: (ctx: HostContext) => (pathPtr: number, contentPtr: number): number => {
+                const result = ctx.adapter.writeFile(
+                    readString(ctx.state, pathPtr, ctx.decoder),
+                    readString(ctx.state, contentPtr, ctx.decoder),
+                );
                 if (result.ok) {
                     const okPtr = writeStringResult(ctx.state, "ok", ctx.encoder);
                     return writeResultValue(ctx.state, 0, okPtr);
@@ -50,8 +49,8 @@ export const IO_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE], effects: ["reads"], returnType: STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (namePtr: number, nameLen: number): number => {
-                const name = readStr(ctx, namePtr, nameLen);
+            factory: (ctx: HostContext) => (namePtr: number): number => {
+                const name = readString(ctx.state, namePtr, ctx.decoder);
                 return writeStringResult(ctx.state, ctx.adapter.env(name), ctx.encoder);
             },
         },

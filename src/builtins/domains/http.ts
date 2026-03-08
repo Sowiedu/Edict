@@ -4,11 +4,7 @@
 
 import type { BuiltinDef } from "../builtin-types.js";
 import { STRING_TYPE, RESULT_STRING_TYPE } from "../../ast/type-constants.js";
-import { getMemoryBuffer, writeStringResult, writeResultValue, type HostContext } from "../host-helpers.js";
-
-function readStr(ctx: HostContext, ptr: number, len: number): string {
-    return ctx.decoder.decode(new Uint8Array(getMemoryBuffer(ctx.state), ptr, len));
-}
+import { readString, writeStringResult, writeResultValue, type HostContext } from "../host-helpers.js";
 
 function makeResult(ctx: HostContext, fetchResult: { ok: boolean; data: string }): number {
     const strPtr = writeStringResult(ctx.state, fetchResult.data, ctx.encoder);
@@ -21,8 +17,8 @@ export const HTTP_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (urlPtr: number, urlLen: number): number => {
-                return makeResult(ctx, ctx.adapter.fetch(readStr(ctx, urlPtr, urlLen), "GET"));
+            factory: (ctx: HostContext) => (urlPtr: number): number => {
+                return makeResult(ctx, ctx.adapter.fetch(readString(ctx.state, urlPtr, ctx.decoder), "GET"));
             },
         },
     },
@@ -31,8 +27,12 @@ export const HTTP_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (urlPtr: number, urlLen: number, bodyPtr: number, bodyLen: number): number => {
-                return makeResult(ctx, ctx.adapter.fetch(readStr(ctx, urlPtr, urlLen), "POST", readStr(ctx, bodyPtr, bodyLen)));
+            factory: (ctx: HostContext) => (urlPtr: number, bodyPtr: number): number => {
+                return makeResult(ctx, ctx.adapter.fetch(
+                    readString(ctx.state, urlPtr, ctx.decoder),
+                    "POST",
+                    readString(ctx.state, bodyPtr, ctx.decoder),
+                ));
             },
         },
     },
@@ -41,8 +41,12 @@ export const HTTP_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (urlPtr: number, urlLen: number, bodyPtr: number, bodyLen: number): number => {
-                return makeResult(ctx, ctx.adapter.fetch(readStr(ctx, urlPtr, urlLen), "PUT", readStr(ctx, bodyPtr, bodyLen)));
+            factory: (ctx: HostContext) => (urlPtr: number, bodyPtr: number): number => {
+                return makeResult(ctx, ctx.adapter.fetch(
+                    readString(ctx.state, urlPtr, ctx.decoder),
+                    "PUT",
+                    readString(ctx.state, bodyPtr, ctx.decoder),
+                ));
             },
         },
     },
@@ -51,8 +55,8 @@ export const HTTP_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE], effects: ["io"], returnType: RESULT_STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (urlPtr: number, urlLen: number): number => {
-                return makeResult(ctx, ctx.adapter.fetch(readStr(ctx, urlPtr, urlLen), "DELETE"));
+            factory: (ctx: HostContext) => (urlPtr: number): number => {
+                return makeResult(ctx, ctx.adapter.fetch(readString(ctx.state, urlPtr, ctx.decoder), "DELETE"));
             },
         },
     },

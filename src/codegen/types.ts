@@ -101,10 +101,6 @@ export interface CompileOptions {
 export interface FunctionSig {
     returnType: binaryen.Type;
     paramTypes?: binaryen.Type[];
-    /** Tracks which Edict-level params are Strings (need ptr+len expansion).
-     *  Index 0 = __env (always "other"), subsequent entries map to Edict params.
-     *  Only present for user-defined functions. */
-    edictParamTypes?: ("String" | "other")[];
 }
 
 // =============================================================================

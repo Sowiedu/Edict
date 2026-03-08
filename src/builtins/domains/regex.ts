@@ -4,7 +4,7 @@
 
 import type { BuiltinDef } from "../builtin-types.js";
 import { STRING_TYPE, BOOL_TYPE } from "../../ast/type-constants.js";
-import { getMemoryBuffer, writeStringResult, type HostContext } from "../host-helpers.js";
+import { readString, writeStringResult, type HostContext } from "../host-helpers.js";
 
 export const REGEX_BUILTINS: BuiltinDef[] = [
     {
@@ -12,10 +12,9 @@ export const REGEX_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (patPtr: number, patLen: number, inputPtr: number, inputLen: number): number => {
-                const buf = getMemoryBuffer(ctx.state);
-                const pattern = ctx.decoder.decode(new Uint8Array(buf, patPtr, patLen));
-                const input = ctx.decoder.decode(new Uint8Array(buf, inputPtr, inputLen));
+            factory: (ctx: HostContext) => (patPtr: number, inputPtr: number): number => {
+                const pattern = readString(ctx.state, patPtr, ctx.decoder);
+                const input = readString(ctx.state, inputPtr, ctx.decoder);
                 try {
                     return new RegExp(pattern).test(input) ? 1 : 0;
                 } catch {
@@ -29,10 +28,9 @@ export const REGEX_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (patPtr: number, patLen: number, inputPtr: number, inputLen: number): number => {
-                const buf = getMemoryBuffer(ctx.state);
-                const pattern = ctx.decoder.decode(new Uint8Array(buf, patPtr, patLen));
-                const input = ctx.decoder.decode(new Uint8Array(buf, inputPtr, inputLen));
+            factory: (ctx: HostContext) => (patPtr: number, inputPtr: number): number => {
+                const pattern = readString(ctx.state, patPtr, ctx.decoder);
+                const input = readString(ctx.state, inputPtr, ctx.decoder);
                 try {
                     const m = input.match(new RegExp(pattern));
                     return writeStringResult(ctx.state, m ? m[0]! : "", ctx.encoder);
@@ -53,14 +51,13 @@ export const REGEX_BUILTINS: BuiltinDef[] = [
         impl: {
             kind: "host",
             factory: (ctx: HostContext) => (
-                inputPtr: number, inputLen: number,
-                patPtr: number, patLen: number,
-                replPtr: number, replLen: number,
+                inputPtr: number,
+                patPtr: number,
+                replPtr: number,
             ): number => {
-                const buf = getMemoryBuffer(ctx.state);
-                const input = ctx.decoder.decode(new Uint8Array(buf, inputPtr, inputLen));
-                const pattern = ctx.decoder.decode(new Uint8Array(buf, patPtr, patLen));
-                const replacement = ctx.decoder.decode(new Uint8Array(buf, replPtr, replLen));
+                const input = readString(ctx.state, inputPtr, ctx.decoder);
+                const pattern = readString(ctx.state, patPtr, ctx.decoder);
+                const replacement = readString(ctx.state, replPtr, ctx.decoder);
                 try {
                     return writeStringResult(ctx.state, input.replace(new RegExp(pattern, "g"), replacement), ctx.encoder);
                 } catch {

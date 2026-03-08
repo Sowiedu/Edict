@@ -4,7 +4,7 @@
 
 import type { BuiltinDef } from "../builtin-types.js";
 import { STRING_TYPE, RESULT_STRING_TYPE } from "../../ast/type-constants.js";
-import { getMemoryBuffer, writeStringResult, writeResultValue, type HostContext } from "../host-helpers.js";
+import { readString, writeStringResult, writeResultValue, type HostContext } from "../host-helpers.js";
 
 export const JSON_BUILTINS: BuiltinDef[] = [
     {
@@ -12,8 +12,8 @@ export const JSON_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: RESULT_STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (ptr: number, len: number): number => {
-                const str = ctx.decoder.decode(new Uint8Array(getMemoryBuffer(ctx.state), ptr, len));
+            factory: (ctx: HostContext) => (ptr: number): number => {
+                const str = readString(ctx.state, ptr, ctx.decoder);
                 try {
                     JSON.parse(str);
                     // Valid JSON — return Ok(strPtr) with original string
@@ -32,8 +32,8 @@ export const JSON_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (ptr: number, len: number): number => {
-                const str = ctx.decoder.decode(new Uint8Array(getMemoryBuffer(ctx.state), ptr, len));
+            factory: (ctx: HostContext) => (ptr: number): number => {
+                const str = readString(ctx.state, ptr, ctx.decoder);
                 try {
                     const parsed = JSON.parse(str);
                     return writeStringResult(ctx.state, JSON.stringify(parsed), ctx.encoder);

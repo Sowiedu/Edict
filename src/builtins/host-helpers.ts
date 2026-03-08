@@ -79,16 +79,32 @@ export function allocateHeap(state: RuntimeState, size: number): number {
 }
 
 /**
- * Write a string result into WASM memory at __heap_ptr,
- * advance __heap_ptr (8-byte aligned), set __str_ret_len, and return ptr.
+ * Read a length-prefixed string from WASM memory.
+ * Memory format: [len:i32][data:bytes] at the given pointer.
+ * Returns the decoded JS string.
+ */
+export function readString(state: RuntimeState, ptr: number, decoder: TextDecoder): string {
+    const buf = getMemoryBuffer(state);
+    const view = new DataView(buf);
+    const len = view.getInt32(ptr, true); // little-endian
+    const bytes = new Uint8Array(buf, ptr + 4, len);
+    return decoder.decode(bytes);
+}
+
+/**
+ * Write a string result into WASM memory as length-prefixed format:
+ * [len:i32][data:bytes]. Advances __heap_ptr (8-byte aligned).
+ * Returns ptr to the length header.
  */
 export function writeStringResult(state: RuntimeState, str: string, encoder: TextEncoder): number {
     const encoded = encoder.encode(str);
-    const resultPtr = allocateHeap(state, encoded.length);
-    const dest = new Uint8Array(getMemoryBuffer(state), resultPtr, encoded.length);
+    const totalSize = 4 + encoded.length; // 4-byte header + data
+    const resultPtr = allocateHeap(state, totalSize);
+    const buf = getMemoryBuffer(state);
+    const view = new DataView(buf);
+    view.setInt32(resultPtr, encoded.length, true); // write length header
+    const dest = new Uint8Array(buf, resultPtr + 4, encoded.length);
     dest.set(encoded);
-    const setStrRetLen = state.instance!.exports.__set_str_ret_len as (v: number) => void;
-    setStrRetLen(encoded.length);
     return resultPtr;
 }
 

@@ -127,9 +127,6 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         const heapStart = Math.max(8, Math.ceil(strings.totalBytes / 8) * 8);
         mod.addGlobal("__heap_ptr", binaryen.i32, true, mod.i32.const(heapStart));
 
-        // Global for passing dynamic string result lengths from host builtins
-        mod.addGlobal("__str_ret_len", binaryen.i32, true, mod.i32.const(0));
-
         // Pre-scan: build function signature registry
         const fnSigs = new Map<string, FunctionSig>();
 
@@ -145,22 +142,13 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         for (const def of module.definitions) {
             if (def.kind === "fn") {
                 // Closure convention: all user functions have __env:i32 as first WASM param
-                // String params are expanded to (ptr: i32, len: i32) pairs at the WASM level
-                const edictParamTypes: ("String" | "other")[] = ["other"]; // __env
                 const wasmParamTypes: binaryen.Type[] = [binaryen.i32]; // __env
                 for (const p of def.params) {
-                    if (p.type!.kind === "basic" && p.type!.name === "String") {
-                        wasmParamTypes.push(binaryen.i32, binaryen.i32); // ptr, len
-                        edictParamTypes.push("String");
-                    } else {
-                        wasmParamTypes.push(edictTypeToWasm(p.type!));
-                        edictParamTypes.push("other");
-                    }
+                    wasmParamTypes.push(edictTypeToWasm(p.type!));
                 }
                 fnSigs.set(def.name, {
                     returnType: def.returnType ? edictTypeToWasm(def.returnType) : (options?.typeInfo?.inferredReturnTypes.get(def.id) ? edictTypeToWasm(options.typeInfo.inferredReturnTypes.get(def.id)!) : binaryen.i32),
                     paramTypes: wasmParamTypes,
-                    edictParamTypes,
                 });
             }
         }
@@ -177,20 +165,12 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
             }
         }
 
-        // Import builtins — compute WASM-level params from Edict signatures
-        // Each String param becomes two i32 values (ptr, len) at the WASM level
+        // Import builtins — String params are single i32 (length-prefixed pointer)
         for (const [name, builtin] of BUILTIN_FUNCTIONS) {
             const [importModule, importBase] = builtin.wasmImport;
             // WASM-native builtins (HOFs) are generated as internal functions, not imported
             if (importModule === "__wasm") continue;
-            const wasmParams: binaryen.Type[] = [];
-            for (const param of builtin.type.params) {
-                if (param.kind === "basic" && param.name === "String") {
-                    wasmParams.push(binaryen.i32, binaryen.i32); // ptr, len
-                } else {
-                    wasmParams.push(edictTypeToWasm(param));
-                }
-            }
+            const wasmParams: binaryen.Type[] = builtin.type.params.map(p => edictTypeToWasm(p));
             mod.addFunctionImport(
                 name,
                 importModule,
@@ -212,17 +192,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
                     const declaredType = imp.types?.[name];
                     if (declaredType && declaredType.kind === "fn_type") {
                         // Typed import — derive WASM signature from declared type
-                        const wasmParams: binaryen.Type[] = [];
-                        const edictParamTypes: ("String" | "other")[] = [];
-                        for (const param of declaredType.params) {
-                            if (param.kind === "basic" && param.name === "String") {
-                                wasmParams.push(binaryen.i32, binaryen.i32); // ptr, len
-                                edictParamTypes.push("String");
-                            } else {
-                                wasmParams.push(edictTypeToWasm(param));
-                                edictParamTypes.push("other");
-                            }
-                        }
+                        const wasmParams: binaryen.Type[] = declaredType.params.map(p => edictTypeToWasm(p));
                         const wasmReturnType = edictTypeToWasm(declaredType.returnType);
                         mod.addFunctionImport(
                             name,
@@ -233,7 +203,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
                                 : binaryen.none,
                             wasmReturnType,
                         );
-                        fnSigs.set(name, { returnType: wasmReturnType, paramTypes: wasmParams, edictParamTypes });
+                        fnSigs.set(name, { returnType: wasmReturnType, paramTypes: wasmParams });
                         typedImportNames.add(name);
                     } else {
                         importedNames.add(name);
@@ -327,18 +297,6 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
         );
         mod.addFunctionExport("__set_heap_ptr", "__set_heap_ptr");
 
-        mod.addFunction(
-            "__get_str_ret_len", binaryen.none, binaryen.i32, [],
-            mod.global.get("__str_ret_len", binaryen.i32),
-        );
-        mod.addFunctionExport("__get_str_ret_len", "__get_str_ret_len");
-
-        mod.addFunction(
-            "__set_str_ret_len", binaryen.createType([binaryen.i32]), binaryen.none, [],
-            mod.global.set("__str_ret_len", mod.local.get(0, binaryen.i32)),
-        );
-        mod.addFunctionExport("__set_str_ret_len", "__set_str_ret_len");
-
         // Memory is already exported via setMemory's exportName parameter
 
         // Validate
@@ -386,20 +344,12 @@ function compileFunction(
     });
 
     // Closure convention: all user functions have __env:i32 as first WASM param.
-    // The __env param is ignored for non-lambda functions but ensures uniform
-    // call_indirect signatures when functions are used as values.
-    // String params are widened to (ptr: i32, len: i32) pairs — the companion
-    // __str_len_{name} becomes a real WASM param so existing lookups find it.
+    // String params are just i32 (length-prefixed pointer) — no widening needed.
     const allParams: { name: string; wasmType: binaryen.Type; edictTypeName: string | undefined }[] = [
         { name: "__env", wasmType: binaryen.i32 as binaryen.Type, edictTypeName: undefined },
     ];
     for (const p of params) {
-        if (p.edictType.kind === "basic" && p.edictType.name === "String") {
-            allParams.push({ name: p.name, wasmType: binaryen.i32, edictTypeName: undefined });
-            allParams.push({ name: `__str_len_${p.name}`, wasmType: binaryen.i32, edictTypeName: undefined });
-        } else {
-            allParams.push({ name: p.name, wasmType: p.wasmType, edictTypeName: p.edictTypeName });
-        }
+        allParams.push({ name: p.name, wasmType: p.wasmType, edictTypeName: p.edictTypeName });
     }
 
     const ctx = new FunctionContext(allParams);

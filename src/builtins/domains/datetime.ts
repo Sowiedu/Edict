@@ -4,7 +4,7 @@
 
 import type { BuiltinDef } from "../builtin-types.js";
 import { INT64_TYPE, STRING_TYPE } from "../../ast/type-constants.js";
-import { getMemoryBuffer, writeStringResult, formatDateString, type HostContext } from "../host-helpers.js";
+import { readString, writeStringResult, formatDateString, type HostContext } from "../host-helpers.js";
 
 export const DATETIME_BUILTINS: BuiltinDef[] = [
     {
@@ -17,8 +17,8 @@ export const DATETIME_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [INT64_TYPE, STRING_TYPE], effects: ["pure"], returnType: STRING_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (timestamp: bigint, fmtPtr: number, fmtLen: number): number => {
-                const fmt = ctx.decoder.decode(new Uint8Array(getMemoryBuffer(ctx.state), fmtPtr, fmtLen));
+            factory: (ctx: HostContext) => (timestamp: bigint, fmtPtr: number): number => {
+                const fmt = readString(ctx.state, fmtPtr, ctx.decoder);
                 const date = new Date(Number(timestamp));
                 return writeStringResult(ctx.state, formatDateString(date, fmt), ctx.encoder);
             },
@@ -29,8 +29,8 @@ export const DATETIME_BUILTINS: BuiltinDef[] = [
         type: { kind: "fn_type", params: [STRING_TYPE, STRING_TYPE], effects: ["fails"], returnType: INT64_TYPE },
         impl: {
             kind: "host",
-            factory: (ctx: HostContext) => (strPtr: number, strLen: number, _fmtPtr: number, _fmtLen: number): bigint => {
-                const str = ctx.decoder.decode(new Uint8Array(getMemoryBuffer(ctx.state), strPtr, strLen));
+            factory: (ctx: HostContext) => (strPtr: number, _fmtPtr: number): bigint => {
+                const str = readString(ctx.state, strPtr, ctx.decoder);
                 const ms = Date.parse(str);
                 if (isNaN(ms)) {
                     throw new Error(`parseDate: invalid date string "${str}"`);
