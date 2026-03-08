@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Build output (rebuilt in Docker)
+dist/
+
+# Git
+.git/
+.gitignore
+
+# Tests (not needed at runtime)
+tests/
+
+# CI/CD
+.github/
+
+# Agent config
+.agent/
+.githooks/
+
+# Coverage
+coverage/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Benchmark
+benchmark-results.json
+scripts/
+
+# Documentation (not needed at runtime)
+CONTRIBUTING.md
+CHANGELOG.md
+FEATURE_SPEC.md
+ROADMAP.md
+AGENTS.md
+*.tgz
+
+# Docker
+Dockerfile
+.dockerignore

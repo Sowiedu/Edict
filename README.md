@@ -55,6 +55,20 @@ npm test          # 1371 tests across 80 files
 npm run mcp       # start MCP server (stdio transport)
 ```
 
+## Docker
+
+Run the Edict MCP server in a container — no local Node.js required:
+
+```bash
+# stdio transport (default — for local MCP clients)
+docker run -i ghcr.io/sowiedu/edict
+
+# HTTP transport (for remote/networked MCP clients)
+docker run -p 3000:3000 -e EDICT_TRANSPORT=http ghcr.io/sowiedu/edict
+```
+
+Supported platforms: `linux/amd64`, `linux/arm64`.
+
 ## MCP Tools
 
 | Tool | Description |

@@ -140,3 +140,22 @@ if (url.endsWith(".ts")) {
 - **Root cause**: Jumped to "write the corpus" instead of asking "does an existing programmatic source already contain this data?"
 - **Fix**: Import `buildErrorCatalog()` and extract corpus entries programmatically. Only add hand-crafted entries for edge cases the catalog doesn't cover (multi-error, near-misses, transitive effects).
 - **Pattern**: This is the same lesson as #20 applied to test data. Any time you need a corpus, dataset, or fixture set, first check: **does a programmatic source already exist that produces this data?** If yes, derive from it. Reserve hand-written entries for genuinely novel scenarios.
+
+## 22. Run /review Before Execution — No Shortcuts
+- **Problem**: During issue #35 (memory management), did a quick "critical rules compliance" check on the implementation plan but skipped the full `/review` workflow (completeness, consistency, scope, technical rigor, verification plan checks). Jumped straight to execution.
+- **Root cause**: Overconfidence in a "simple" plan. The plan looked straightforward, so the full review felt unnecessary.
+- **Fix**: Always run the complete `/review` checklist on the implementation plan before starting execution, regardless of perceived simplicity. The workflow exists to catch non-obvious gaps.
+- **Pattern**: **Never skip `/review` on planning artifacts.** Even for simple changes, the structured checklist catches edge cases and scope creep that quick scans miss. The /drive workflow mandates running /review at least twice before presenting. This applies to self-review before execution too, not just before user presentation.
+
+## 23. Docker Slim Images Don't Have Git — Use --ignore-scripts
+- **Problem**: `npm ci` in Docker `node:20-slim` failed with `sh: git: not found` because the `prepare` lifecycle script runs `git config core.hooksPath .githooks`.
+- **Root cause**: `node:20-slim` doesn't include git. The `prepare` script runs on every `npm ci`/`npm install`, even in CI/Docker.
+- **Fix**: Use `npm ci --ignore-scripts` in Dockerfiles. The prepare hook is only needed for local development.
+- **Pattern**: When Dockerizing Node.js projects with git-dependent lifecycle scripts, always add `--ignore-scripts` to `npm ci`. Also applies to `postinstall` scripts that assume local tooling.
+
+## 24. MCP Handlers Read Runtime Files — Don't Exclude Them from Docker
+- **Problem**: Initial `.dockerignore` excluded `examples/` from the Docker image, which would break the `edict_examples` MCP tool at runtime.
+- **Root cause**: `handlers.ts` reads `schema/`, `examples/`, and `package.json` from disk using `resolve(projectRoot, ...)` paths. These aren't compiled into `dist/` — they're separate runtime assets.
+- **Fix**: Always include `schema/`, `examples/`, and `package.json` in the production Docker stage.
+- **Pattern**: When Dockerizing an MCP server, trace all `readFileSync`/`readdirSync` calls in handler code to identify runtime file dependencies. These must be copied into the production image even if they look like "documentation" or "examples".
+
