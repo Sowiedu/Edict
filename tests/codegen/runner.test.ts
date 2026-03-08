@@ -1012,4 +1012,90 @@ describe("runner — enums", () => {
     });
 });
 
+describe("runner — string + operator", () => {
+    it("concatenates two string literals with +", async () => {
+        const mod = mkModule([
+            mkFn("main", [
+                {
+                    kind: "call", id: "c-print",
+                    fn: { kind: "ident", id: "i-print", name: "print" },
+                    args: [{
+                        kind: "binop", id: "b-plus", op: "+",
+                        left: mkLiteral("hello ", "l-hello"),
+                        right: mkLiteral("world", "l-world"),
+                    }],
+                },
+                mkLiteral(0, "l-ret"),
+            ], { effects: ["io"] }),
+        ]);
+        const result = await compileAndRunModule(mod);
+        expect(result.exitCode).toBe(0);
+        expect(result.output).toBe("hello world");
+    });
 
+    it("concatenates string variables with +", async () => {
+        const mod = mkModule([
+            mkFn("main", [
+                {
+                    kind: "let", id: "let-a", name: "a",
+                    type: { kind: "basic", name: "String" },
+                    value: mkLiteral("foo", "l-foo"),
+                },
+                {
+                    kind: "let", id: "let-b", name: "b",
+                    type: { kind: "basic", name: "String" },
+                    value: mkLiteral("bar", "l-bar"),
+                },
+                {
+                    kind: "call", id: "c-print",
+                    fn: { kind: "ident", id: "i-print", name: "print" },
+                    args: [{
+                        kind: "binop", id: "b-plus", op: "+",
+                        left: { kind: "ident", id: "i-a", name: "a" },
+                        right: { kind: "ident", id: "i-b", name: "b" },
+                    }],
+                },
+                mkLiteral(0, "l-ret"),
+            ], { effects: ["io"] }),
+        ]);
+        const result = await compileAndRunModule(mod);
+        expect(result.exitCode).toBe(0);
+        expect(result.output).toBe("foobar");
+    });
+
+    it("concatenates string parameters with +", async () => {
+        const mod = mkModule([
+            mkFn("greet", [
+                {
+                    kind: "binop", id: "b-plus", op: "+",
+                    left: { kind: "ident", id: "i-a", name: "a" },
+                    right: { kind: "ident", id: "i-b", name: "b" },
+                },
+            ], {
+                params: [
+                    { kind: "param", id: "p-a", name: "a", type: { kind: "basic", name: "String" } },
+                    { kind: "param", id: "p-b", name: "b", type: { kind: "basic", name: "String" } },
+                ],
+                returnType: { kind: "basic", name: "String" },
+            }),
+            mkFn("main", [
+                {
+                    kind: "call", id: "c-print",
+                    fn: { kind: "ident", id: "i-print", name: "print" },
+                    args: [{
+                        kind: "call", id: "c-greet",
+                        fn: { kind: "ident", id: "i-greet", name: "greet" },
+                        args: [
+                            mkLiteral("hi ", "l-hi"),
+                            mkLiteral("there", "l-there"),
+                        ],
+                    }],
+                },
+                mkLiteral(0, "l-ret"),
+            ], { effects: ["io"] }),
+        ]);
+        const result = await compileAndRunModule(mod);
+        expect(result.exitCode).toBe(0);
+        expect(result.output).toBe("hi there");
+    });
+});

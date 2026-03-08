@@ -6,6 +6,7 @@ import binaryen from "binaryen";
 import type { Expression } from "../ast/nodes.js";
 import type { TypeExpr } from "../ast/types.js";
 import { wasmValidationError } from "../errors/structured-errors.js";
+import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import {
     type CompilationContext,
     FunctionContext,
@@ -13,6 +14,58 @@ import {
 } from "./types.js";
 import { allocClosurePair } from "./closures.js";
 import { compileExpr, inferExprWasmType } from "./compile-expr.js";
+
+/**
+ * Detect whether an expression evaluates to an Edict String type.
+ *
+ * At the WASM level strings and ints are both i32 (pointer vs value),
+ * so we inspect Edict-level type info: literal values, AST type annotations,
+ * local variable metadata, and function return-type signatures.
+ */
+function isStringExpr(
+    expr: Expression,
+    cc: CompilationContext,
+    ctx: FunctionContext,
+): boolean {
+    switch (expr.kind) {
+        case "literal":
+            if (expr.type) return expr.type.kind === "basic" && expr.type.name === "String";
+            return typeof expr.value === "string";
+        case "ident": {
+            const local = ctx.getLocal(expr.name);
+            return local?.edictTypeName === "String";
+        }
+        case "call": {
+            if (expr.fn.kind === "ident") {
+                // Check builtin registry — authoritative source for return types
+                const builtin = BUILTIN_FUNCTIONS.get(expr.fn.name);
+                if (builtin) {
+                    const rt = builtin.type.returnType;
+                    return rt.kind === "basic" && rt.name === "String";
+                }
+            }
+            return false;
+        }
+        case "string_interp":
+            return true;
+        case "if":
+            // If expression type follows the then branch
+            if (expr.then.length > 0) {
+                return isStringExpr(expr.then[expr.then.length - 1]!, cc, ctx);
+            }
+            return false;
+        case "block":
+            if (expr.body.length > 0) {
+                return isStringExpr(expr.body[expr.body.length - 1]!, cc, ctx);
+            }
+            return false;
+        default:
+            return false;
+    }
+}
+
+
+
 
 export function compileLiteral(
     expr: Expression & { kind: "literal" },
@@ -99,8 +152,16 @@ export function compileBinop(
     const isFloat = opType === binaryen.f64;
     const isInt64 = opType === binaryen.i64;
 
+    // Detect string + string — must call string_concat, not i32.add.
+    // Strings and ints are both i32 at the WASM level, so we check the
+    // Edict-level type from the type checker's side-table / AST annotations.
+    const isStringBinop = expr.op === "+" && !isFloat && !isInt64 && isStringExpr(expr.left, cc, ctx);
+
     switch (expr.op) {
         case "+":
+            if (isStringBinop) {
+                return mod.call("string_concat", [left, right], binaryen.i32);
+            }
             return isFloat ? mod.f64.add(left, right) : isInt64 ? mod.i64.add(left, right) : mod.i32.add(left, right);
         case "-":
             return isFloat ? mod.f64.sub(left, right) : isInt64 ? mod.i64.sub(left, right) : mod.i32.sub(left, right);
@@ -214,7 +275,9 @@ export function compileLet(
 
     let edictTypeName: string | undefined;
     let edictType: TypeExpr | undefined;
-    if (resolvedLetType && resolvedLetType.kind === "named") {
+    if (resolvedLetType && resolvedLetType.kind === "basic" && resolvedLetType.name === "String") {
+        edictTypeName = "String";
+    } else if (resolvedLetType && resolvedLetType.kind === "named") {
         edictTypeName = resolvedLetType.name;
     } else if (resolvedLetType && resolvedLetType.kind === "option") {
         edictTypeName = "Option";

@@ -339,7 +339,7 @@ function compileFunction(
             name: p.name,
             edictType: resolvedType,
             wasmType: edictTypeToWasm(resolvedType),
-            edictTypeName: resolvedType.kind === "named" ? resolvedType.name : resolvedType.kind === "option" ? "Option" : resolvedType.kind === "result" ? "Result" : undefined,
+            edictTypeName: resolvedType.kind === "named" ? resolvedType.name : resolvedType.kind === "option" ? "Option" : resolvedType.kind === "result" ? "Result" : (resolvedType.kind === "basic" && resolvedType.name === "String") ? "String" : undefined,
         };
     });
 
