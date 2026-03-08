@@ -25,13 +25,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from tag
-        id: version
-        run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          MAJOR_MINOR="${TAG%.*}"
-          echo "full=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "major_minor=${MAJOR_MINOR}" >> "$GITHUB_OUTPUT"
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/sowiedu/edict
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -39,9 +41,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ghcr.io/sowiedu/edict:latest
-            ghcr.io/sowiedu/edict:${{ steps.version.outputs.full }}
-            ghcr.io/sowiedu/edict:${{ steps.version.outputs.major_minor }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -12,7 +12,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Build — install all deps, generate schema, compile TypeScript
 # ---------------------------------------------------------------------------
-FROM node:20-slim AS build
+FROM node:20-alpine AS build
 
 WORKDIR /edict
 
@@ -34,20 +34,29 @@ RUN npx tsc
 # ---------------------------------------------------------------------------
 # Stage 2: Production — minimal runtime image
 # ---------------------------------------------------------------------------
-FROM node:20-slim
+FROM node:20-alpine
+
+# OCI Labels (these will be enriched by GitHub Actions)
+LABEL org.opencontainers.image.title="Edict MCP Server"
+LABEL org.opencontainers.image.description="A programming language designed for AI agents"
+LABEL org.opencontainers.image.source="https://github.com/Sowiedu/Edict"
+LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /edict
+ENV NODE_ENV=production
 
 # Copy package files and install production-only deps
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
-# Copy compiled output
+# Copy compiled output and runtime assets
 COPY --from=build /edict/dist/ dist/
-
-# Copy runtime assets (read by MCP handlers at runtime)
 COPY --from=build /edict/schema/ schema/
 COPY --from=build /edict/examples/ examples/
+
+# Secure execution: run as non-root user (node user is built-in)
+RUN chown -R node:node /edict
+USER node
 
 # HTTP transport port (only used with EDICT_TRANSPORT=http)
 EXPOSE 3000
