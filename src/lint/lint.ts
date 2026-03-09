@@ -13,7 +13,9 @@ import {
     oversizedFunction,
     emptyBody,
     redundantEffect,
+    decompositionSuggested,
     type LintWarning,
+    type SuggestedSplit,
 } from "./warnings.js";
 
 // Re-export for convenience
@@ -36,6 +38,7 @@ export function lint(module: EdictModule): LintWarning[] {
     checkUnusedImports(module, warnings);
     checkFunctionWarnings(module, warnings);
     checkRedundantEffects(module, warnings);
+    checkDecomposition(module, warnings);
 
     return warnings;
 }
@@ -396,4 +399,149 @@ function countExprNode(expr: Expression): number {
             break;
     }
     return count;
+}
+
+// =============================================================================
+// Decomposition suggestions — reach-pointer segmentation
+// =============================================================================
+
+/**
+ * Analyze oversized functions for decomposition opportunities.
+ * Uses reach-pointer scanning: for each let-binding at position i,
+ * find the last position j where its name is used. Track the furthest
+ * reach — when the current position exceeds it, we've found a cut point
+ * with no cross-segment dependencies.
+ */
+function checkDecomposition(module: EdictModule, warnings: LintWarning[]): void {
+    for (const def of module.definitions) {
+        if (def.kind !== "fn") continue;
+        if (def.body.length < 2) continue;
+
+        const nodeCount = countExprNodes(def.body);
+        if (nodeCount <= OVERSIZED_THRESHOLD) continue;
+
+        const segments = findSegments(def.body);
+        if (segments.length < 2) continue;
+
+        const splits: SuggestedSplit[] = segments.map((seg, idx) => ({
+            name: `phase_${idx + 1}`,
+            nodeRange: [seg.firstId, seg.lastId] as [string, string],
+            nodeCount: seg.nodeCount,
+        }));
+
+        warnings.push(decompositionSuggested(def.id, def.name, splits));
+    }
+}
+
+interface Segment {
+    firstId: string;
+    lastId: string;
+    nodeCount: number;
+}
+
+/**
+ * Find independent contiguous segments in a body using reach-pointer scanning,
+ * then merge undersized segments into their predecessor.
+ *
+ * Algorithm:
+ * 1. For each let-binding at position i defining name `x`,
+ *    find the last position j where `x` is referenced.
+ * 2. Scan left-to-right, tracking `reach` — the furthest position
+ *    any definition in the current segment is still needed.
+ * 3. When position i > reach, start a new segment.
+ * 4. Merge any segment with fewer than MIN_SEGMENT_NODES into its predecessor
+ *    to prevent degenerate tiny-segment suggestions.
+ */
+function findSegments(body: Expression[]): Segment[] {
+    const MIN_SEGMENT_NODES = 10;
+
+    // Step 1: Build name → last-use-position map
+    const lastUse = new Map<string, number>();
+    for (let i = 0; i < body.length; i++) {
+        const refs = new Set<string>();
+        collectReferencedNamesFromExpr(body[i]!, refs);
+        for (const name of refs) {
+            lastUse.set(name, i); // overwrites with latest position
+        }
+    }
+
+    // Step 2: Build position → defined names map
+    const definesAt = new Map<number, string[]>();
+    for (let i = 0; i < body.length; i++) {
+        const expr = body[i]!;
+        if (expr.kind === "let") {
+            const existing = definesAt.get(i) ?? [];
+            existing.push(expr.name);
+            definesAt.set(i, existing);
+        }
+    }
+
+    // Step 3: Reach-pointer scan
+    const rawSegments: Segment[] = [];
+    let segStart = 0;
+    let reach = 0; // furthest position any current-segment definition reaches
+
+    for (let i = 0; i < body.length; i++) {
+        // Check if we've passed beyond all dependencies of the current segment
+        if (i > reach && i > segStart) {
+            // Cut point found — close the current segment
+            rawSegments.push(buildSegment(body, segStart, i - 1));
+            segStart = i;
+        }
+
+        // Extend reach for any definitions at this position
+        const defs = definesAt.get(i);
+        if (defs) {
+            for (const name of defs) {
+                const last = lastUse.get(name);
+                if (last !== undefined && last > reach) {
+                    reach = last;
+                }
+            }
+        }
+    }
+
+    // Close final segment
+    rawSegments.push(buildSegment(body, segStart, body.length - 1));
+
+    // Step 4: Merge undersized segments into predecessor
+    if (rawSegments.length < 2) return rawSegments;
+
+    const merged: Segment[] = [rawSegments[0]!];
+    for (let i = 1; i < rawSegments.length; i++) {
+        const seg = rawSegments[i]!;
+        const prev = merged[merged.length - 1]!;
+        if (seg.nodeCount < MIN_SEGMENT_NODES) {
+            // Absorb into predecessor
+            merged[merged.length - 1] = {
+                firstId: prev.firstId,
+                lastId: seg.lastId,
+                nodeCount: prev.nodeCount + seg.nodeCount,
+            };
+        } else if (prev.nodeCount < MIN_SEGMENT_NODES) {
+            // Previous was undersized but wasn't merged yet (was first segment);
+            // merge current into it
+            merged[merged.length - 1] = {
+                firstId: prev.firstId,
+                lastId: seg.lastId,
+                nodeCount: prev.nodeCount + seg.nodeCount,
+            };
+        } else {
+            merged.push(seg);
+        }
+    }
+
+    return merged;
+}
+
+function buildSegment(body: Expression[], start: number, end: number): Segment {
+    let nodeCount = 0;
+    for (let i = start; i <= end; i++) {
+        nodeCount += countExprNode(body[i]!);
+    }
+    return {
+        firstId: body[start]!.id,
+        lastId: body[end]!.id,
+        nodeCount,
+    };
 }

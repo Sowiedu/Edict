@@ -17,7 +17,8 @@ export type LintWarning =
     | MissingContractWarning
     | OversizedFunctionWarning
     | EmptyBodyWarning
-    | RedundantEffectWarning;
+    | RedundantEffectWarning
+    | DecompositionSuggestedWarning;
 
 // =============================================================================
 // Individual warning types
@@ -61,6 +62,21 @@ export interface EmptyBodyWarning {
     severity: "warning";
     nodeId: string;
     functionName: string;
+}
+
+export interface SuggestedSplit {
+    name: string;
+    nodeRange: [string, string]; // [firstNodeId, lastNodeId]
+    nodeCount: number;
+}
+
+export interface DecompositionSuggestedWarning {
+    warning: "decomposition_suggested";
+    severity: "warning";
+    nodeId: string;
+    functionName: string;
+    reason: string;
+    suggestedSplit: SuggestedSplit[];
 }
 
 export interface RedundantEffectWarning {
@@ -124,5 +140,20 @@ export function redundantEffect(
             field: "effects",
             value: requiredEffects.length > 0 ? requiredEffects : ["pure"],
         },
+    };
+}
+
+export function decompositionSuggested(
+    nodeId: string,
+    functionName: string,
+    suggestedSplit: SuggestedSplit[],
+): DecompositionSuggestedWarning {
+    return {
+        warning: "decomposition_suggested",
+        severity: "warning",
+        nodeId,
+        functionName,
+        reason: `function_has_${suggestedSplit.length}_independent_segments`,
+        suggestedSplit,
     };
 }

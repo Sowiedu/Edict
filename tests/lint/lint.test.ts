@@ -601,4 +601,134 @@ describe("lint", () => {
             expect((oversized[0] as any).expressionCount).toBeGreaterThan(50);
         });
     });
+
+    // =========================================================================
+    // decomposition_suggested — reach-pointer segmentation
+    // =========================================================================
+
+    describe("decomposition_suggested", () => {
+        // Helper: build N independent let+use pairs as body expressions.
+        // Each pair defines a name and uses it, sharing no deps with other pairs.
+        function independentPairs(count: number, nodesPerPair: number): any[] {
+            const body: any[] = [];
+            for (let p = 0; p < count; p++) {
+                // Pad each pair to have enough nodes to exceed threshold overall
+                const exprs: any[] = [];
+                const name = `var_${p}`;
+                exprs.push({
+                    kind: "let", id: `let-${p}`, name,
+                    type: INT,
+                    value: { kind: "literal", id: `lit-val-${p}`, value: p },
+                });
+                // Add padding binops that reference the let-bound name
+                for (let n = 0; n < nodesPerPair - 2; n++) {
+                    exprs.push({
+                        kind: "binop", id: `bin-${p}-${n}`, op: "+",
+                        left: { kind: "ident", id: `id-${p}-${n}`, name },
+                        right: { kind: "literal", id: `pad-${p}-${n}`, value: n },
+                    });
+                }
+                body.push(...exprs);
+            }
+            return body;
+        }
+
+        it("suggests decomposition for function with 3 independent segments", () => {
+            // 3 groups of ~20 nodes each → ~60 nodes total (>50 threshold)
+            // Each group defines and uses its own variable, no cross-group deps
+            const body = independentPairs(3, 8);
+            const m = mod([{
+                kind: "fn", id: "fn-big", name: "process",
+                params: [], effects: ["pure"], returnType: INT, contracts: [],
+                body,
+            }]);
+            const warnings = lint(m);
+            const decomp = warnings.filter(w => w.warning === "decomposition_suggested");
+            expect(decomp).toHaveLength(1);
+            const w = decomp[0] as any;
+            expect(w.functionName).toBe("process");
+            expect(w.reason).toBe("function_has_3_independent_segments");
+            expect(w.suggestedSplit).toHaveLength(3);
+            // Verify node ranges reference actual node IDs from the body
+            expect(w.suggestedSplit[0].nodeRange[0]).toBe("let-0");
+            expect(w.suggestedSplit[1].nodeRange[0]).toBe("let-1");
+            expect(w.suggestedSplit[2].nodeRange[0]).toBe("let-2");
+        });
+
+        it("does not suggest decomposition for tightly coupled function", () => {
+            // All expressions reference the same chain of let-bindings
+            const body: any[] = [];
+            for (let i = 0; i < 20; i++) {
+                const prevName = i > 0 ? `v_${i - 1}` : undefined;
+                body.push({
+                    kind: "let", id: `let-${i}`, name: `v_${i}`,
+                    type: INT,
+                    value: prevName
+                        ? { kind: "ident", id: `ref-${i}`, name: prevName }
+                        : { kind: "literal", id: `lit-${i}`, value: i },
+                });
+            }
+            // Use the last variable to pad nodes
+            for (let i = 0; i < 15; i++) {
+                body.push({
+                    kind: "binop", id: `bin-${i}`, op: "+",
+                    left: { kind: "ident", id: `use-${i}`, name: "v_19" },
+                    right: { kind: "literal", id: `pad-${i}`, value: i },
+                });
+            }
+            const m = mod([{
+                kind: "fn", id: "fn-coupled", name: "coupled",
+                params: [], effects: ["pure"], returnType: INT, contracts: [],
+                body,
+            }]);
+            const warnings = lint(m);
+            const decomp = warnings.filter(w => w.warning === "decomposition_suggested");
+            expect(decomp).toHaveLength(0);
+        });
+
+        it("suggests 2 splits for two independent phases", () => {
+            const body = independentPairs(2, 10);
+            const m = mod([{
+                kind: "fn", id: "fn-two", name: "two_phase",
+                params: [], effects: ["pure"], returnType: INT, contracts: [],
+                body,
+            }]);
+            const warnings = lint(m);
+            const decomp = warnings.filter(w => w.warning === "decomposition_suggested");
+            expect(decomp).toHaveLength(1);
+            expect((decomp[0] as any).suggestedSplit).toHaveLength(2);
+            expect((decomp[0] as any).reason).toBe("function_has_2_independent_segments");
+        });
+
+        it("does not fire on small functions below threshold", () => {
+            // 2 independent segments but only ~10 nodes total
+            const body = [
+                { kind: "let", id: "let-a", name: "a", type: INT, value: { kind: "literal", id: "lit-a", value: 1 } },
+                { kind: "ident", id: "id-a", name: "a" },
+                { kind: "let", id: "let-b", name: "b", type: INT, value: { kind: "literal", id: "lit-b", value: 2 } },
+                { kind: "ident", id: "id-b", name: "b" },
+            ];
+            const m = mod([{
+                kind: "fn", id: "fn-small", name: "small",
+                params: [], effects: ["pure"], returnType: INT, contracts: [],
+                body,
+            }]);
+            const warnings = lint(m);
+            const decomp = warnings.filter(w => w.warning === "decomposition_suggested");
+            expect(decomp).toHaveLength(0);
+        });
+
+        it("does not fire on single-expression functions", () => {
+            // A big single expression — cannot be split
+            const bigExpr: any = { kind: "literal", id: "lit-root", value: 0 };
+            const m = mod([{
+                kind: "fn", id: "fn-one", name: "monolith",
+                params: [], effects: ["pure"], returnType: INT, contracts: [],
+                body: [bigExpr],
+            }]);
+            const warnings = lint(m);
+            const decomp = warnings.filter(w => w.warning === "decomposition_suggested");
+            expect(decomp).toHaveLength(0);
+        });
+    });
 });
