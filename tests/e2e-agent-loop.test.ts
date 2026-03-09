@@ -39,6 +39,7 @@ import {
     compile,
 } from "../src/index.js";
 import { runDirect } from "../src/codegen/runner.js";
+import { checkMultiModule } from "../src/multi-module.js";
 import type { EdictModule } from "../src/index.js";
 
 afterAll(() => resetZ3());
@@ -256,6 +257,27 @@ describe("e2e agent loop: all examples through explicit pipeline", () => {
                 fs.readFileSync(path.join(examplesDir, file), "utf-8"),
             );
 
+            // Multi-module examples are JSON arrays — use multi-module pipeline
+            if (Array.isArray(ast)) {
+                // Validate each module individually
+                for (const mod of ast) {
+                    const vResult = validate(mod);
+                    expect(vResult.ok).toBe(true);
+                    if (!vResult.ok) return;
+                }
+
+                // Run multi-module check pipeline (resolve, type, effect, contract)
+                const multiResult = await checkMultiModule(ast as EdictModule[]);
+                expect(multiResult.ok).toBe(true);
+                if (!multiResult.ok) return;
+
+                // Compile merged module
+                const compileResult = compile(multiResult.mergedModule!, { typeInfo: multiResult.typeInfo });
+                expect(compileResult.ok).toBe(true);
+                return;
+            }
+
+            // Single module pipeline
             // Stage 1: Validate
             const vResult = validate(ast);
             expect(vResult.ok).toBe(true);

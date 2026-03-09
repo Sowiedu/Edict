@@ -191,7 +191,15 @@ describe("MCP integration — tools", () => {
         for (const ex of parsed.examples) {
             expect(ex.name).toBeDefined();
             expect(ex.ast).toBeDefined();
-            expect(ex.ast.kind).toBe("module");
+            if (ex.isMultiModule) {
+                // Multi-module examples are arrays of modules
+                expect(Array.isArray(ex.ast)).toBe(true);
+                for (const mod of ex.ast) {
+                    expect(mod.kind).toBe("module");
+                }
+            } else {
+                expect(ex.ast.kind).toBe("module");
+            }
         }
     });
 

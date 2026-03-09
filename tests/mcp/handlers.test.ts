@@ -13,6 +13,8 @@ import {
     handleValidate,
     handleCheck,
     handleCompile,
+    handleCompileMulti,
+    handleCheckMulti,
     handleRun,
     handleVersion,
 } from "../../src/mcp/handlers.js";
@@ -67,10 +69,18 @@ describe("handleExamples", () => {
         for (const ex of result.examples) {
             expect(typeof ex.name).toBe("string");
             expect(ex.name.length).toBeGreaterThan(0);
-            expect(typeof ex.ast).toBe("object");
 
-            const ast = ex.ast as Record<string, unknown>;
-            expect(ast["kind"]).toBe("module");
+            if (ex.isMultiModule) {
+                // Multi-module examples are JSON arrays of modules
+                expect(Array.isArray(ex.ast)).toBe(true);
+                for (const mod of ex.ast as Record<string, unknown>[]) {
+                    expect(mod["kind"]).toBe("module");
+                }
+            } else {
+                expect(typeof ex.ast).toBe("object");
+                const ast = ex.ast as Record<string, unknown>;
+                expect(ast["kind"]).toBe("module");
+            }
         }
     });
 
@@ -255,7 +265,9 @@ describe("end-to-end roundtrip", () => {
     it("all examples compile successfully", async () => {
         const examples = handleExamples();
         for (const ex of examples.examples) {
-            const compiled = await handleCompile(ex.ast);
+            const compiled = ex.isMultiModule
+                ? await handleCompileMulti(ex.ast as unknown[])
+                : await handleCompile(ex.ast);
             expect(compiled.ok, `example ${ex.name} should compile`).toBe(true);
         }
     });
@@ -263,7 +275,9 @@ describe("end-to-end roundtrip", () => {
     it("all examples pass validation", async () => {
         const examples = handleExamples();
         for (const ex of examples.examples) {
-            const result = await handleCheck(ex.ast);
+            const result = ex.isMultiModule
+                ? await handleCheckMulti(ex.ast as unknown[])
+                : await handleCheck(ex.ast);
             expect(result.ok, `example ${ex.name} should pass check`).toBe(true);
         }
     });

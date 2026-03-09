@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { check } from "../../src/check.js";
+import { checkMultiModule } from "../../src/multi-module.js";
+import type { EdictModule } from "../../src/ast/nodes.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -12,6 +14,17 @@ describe("pipeline — check() on example programs", () => {
         it(`passes check() for ${file}`, async () => {
             const content = fs.readFileSync(path.join(EXAMPLES_DIR, file), "utf-8");
             const ast = JSON.parse(content);
+
+            // Multi-module examples are JSON arrays
+            if (Array.isArray(ast)) {
+                const result = await checkMultiModule(ast as EdictModule[]);
+                if (!result.ok) {
+                    console.error(`Errors in ${file}:`, JSON.stringify(result.errors, null, 2));
+                }
+                expect(result.ok).toBe(true);
+                return;
+            }
+
             const result = await check(ast);
             if (!result.ok) {
                 // Log errors to make debugging easy

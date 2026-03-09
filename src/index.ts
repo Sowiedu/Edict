@@ -258,3 +258,10 @@ export type { ComposeResult } from "./compose/compose.js";
 export { checkMultiModule } from "./multi-module.js";
 export type { MultiModuleCheckResult } from "./multi-module.js";
 
+// Incremental checking
+export { incrementalCheck } from "./incremental/check.js";
+export type { IncrementalCheckResult } from "./incremental/check.js";
+export { buildDepGraph, transitiveDependents } from "./incremental/dep-graph.js";
+export type { DepGraph } from "./incremental/dep-graph.js";
+export { diffDefinitions } from "./incremental/diff.js";
+

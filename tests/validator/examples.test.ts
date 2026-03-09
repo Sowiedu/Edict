@@ -20,14 +20,16 @@ describe("example programs", () => {
         it(`validates ${file}`, () => {
             const content = readFileSync(join(examplesDir, file), "utf-8");
             const ast = JSON.parse(content);
-            const result = validate(ast);
 
-            if (!result.ok) {
-                // Print errors for debugging
-                console.error(`Validation errors in ${file}:`, JSON.stringify(result.errors, null, 2));
+            // Multi-module examples are JSON arrays — validate each module
+            const modules = Array.isArray(ast) ? ast : [ast];
+            for (const mod of modules) {
+                const result = validate(mod);
+                if (!result.ok) {
+                    console.error(`Validation errors in ${file}:`, JSON.stringify(result.errors, null, 2));
+                }
+                expect(result).toEqual({ ok: true });
             }
-
-            expect(result).toEqual({ ok: true });
         });
     }
 });

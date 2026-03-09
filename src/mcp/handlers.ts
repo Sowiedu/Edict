@@ -25,6 +25,7 @@ import { expandCompact, compactSchemaReference } from "../compact/expand.js";
 import { compose } from "../compose/compose.js";
 import type { EdictFragment, EdictModule } from "../ast/nodes.js";
 import { checkMultiModule } from "../multi-module.js";
+import { incrementalCheck } from "../incremental/check.js";
 
 // =============================================================================
 // Path resolution (relative to this file, works regardless of cwd)
@@ -44,7 +45,7 @@ const packageJsonPath = resolve(projectRoot, "package.json");
 let cachedSchema: string | null = null;
 let cachedMinimalSchema: unknown | null = null;
 let cachedPatchSchema: unknown | null = null;
-let cachedExamples: { name: string; ast: unknown }[] | null = null;
+let cachedExamples: { name: string; ast: unknown; isMultiModule?: boolean }[] | null = null;
 let cachedVersion: string | null = null;
 
 function loadSchema(): string {
@@ -54,15 +55,19 @@ function loadSchema(): string {
     return cachedSchema;
 }
 
-function loadExamples(): { name: string; ast: unknown }[] {
+function loadExamples(): { name: string; ast: unknown; isMultiModule?: boolean }[] {
     if (!cachedExamples) {
         const files = readdirSync(examplesDir)
             .filter((f) => f.endsWith(".edict.json"))
             .sort();
-        cachedExamples = files.map((f) => ({
-            name: f.replace(".edict.json", ""),
-            ast: JSON.parse(readFileSync(resolve(examplesDir, f), "utf-8")) as unknown,
-        }));
+        cachedExamples = files.map((f) => {
+            const parsed = JSON.parse(readFileSync(resolve(examplesDir, f), "utf-8")) as unknown;
+            return {
+                name: f.replace(".edict.json", ""),
+                ast: parsed,
+                isMultiModule: Array.isArray(parsed),
+            };
+        });
     }
     return cachedExamples;
 }
@@ -79,7 +84,7 @@ export interface SchemaResult {
 
 export interface ExamplesResult {
     count: number;
-    examples: { name: string; ast: unknown }[];
+    examples: { name: string; ast: unknown; isMultiModule?: boolean }[];
 }
 
 export interface ValidateResult {
@@ -361,6 +366,10 @@ export interface PatchResult {
     ok: boolean;
     errors?: StructuredError[];
     patchedAst?: unknown;
+    /** Definitions that were re-verified by Z3 (incremental mode only) */
+    rechecked?: string[];
+    /** Definitions for which Z3 verification was skipped (incremental mode only) */
+    skipped?: string[];
 }
 
 export async function handlePatch(
@@ -381,7 +390,29 @@ export async function handlePatch(
         return { ok: false, errors: patchResult.errors };
     }
 
-    // Step 2: Run full check pipeline on patched AST
+    // Step 2: Check — use incremental checking if base AST is a valid module
+    const baseValidation = validate(expandedBase);
+    if (baseValidation.ok) {
+        // Incremental: only re-verify contracts for changed definitions
+        const incrResult = await incrementalCheck(
+            expandedBase as EdictModule,
+            patchResult.ast as EdictModule,
+        );
+        if (!incrResult.ok) {
+            const result: PatchResult = { ok: false, errors: incrResult.errors };
+            if (returnAst) result.patchedAst = patchResult.ast;
+            result.rechecked = incrResult.rechecked;
+            result.skipped = incrResult.skipped;
+            return result;
+        }
+        const result: PatchResult = { ok: true };
+        if (returnAst) result.patchedAst = patchResult.ast;
+        result.rechecked = incrResult.rechecked;
+        result.skipped = incrResult.skipped;
+        return result;
+    }
+
+    // Fallback: full check if base AST was invalid
     const checkResult = await check(patchResult.ast);
     if (!checkResult.ok) {
         const result: PatchResult = { ok: false, errors: checkResult.errors };
@@ -422,6 +453,7 @@ export function handleVersion(): VersionResult {
             debug: true,
             multiModule: true,
             compactAst: true,
+            incrementalCheck: true,
         },
         limits: {
             z3TimeoutMs: 5000,
