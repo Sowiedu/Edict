@@ -265,3 +265,7 @@ export { buildDepGraph, transitiveDependents } from "./incremental/dep-graph.js"
 export type { DepGraph } from "./incremental/dep-graph.js";
 export { diffDefinitions } from "./incremental/diff.js";
 
+// Test-Contract Bridge
+export { generateTests } from "./contracts/generate-tests.js";
+export type { GeneratedTest, GenerateTestsResult } from "./contracts/generate-tests.js";
+

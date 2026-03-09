@@ -26,6 +26,8 @@ import { compose } from "../compose/compose.js";
 import type { EdictFragment, EdictModule } from "../ast/nodes.js";
 import { checkMultiModule } from "../multi-module.js";
 import { incrementalCheck } from "../incremental/check.js";
+import { generateTests } from "../contracts/generate-tests.js";
+import type { GeneratedTest } from "../contracts/generate-tests.js";
 
 // =============================================================================
 // Path resolution (relative to this file, works regardless of cwd)
@@ -458,6 +460,7 @@ export function handleVersion(): VersionResult {
             multiModule: true,
             compactAst: true,
             incrementalCheck: true,
+            testBridge: true,
             wasmInterop: true,
         },
         limits: {
@@ -573,5 +576,31 @@ export async function handleDebug(
         crashLocation: debugResult.crashLocation,
         stepsExecuted: debugResult.stepsExecuted,
         error: debugResult.error,
+    };
+}
+
+// =============================================================================
+// Generate Tests handler
+// =============================================================================
+
+export interface GenerateTestsHandlerResult {
+    ok: boolean;
+    tests?: GeneratedTest[];
+    errors?: StructuredError[];
+    skipped?: string[];
+}
+
+export async function handleGenerateTests(ast: unknown): Promise<GenerateTestsHandlerResult> {
+    const expanded = expandCompact(ast);
+    const checkResult = await check(expanded);
+    if (!checkResult.ok || !checkResult.module) {
+        return { ok: false, errors: checkResult.errors };
+    }
+
+    const result = await generateTests(checkResult.module);
+    return {
+        ok: true,
+        tests: result.tests,
+        skipped: result.skipped,
     };
 }
