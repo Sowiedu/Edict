@@ -165,3 +165,13 @@ if (url.endsWith(".ts")) {
 - **Ideal**: Auto-generate `index.ts` exports from source modules, auto-derive error catalog from StructuredError union, auto-register MCP tools from a manifest. Consider building these automations when the project scales.
 - **For now**: Be aware of all touchpoints when adding new features — check handler, tool schema, version flags, index exports, error catalog, error catalog test.
 
+## 26. WASM Reserved Names — Avoid Collisions with Binaryen Builtins
+- **Context**: Example program named a function `abs`, which collided with binaryen's built-in `abs` function, causing `Module::addFunction: abs already exists` at WASM compilation.
+- **Pattern**: Certain function names are reserved by the WASM runtime (binaryen). When writing example programs or tests, avoid short math names like `abs`, `max`, `min`, `floor`, `ceil`, `sqrt`, `trunc`.
+- **Fix**: Use descriptive names like `absolute`, `maximum`, `minimum` instead.
+
+## 27. Structured Data Over Free-Form Strings — Automation-First
+- **Context**: Intent declaration invariants were initially designed as free-form strings (`"result >= 0"`), requiring a hand-written heuristic parser to match against contract AST expressions.
+- **Problem**: Free-form strings are a human-centric pattern (prose = ambiguity). Matching strings to ASTs requires brittle parsing logic that can't be derived from existing types.
+- **Solution**: Make invariants structured — reuse existing `Expression` and `SemanticAssertionKind` types. Matching becomes structural comparison (JSON.stringify), zero hand-written parsing.
+- **Pattern**: When designing new metadata fields, always ask: "Can this reuse an existing type?" If yes, the validation and matching logic comes for free from the schema and existing infrastructure.

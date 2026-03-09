@@ -591,7 +591,7 @@ The complete agent interface. An MCP server exposing the Edict compiler as tools
 ```
 edict.schema()          → JSON Schema (the full AST spec)
 edict.version()         → Compiler version and capability info
-edict.examples()        → 29 example programs as AST JSON
+edict.examples()        → 30 example programs as AST JSON
 edict.validate(ast)     → StructuredError[] | "ok"
 edict.check(ast)        → StructuredError[] | "ok"         // types + effects + contracts
 edict.compile(ast)      → { wasm: Base64 } | StructuredError[]
@@ -616,7 +616,7 @@ Agent: edict.run("AGFzbQEAAAA...")
 Edict: { output: "42", exitCode: 0 }
 ```
 
-**Agent onboarding**: The agent receives the AST schema (TypeScript interfaces) and 29 example programs as part of its system prompt or MCP resource. No documentation needed — the schema _is_ the spec.
+**Agent onboarding**: The agent receives the AST schema (TypeScript interfaces) and 30 example programs as part of its system prompt or MCP resource. No documentation needed — the schema _is_ the spec.
 
 ---
 

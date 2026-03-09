@@ -158,6 +158,10 @@
           "description": "Bounds on token complexity and program size to prevent runaway agents.",
           "$ref": "#/definitions/ComplexityConstraints"
         },
+        "intent": {
+          "description": "Structured intent — what the function is trying to accomplish.\nAgents use this for re-synthesis, blame tracking, and specification diffing.\nInvariants reuse Expression and SemanticAssertion types for automated matching.",
+          "$ref": "#/definitions/IntentDeclaration"
+        },
         "body": {
           "type": "array",
           "items": {
@@ -1386,6 +1390,92 @@
       },
       "required": [
         "kind"
+      ]
+    },
+    "IntentDeclaration": {
+      "description": "Structured intent — what the function is trying to accomplish.\nAgents use this for re-synthesis, blame tracking, and specification diffing.\nInvariants reuse Expression and SemanticAssertion types for automated matching.",
+      "type": "object",
+      "properties": {
+        "goal": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IntentInvariant"
+          }
+        }
+      },
+      "required": [
+        "goal",
+        "inputs",
+        "invariants",
+        "outputs"
+      ]
+    },
+    "IntentInvariant": {
+      "description": "A structured invariant that can be automatically matched against contracts.\nReuses existing Expression and SemanticAssertionKind — zero new vocabulary.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ExpressionInvariant"
+        },
+        {
+          "$ref": "#/definitions/SemanticInvariant"
+        }
+      ]
+    },
+    "ExpressionInvariant": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "expression"
+        },
+        "expression": {
+          "$ref": "#/definitions/Expression"
+        }
+      },
+      "required": [
+        "expression",
+        "kind"
+      ]
+    },
+    "SemanticInvariant": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "semantic"
+        },
+        "assertion": {
+          "$ref": "#/definitions/SemanticAssertionKind"
+        },
+        "target": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "assertion",
+        "kind",
+        "target"
       ]
     },
     "TypeDef": {

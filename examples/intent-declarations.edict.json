@@ -1,0 +1,82 @@
+{
+    "kind": "module",
+    "id": "mod-intent-demo",
+    "name": "intent_demo",
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-absolute",
+            "name": "absolute",
+            "params": [
+                { "kind": "param", "id": "p-x", "name": "x", "type": { "kind": "basic", "name": "Int" } }
+            ],
+            "effects": ["pure"],
+            "returnType": { "kind": "basic", "name": "Int" },
+            "contracts": [
+                {
+                    "kind": "post",
+                    "id": "post-nonneg",
+                    "condition": {
+                        "kind": "binop", "id": "cmp-ge0", "op": ">=",
+                        "left":  { "kind": "ident", "id": "id-result", "name": "result" },
+                        "right": { "kind": "literal", "id": "lit-0", "value": 0 }
+                    }
+                }
+            ],
+            "intent": {
+                "goal": "compute_absolute_value",
+                "inputs": ["x"],
+                "outputs": ["result"],
+                "invariants": [
+                    {
+                        "kind": "expression",
+                        "expression": {
+                            "kind": "binop", "id": "inv-ge0", "op": ">=",
+                            "left":  { "kind": "ident", "id": "inv-result", "name": "result" },
+                            "right": { "kind": "literal", "id": "inv-0", "value": 0 }
+                        }
+                    }
+                ]
+            },
+            "body": [
+                {
+                    "kind": "if", "id": "if-neg",
+                    "condition": {
+                        "kind": "binop", "id": "cmp-lt", "op": "<",
+                        "left":  { "kind": "ident", "id": "id-x1", "name": "x" },
+                        "right": { "kind": "literal", "id": "lit-0b", "value": 0 }
+                    },
+                    "then": [
+                        {
+                            "kind": "binop", "id": "neg-x", "op": "*",
+                            "left":  { "kind": "literal", "id": "lit-neg1", "value": -1 },
+                            "right": { "kind": "ident", "id": "id-x2", "name": "x" }
+                        }
+                    ],
+                    "else": [
+                        { "kind": "ident", "id": "id-x3", "name": "x" }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-main",
+            "name": "main",
+            "params": [],
+            "effects": ["pure"],
+            "returnType": { "kind": "basic", "name": "Int" },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "call", "id": "call-absolute",
+                    "fn": { "kind": "ident", "id": "id-absolute", "name": "absolute" },
+                    "args": [
+                        { "kind": "literal", "id": "lit-neg5", "value": -5 }
+                    ]
+                }
+            ]
+        }
+    ]
+}

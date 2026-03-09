@@ -4,7 +4,7 @@
 // Non-blocking analysis pass. Runs on a validated module (post-Phase 1).
 // Returns structured warnings without blocking compilation.
 
-import type { EdictModule, Expression, FunctionDef, Effect } from "../ast/nodes.js";
+import type { EdictModule, Expression, FunctionDef, Effect, IntentInvariant } from "../ast/nodes.js";
 import { buildCallGraph } from "../effects/call-graph.js";
 import {
     unusedVariable,
@@ -14,6 +14,7 @@ import {
     emptyBody,
     redundantEffect,
     decompositionSuggested,
+    intentUnverifiedInvariant,
     type LintWarning,
     type SuggestedSplit,
 } from "./warnings.js";
@@ -45,6 +46,7 @@ export function lint(module: EdictModule): LintWarning[] {
     checkFunctionWarnings(module, warnings);
     checkRedundantEffects(module, warnings);
     checkDecomposition(module, warnings);
+    checkIntentConsistency(module, warnings);
 
     return warnings;
 }
@@ -552,4 +554,58 @@ function buildSegment(body: Expression[], start: number, end: number): Segment {
         lastId: body[end]!.id,
         nodeCount,
     };
+}
+
+// =============================================================================
+// Intent consistency — verify invariants have matching contracts
+// =============================================================================
+
+/**
+ * Check that each intent invariant has a corresponding postcondition contract.
+ * Expression invariants are matched structurally (JSON.stringify).
+ * Semantic invariants match against semantic postconditions by assertion + target.
+ */
+function checkIntentConsistency(module: EdictModule, warnings: LintWarning[]): void {
+    for (const def of module.definitions) {
+        if (def.kind !== "fn") continue;
+        if (!def.intent || def.intent.invariants.length === 0) continue;
+
+        const postContracts = def.contracts.filter(c => c.kind === "post");
+
+        for (const inv of def.intent.invariants) {
+            if (!isInvariantCovered(inv, postContracts)) {
+                warnings.push(intentUnverifiedInvariant(def.id, def.name, inv));
+            }
+        }
+    }
+}
+
+/**
+ * Check whether a single invariant is covered by at least one postcondition.
+ */
+function isInvariantCovered(
+    inv: IntentInvariant,
+    postContracts: { condition?: Expression; semantic?: { assertion: string; target: string; args?: string[] } }[],
+): boolean {
+    if (inv.kind === "expression") {
+        const invStr = JSON.stringify(inv.expression);
+        for (const contract of postContracts) {
+            if (contract.condition && JSON.stringify(contract.condition) === invStr) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Semantic invariant — match assertion kind + target
+    for (const contract of postContracts) {
+        if (
+            contract.semantic &&
+            contract.semantic.assertion === inv.assertion &&
+            contract.semantic.target === inv.target
+        ) {
+            return true;
+        }
+    }
+    return false;
 }

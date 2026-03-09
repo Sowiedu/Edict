@@ -109,6 +109,10 @@ export type {
     BlockExpr,
     FieldInit,
     StringInterp,
+    IntentDeclaration,
+    IntentInvariant,
+    ExpressionInvariant,
+    SemanticInvariant,
 } from "./ast/nodes.js";
 
 // ---------------------------------------------------------------------------
@@ -285,6 +289,7 @@ export type {
     OversizedFunctionWarning,
     EmptyBodyWarning,
     RedundantEffectWarning,
+    IntentUnverifiedInvariantWarning,
 } from "./lint/warnings.js";
 export {
     unusedVariable,
@@ -293,6 +298,7 @@ export {
     oversizedFunction,
     emptyBody,
     redundantEffect,
+    intentUnverifiedInvariant,
 } from "./lint/warnings.js";
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 // Structured, machine-readable warnings parallel to StructuredError.
 // Each uses `warning` as the discriminator (not `error`), plus `severity: "warning"`.
 
-import type { Effect } from "../ast/nodes.js";
+import type { Effect, IntentInvariant } from "../ast/nodes.js";
 import type { FixSuggestion } from "../errors/structured-errors.js";
 
 // =============================================================================
@@ -18,7 +18,8 @@ export type LintWarning =
     | OversizedFunctionWarning
     | EmptyBodyWarning
     | RedundantEffectWarning
-    | DecompositionSuggestedWarning;
+    | DecompositionSuggestedWarning
+    | IntentUnverifiedInvariantWarning;
 
 // =============================================================================
 // Individual warning types
@@ -87,6 +88,14 @@ export interface RedundantEffectWarning {
     redundantEffects: Effect[];
     requiredEffects: Effect[];
     suggestion?: FixSuggestion;
+}
+
+export interface IntentUnverifiedInvariantWarning {
+    warning: "intent_unverified_invariant";
+    severity: "warning";
+    nodeId: string;
+    functionName: string;
+    unverifiedInvariant: IntentInvariant;
 }
 
 // =============================================================================
@@ -162,5 +171,20 @@ export function decompositionSuggested(
         functionName,
         reason: `function_has_${suggestedSplit.length}_independent_segments`,
         suggestedSplit,
+    };
+}
+
+/** Create a warning for an intent invariant that has no matching postcondition contract. */
+export function intentUnverifiedInvariant(
+    nodeId: string,
+    functionName: string,
+    unverifiedInvariant: IntentInvariant,
+): IntentUnverifiedInvariantWarning {
+    return {
+        warning: "intent_unverified_invariant",
+        severity: "warning",
+        nodeId,
+        functionName,
+        unverifiedInvariant,
     };
 }

@@ -731,4 +731,175 @@ describe("lint", () => {
             expect(decomp).toHaveLength(0);
         });
     });
+
+    // =========================================================================
+    // intent_unverified_invariant — intent-contract consistency
+    // =========================================================================
+
+    describe("intent_unverified_invariant", () => {
+        const resultGe0Expr = {
+            kind: "binop" as const, id: "cmp-inv", op: ">=" as const,
+            left: { kind: "ident" as const, id: "id-r", name: "result" },
+            right: { kind: "literal" as const, id: "lit-z", value: 0 },
+        };
+
+        it("warns when expression invariant has no matching postcondition", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "abs",
+                params: [{ kind: "param", id: "p-001", name: "x", type: INT }],
+                effects: ["pure"], returnType: INT, contracts: [],
+                intent: {
+                    goal: "compute_absolute_value",
+                    inputs: ["x"],
+                    outputs: ["result"],
+                    invariants: [{ kind: "expression", expression: resultGe0Expr }],
+                },
+                body: [{ kind: "ident", id: "id-001", name: "x" }],
+            }]);
+            const warnings = lint(m);
+            const intent = warnings.filter(w => w.warning === "intent_unverified_invariant");
+            expect(intent).toHaveLength(1);
+            expect(intent[0]).toMatchObject({
+                warning: "intent_unverified_invariant",
+                nodeId: "fn-001",
+                functionName: "abs",
+            });
+            expect((intent[0] as any).unverifiedInvariant.kind).toBe("expression");
+        });
+
+        it("no warning when expression invariant has matching postcondition", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "abs",
+                params: [{ kind: "param", id: "p-001", name: "x", type: INT }],
+                effects: ["pure"], returnType: INT,
+                contracts: [{
+                    kind: "post", id: "post-001",
+                    condition: resultGe0Expr,
+                }],
+                intent: {
+                    goal: "compute_absolute_value",
+                    inputs: ["x"],
+                    outputs: ["result"],
+                    invariants: [{ kind: "expression", expression: resultGe0Expr }],
+                },
+                body: [{ kind: "ident", id: "id-001", name: "x" }],
+            }]);
+            const warnings = lint(m);
+            const intent = warnings.filter(w => w.warning === "intent_unverified_invariant");
+            expect(intent).toHaveLength(0);
+        });
+
+        it("no warning when function has no intent", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "helper",
+                params: [{ kind: "param", id: "p-001", name: "x", type: INT }],
+                effects: ["pure"], returnType: INT,
+                contracts: [{
+                    kind: "post", id: "post-001",
+                    condition: resultGe0Expr,
+                }],
+                body: [{ kind: "ident", id: "id-001", name: "x" }],
+            }]);
+            const warnings = lint(m);
+            const intent = warnings.filter(w => w.warning === "intent_unverified_invariant");
+            expect(intent).toHaveLength(0);
+        });
+
+        it("warns on multiple unmatched invariants", () => {
+            const inv2 = {
+                kind: "binop" as const, id: "cmp-2", op: "<=" as const,
+                left: { kind: "ident" as const, id: "id-r2", name: "result" },
+                right: { kind: "literal" as const, id: "lit-100", value: 100 },
+            };
+            const inv3 = {
+                kind: "binop" as const, id: "cmp-3", op: "!=" as const,
+                left: { kind: "ident" as const, id: "id-r3", name: "result" },
+                right: { kind: "literal" as const, id: "lit-neg", value: -1 },
+            };
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "clamp",
+                params: [{ kind: "param", id: "p-001", name: "x", type: INT }],
+                effects: ["pure"], returnType: INT,
+                contracts: [{
+                    kind: "post", id: "post-001",
+                    condition: resultGe0Expr,
+                }],
+                intent: {
+                    goal: "clamp_to_range",
+                    inputs: ["x"],
+                    outputs: ["result"],
+                    invariants: [
+                        { kind: "expression", expression: resultGe0Expr }, // covered
+                        { kind: "expression", expression: inv2 },         // not covered
+                        { kind: "expression", expression: inv3 },         // not covered
+                    ],
+                },
+                body: [{ kind: "ident", id: "id-001", name: "x" }],
+            }]);
+            const warnings = lint(m);
+            const intent = warnings.filter(w => w.warning === "intent_unverified_invariant");
+            expect(intent).toHaveLength(2);
+        });
+
+        it("empty invariants array produces no warnings", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "noop",
+                params: [], effects: ["pure"], returnType: INT, contracts: [],
+                intent: {
+                    goal: "do_nothing",
+                    inputs: [],
+                    outputs: ["result"],
+                    invariants: [],
+                },
+                body: [{ kind: "literal", id: "lit-001", value: 0 }],
+            }]);
+            const warnings = lint(m);
+            const intent = warnings.filter(w => w.warning === "intent_unverified_invariant");
+            expect(intent).toHaveLength(0);
+        });
+
+        it("semantic invariant covered by semantic postcondition produces no warning", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "sort",
+                params: [{ kind: "param", id: "p-001", name: "arr", type: { kind: "array", elementType: INT } }],
+                effects: ["pure"], returnType: { kind: "array", elementType: INT },
+                contracts: [{
+                    kind: "post", id: "post-001",
+                    semantic: { assertion: "sorted", target: "result" },
+                }],
+                intent: {
+                    goal: "sort_ascending",
+                    inputs: ["arr"],
+                    outputs: ["result"],
+                    invariants: [{ kind: "semantic", assertion: "sorted", target: "result" }],
+                },
+                body: [{ kind: "ident", id: "id-001", name: "arr" }],
+            }]);
+            const warnings = lint(m);
+            const intent = warnings.filter(w => w.warning === "intent_unverified_invariant");
+            expect(intent).toHaveLength(0);
+        });
+
+        it("unmatched semantic invariant produces warning", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "sort",
+                params: [{ kind: "param", id: "p-001", name: "arr", type: { kind: "array", elementType: INT } }],
+                effects: ["pure"], returnType: { kind: "array", elementType: INT },
+                contracts: [], // no contracts at all
+                intent: {
+                    goal: "sort_ascending",
+                    inputs: ["arr"],
+                    outputs: ["result"],
+                    invariants: [{ kind: "semantic", assertion: "sorted", target: "result" }],
+                },
+                body: [{ kind: "ident", id: "id-001", name: "arr" }],
+            }]);
+            const warnings = lint(m);
+            const intent = warnings.filter(w => w.warning === "intent_unverified_invariant");
+            expect(intent).toHaveLength(1);
+            expect((intent[0] as any).unverifiedInvariant).toMatchObject({
+                kind: "semantic", assertion: "sorted", target: "result",
+            });
+        });
+    });
 });

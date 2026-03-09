@@ -90,7 +90,40 @@ export interface FunctionDef {
     returnType?: TypeExpr;
     contracts: Contract[];
     constraints?: ComplexityConstraints;
+    intent?: IntentDeclaration;
     body: Expression[];
+}
+
+/**
+ * Structured intent — what the function is trying to accomplish.
+ * Agents use this for re-synthesis, blame tracking, and specification diffing.
+ * Invariants reuse Expression and SemanticAssertion types for automated matching.
+ */
+export interface IntentDeclaration {
+    goal: string;
+    inputs: string[];
+    outputs: string[];
+    invariants: IntentInvariant[];
+}
+
+/**
+ * A structured invariant that can be automatically matched against contracts.
+ * Reuses existing Expression and SemanticAssertionKind — zero new vocabulary.
+ */
+export type IntentInvariant =
+    | ExpressionInvariant
+    | SemanticInvariant;
+
+export interface ExpressionInvariant {
+    kind: "expression";
+    expression: Expression;
+}
+
+export interface SemanticInvariant {
+    kind: "semantic";
+    assertion: SemanticAssertionKind;
+    target: string;
+    args?: string[];
 }
 
 /**
