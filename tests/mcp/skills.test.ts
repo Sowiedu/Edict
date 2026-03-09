@@ -70,7 +70,7 @@ describe("WASM Portable Agent Skills", () => {
         };
         const exportResult = await handleExport(noMainAst, {});
         expect(exportResult.ok).toBe(false);
-        expect(exportResult.errors?.[0].code).toBe("missing_entry_point");
+        expect(exportResult.errors?.[0].error).toBe("missing_entry_point");
     });
 
     it("should import and execute a valid skill package", async () => {

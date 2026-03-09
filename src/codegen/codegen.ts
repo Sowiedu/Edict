@@ -298,8 +298,10 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
 
         // Build function table for indirect calls (call_indirect)
         // This must happen after all functions (including lambdas) are compiled
+        // We MUST add the table even if empty, because HOF builtins like array_map
+        // are generated unconditionally and contain call_indirect referencing __fn_table.
+        mod.addTable("__fn_table", tableFunctions.length, tableFunctions.length);
         if (tableFunctions.length > 0) {
-            mod.addTable("__fn_table", tableFunctions.length, tableFunctions.length);
             mod.addActiveElementSegment(
                 "__fn_table", "__fn_elems", tableFunctions, mod.i32.const(0),
             );

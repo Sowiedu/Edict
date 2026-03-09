@@ -223,10 +223,7 @@ export async function handleExport(
     if (!entryDef || entryDef.kind !== "fn") {
         return {
             ok: false,
-            errors: [{
-                error: "wasm_validation_error",
-                message: `Export failed: Module must have an entry point function named '${entryPointName}'.`
-            }]
+            errors: [{ error: "missing_entry_point", entryPointName }]
         };
     }
 

@@ -62,6 +62,7 @@ export type StructuredError =
     | PatchDeleteNotInArrayError
     // Phase 5 — Codegen errors
     | WasmValidationError
+    | MissingEntryPointError
     // Composition errors
     | UnsatisfiedRequirementError
     | DuplicateProvisionError;
@@ -717,10 +718,21 @@ export interface WasmValidationError {
     message: string;
 }
 
+export interface MissingEntryPointError {
+    error: "missing_entry_point";
+    entryPointName: string;
+}
+
 export function wasmValidationError(
     message: string,
 ): WasmValidationError {
     return { error: "wasm_validation_error", message };
+}
+
+export function missingEntryPoint(
+    entryPointName: string,
+): MissingEntryPointError {
+    return { error: "missing_entry_point", entryPointName };
 }
 
 // =============================================================================
