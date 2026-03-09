@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  pull-requests: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -27,15 +30,18 @@ jobs:
         run: npm ci
 
       - name: Type check
+        id: typecheck
         run: npm run typecheck
 
       - name: Verify schema is up to date
+        id: schema
         run: |
           npm run generate-schema
           git diff --exit-code -- schema/edict.schema.json
 
       - name: Run tests
-        run: npm run test:coverage
+        id: tests
+        run: npx vitest run --coverage --reporter=default --reporter=json --outputFile=test-results.json
 
       - name: Verify all examples compile
         run: npm run validate-examples
@@ -50,3 +56,76 @@ jobs:
         with:
           name: benchmark-results-node-${{ matrix.node-version }}
           path: benchmark-results.json
+
+      - name: Post structured CI feedback
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Parse test results
+            let testData = { passed: 0, failed: 0, skipped: 0 };
+            try {
+              const results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+              testData = {
+                passed: results.numPassedTests || 0,
+                failed: results.numFailedTests || 0,
+                skipped: results.numPendingTests || 0,
+              };
+            } catch (e) {
+              testData = { passed: 0, failed: 0, skipped: 0, error: 'could_not_parse_results' };
+            }
+
+            // Parse coverage
+            let coverageData = {};
+            try {
+              const cov = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+              const total = cov.total || {};
+              coverageData = {
+                lines: total.lines?.pct ?? null,
+                branches: total.branches?.pct ?? null,
+                functions: total.functions?.pct ?? null,
+                statements: total.statements?.pct ?? null,
+              };
+            } catch (e) {
+              coverageData = { error: 'could_not_parse_coverage' };
+            }
+
+            const feedback = {
+              ci: {
+                status: '${{ job.status }}',
+                node_version: ${{ matrix.node-version }},
+                tests: testData,
+                coverage: coverageData,
+                typecheck: '${{ steps.typecheck.outcome }}',
+                schema: '${{ steps.schema.outcome }}' === 'success' ? 'up_to_date' : 'out_of_date',
+              }
+            };
+
+            const marker = `<!-- edict-ci-feedback-node-${{ matrix.node-version }} -->`;
+            const body = `${marker}\n\`\`\`json\n${JSON.stringify(feedback, null, 2)}\n\`\`\``;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

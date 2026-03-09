@@ -1,0 +1,54 @@
+name: Auto-Label Issues
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+
+            // Parse agent-metadata block
+            const match = body.match(/<!--\s*agent-metadata\s*\n([\s\S]*?)-->/);
+            if (!match) return;
+
+            const yaml = match[1];
+            const componentMatch = yaml.match(/component:\s*(\S+)/);
+            if (!componentMatch) return;
+
+            const component = componentMatch[1].trim();
+
+            // Map components to existing repo labels
+            const labelMap = {
+              codegen: 'codegen',
+              mcp: 'mcp',
+              contracts: 'contracts',
+              checker: 'type-system',
+              'type-system': 'type-system',
+              builtins: 'codegen',
+              compact: 'token-efficiency',
+              lint: 'lint',
+              effects: 'effects',
+            };
+
+            const label = labelMap[component];
+            if (!label) return;
+
+            // Check if label already applied
+            const existing = context.payload.issue.labels.map(l => l.name);
+            if (existing.includes(label)) return;
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [label],
+            });

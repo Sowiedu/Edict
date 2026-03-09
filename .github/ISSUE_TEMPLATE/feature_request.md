@@ -6,6 +6,14 @@ labels: enhancement
 assignees: ''
 ---
 
+<!-- agent-metadata
+component: 
+difficulty: 
+files: []
+depends_on: []
+acceptance_tests: []
+-->
+
 ## Problem
 
 What problem does this feature solve? What's the current limitation?

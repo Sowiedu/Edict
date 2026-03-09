@@ -6,6 +6,14 @@ labels: bug
 assignees: ''
 ---
 
+<!-- agent-metadata
+component: 
+difficulty: 
+files: []
+depends_on: []
+acceptance_tests: []
+-->
+
 ## Pipeline Stage
 
 Which stage produces the bug?
