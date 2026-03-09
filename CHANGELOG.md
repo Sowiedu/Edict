@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.8.0](https://github.com/Sowiedu/Edict/compare/v1.7.0...v1.8.0) (2026-03-09)
+
+
+### Features
+
+* add Docker image for Edict MCP server ([#45](https://github.com/Sowiedu/Edict/issues/45)) ([44d6ba3](https://github.com/Sowiedu/Edict/commit/44d6ba30013f7ea044b9e4481ea800c7af40b145))
+* arena memory management for WASM heap ([#35](https://github.com/Sowiedu/Edict/issues/35)) ([adda3f8](https://github.com/Sowiedu/Edict/commit/adda3f8e230f9b8f91640b357a4aa7efbcc2abf4))
+* **benchmarks:** add benchmark suite for pipeline performance (closes [#48](https://github.com/Sowiedu/Edict/issues/48)) ([f7c4ce3](https://github.com/Sowiedu/Edict/commit/f7c4ce309c9d70872307609883d9e1dd3eca2b70))
+* composable program fragments (issue [#72](https://github.com/Sowiedu/Edict/issues/72)) ([c24e523](https://github.com/Sowiedu/Edict/commit/c24e5238af0feda88d043019484567d599f5ce0b))
+* contract verification coverage metrics — 55-contract corpus + measurement script (closes [#52](https://github.com/Sowiedu/Edict/issues/52)) ([fc6338a](https://github.com/Sowiedu/Edict/commit/fc6338ac7e416616284eb815d03b4602b31b95fa))
+* edict_debug MCP tool — execution tracing and crash diagnostics ([#41](https://github.com/Sowiedu/Edict/issues/41)) ([cb7d13a](https://github.com/Sowiedu/Edict/commit/cb7d13a3ce060994224120d0140756a537794521))
+* error recovery benchmark improvements — 76.7% recovery rate ([d3177cf](https://github.com/Sowiedu/Edict/commit/d3177cf73d03f754c429891e0ac313500bbda806))
+* **examples:** add arrays, math, constants examples + fix docs ([0b03737](https://github.com/Sowiedu/Edict/commit/0b03737820b38bcc29148aadc9e5deac2204c0f3))
+* **examples:** add crypto, datetime, random, io, int64 example programs ([86ee6de](https://github.com/Sowiedu/Edict/commit/86ee6deee44455e65e3c484d3a64074d9f4bef5c))
+* implement security sandbox for filesystem and HTTP ([a0a1ce7](https://github.com/Sowiedu/Edict/commit/a0a1ce76fe8c47729770a82cb1e27d741647de57)), closes [#88](https://github.com/Sowiedu/Edict/issues/88)
+* implement semantic unit types (issue [#28](https://github.com/Sowiedu/Edict/issues/28)) ([88acbe7](https://github.com/Sowiedu/Edict/commit/88acbe7068e9db4dae2a14e2353ce9a8fa77c474))
+* implement Universal Agent Skill Format (UASF) [#80](https://github.com/Sowiedu/Edict/issues/80) ([0fabf38](https://github.com/Sowiedu/Edict/commit/0fabf38606bce0c6996f355dc7d2aefb1d027e77))
+* **mcp:** implement WASM Portable Agent Skills ([e3536c7](https://github.com/Sowiedu/Edict/commit/e3536c70c54cc5c09311b40f96e7e0e45d87dee7)), closes [#76](https://github.com/Sowiedu/Edict/issues/76)
+* quantifier support in contracts — forall/exists (issue [#31](https://github.com/Sowiedu/Edict/issues/31)) ([5cc6e44](https://github.com/Sowiedu/Edict/commit/5cc6e44df119a930eb76052723dc4858d2d54e05))
+* **validator:** schema-driven validation ([#90](https://github.com/Sowiedu/Edict/issues/90)) ([a7cc325](https://github.com/Sowiedu/Edict/commit/a7cc325e5282a84dc85cb044b79bdcef9215efd4))
+* Z3 verification caching — structural hash + in-memory cache (issue [#93](https://github.com/Sowiedu/Edict/issues/93) Phase 1) ([34b4c40](https://github.com/Sowiedu/Edict/commit/34b4c401586c313c9e94690a23380ce7d84f69ef))
+* Z3 worker thread offloading — move contract verification to worker (issue [#93](https://github.com/Sowiedu/Edict/issues/93) Phase 2) ([eabb1e4](https://github.com/Sowiedu/Edict/commit/eabb1e4fa67c6d2e456138e5cd1d7717421aa41d))
+
+
+### Bug Fixes
+
+* add main functions to 7 examples that returned exit code 1 ([a423371](https://github.com/Sowiedu/Edict/commit/a423371d00f3790e2dcd57568a9d31ced3c8890d))
+* **checker:** resolve unused variable TypeScript error in generic AST visitor ([8331121](https://github.com/Sowiedu/Edict/commit/83311214bd6c5b7614d30222f269f241f158f1eb))
+* **codegen:** implement tuple field access in type checker and codegen ([e5c1d52](https://github.com/Sowiedu/Edict/commit/e5c1d52b3bb966ad57762b1a2e65f01e936a99a4))
+* **mcp:** resolve test suite failures (call-indirect table & missing entry point) ([df9bf2c](https://github.com/Sowiedu/Edict/commit/df9bf2c257ca0ac1928490e38db79221cdbafa10))
+* meet CI coverage thresholds — exclude untestable files, add 28 targeted tests ([0e46a27](https://github.com/Sowiedu/Edict/commit/0e46a279a79289e39b1f69267cb6fc6a665bdabf))
+* string + codegen emits string_concat instead of i32.add ([418307e](https://github.com/Sowiedu/Edict/commit/418307e28f1d64dcac495625a56ea8054282806a))
+
 ## [1.7.0](https://github.com/Sowiedu/Edict/compare/v1.6.0...v1.7.0) (2026-03-07)
 
 
