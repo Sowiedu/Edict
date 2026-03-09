@@ -25,6 +25,7 @@ const ALL_ERROR_TYPES = [
     "unknown_variant",
     // Phase 2 — Type checking
     "type_mismatch",
+    "unit_mismatch",
     "arity_mismatch",
     "not_a_function",
     "unknown_field",
@@ -42,11 +43,15 @@ const ALL_ERROR_TYPES = [
     "precondition_not_met",
     // Phase 5 — Codegen
     "wasm_validation_error",
+    "missing_entry_point",
     // Patch errors
     "patch_node_not_found",
     "patch_invalid_field",
     "patch_index_out_of_range",
     "patch_delete_not_in_array",
+    // Composition errors
+    "unsatisfied_requirement",
+    "duplicate_provision",
     // Lint warnings
     "unused_variable",
     "unused_import",
@@ -58,6 +63,8 @@ const ALL_ERROR_TYPES = [
     "circular_import",
     "unresolved_module",
     "duplicate_module_name",
+    // Runtime errors
+    "missing_external_module",
 ];
 
 describe("handleErrorCatalog", () => {
