@@ -30,6 +30,13 @@
     "budget": {
       "description": "Bounds on token complexity and program size to prevent runaway agents.",
       "$ref": "#/definitions/ComplexityConstraints"
+    },
+    "blame": {
+      "description": "Structured blame / provenance annotation.\nTracks which agent produced a module or function, when, and with what confidence.",
+      "$ref": "#/definitions/BlameAnnotation"
+    },
+    "minConfidence": {
+      "type": "number"
     }
   },
   "required": [
@@ -164,6 +171,10 @@
         "intent": {
           "description": "Structured intent — what the function is trying to accomplish.\nAgents use this for re-synthesis, blame tracking, and specification diffing.\nInvariants reuse Expression and SemanticAssertion types for automated matching.",
           "$ref": "#/definitions/IntentDeclaration"
+        },
+        "blame": {
+          "description": "Structured blame / provenance annotation.\nTracks which agent produced a module or function, when, and with what confidence.",
+          "$ref": "#/definitions/BlameAnnotation"
         },
         "body": {
           "type": "array",
@@ -1481,6 +1492,29 @@
         "target"
       ]
     },
+    "BlameAnnotation": {
+      "description": "Structured blame / provenance annotation.\nTracks which agent produced a module or function, when, and with what confidence.",
+      "type": "object",
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "generatedAt": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "sourcePrompt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "author",
+        "confidence",
+        "generatedAt"
+      ]
+    },
     "TypeDef": {
       "description": "Type alias definition.",
       "type": "object",
@@ -1497,6 +1531,10 @@
         },
         "definition": {
           "$ref": "#/definitions/TypeExpr"
+        },
+        "blame": {
+          "description": "Structured blame / provenance annotation.\nTracks which agent produced a module or function, when, and with what confidence.",
+          "$ref": "#/definitions/BlameAnnotation"
         }
       },
       "required": [
@@ -1525,6 +1563,10 @@
           "items": {
             "$ref": "#/definitions/RecordField"
           }
+        },
+        "blame": {
+          "description": "Structured blame / provenance annotation.\nTracks which agent produced a module or function, when, and with what confidence.",
+          "$ref": "#/definitions/BlameAnnotation"
         }
       },
       "required": [
@@ -1636,6 +1678,10 @@
           "items": {
             "$ref": "#/definitions/EnumVariant"
           }
+        },
+        "blame": {
+          "description": "Structured blame / provenance annotation.\nTracks which agent produced a module or function, when, and with what confidence.",
+          "$ref": "#/definitions/BlameAnnotation"
         }
       },
       "required": [
@@ -1692,6 +1738,10 @@
         },
         "value": {
           "$ref": "#/definitions/Expression"
+        },
+        "blame": {
+          "description": "Structured blame / provenance annotation.\nTracks which agent produced a module or function, when, and with what confidence.",
+          "$ref": "#/definitions/BlameAnnotation"
         }
       },
       "required": [

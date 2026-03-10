@@ -181,3 +181,18 @@ if (url.endsWith(".ts")) {
 - **Problem**: Proposing hand-written transforms violates automation-first. The user had to ask "can we automate this?" — the agent should have identified this opportunity proactively.
 - **Solution**: Diff stored schema snapshots at build time to auto-generate migration ops. Zero manual migration authoring.
 - **Rule**: When proposing ANY new system, always ask: "Is there an existing artifact (schema, types, config, AST) that this can be derived from?" If yes, design the system to derive from that source of truth automatically. Never propose hand-written code when a derivation is possible. This check must happen BEFORE presenting the plan, not after user feedback.
+
+## 29. Schema-Driven Validation Means No Manual Validation Code
+- **Context**: Adding `blame` field to AST nodes — considered writing manual validation logic in the schema-walker.
+- **Solution**: The schema-walker reads the auto-generated JSON Schema. Adding TypeScript interface fields + rebuild = automatic validation. Zero manual validation code.
+- **Rule**: For new AST fields, always check if the schema-walker handles them automatically. Only add semantic checks for cross-field constraints that JSON Schema can't express.
+
+## 30. Example Programs Must Match Current Schema Version
+- **Context**: Example program `blame-tracking.edict.json` specified `schemaVersion: "1.8.0"` which doesn't exist.
+- **Problem**: The migration system rejected the unknown version, causing handler test failures while direct pipeline tests passed (e2e tests bypass migration).
+- **Rule**: Always check `CURRENT_SCHEMA_VERSION` in `migrate.ts` before setting `schemaVersion` in examples. Currently `"1.1"`.
+
+## 31. Edict Builtins Return Types Must Be Verified
+- **Context**: Assumed `print` returns `Int`, but it actually returns `String` in Edict's type system.
+- **Problem**: `let` binding with explicit `Int` type annotation on `print()` result caused a type mismatch.
+- **Rule**: When using builtins in examples, omit explicit type annotations on `let` bindings and let type inference handle it, or verify the builtin's return type from `src/builtins/builtins.ts`.

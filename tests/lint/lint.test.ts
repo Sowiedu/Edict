@@ -902,4 +902,170 @@ describe("lint", () => {
             });
         });
     });
+
+    // =========================================================================
+    // confidence_below_threshold — blame confidence enforcement
+    // =========================================================================
+
+    describe("confidence_below_threshold", () => {
+        it("warns when function blame confidence is below module minConfidence", () => {
+            const m: EdictModule = {
+                kind: "module", id: "mod-001", name: "test",
+                imports: [], definitions: [{
+                    kind: "fn", id: "fn-001", name: "process",
+                    params: [], effects: ["pure"], returnType: INT, contracts: [],
+                    blame: {
+                        author: "agent://weak-model",
+                        generatedAt: "2026-03-10T00:00:00Z",
+                        confidence: 0.5,
+                    },
+                    body: [{ kind: "literal", id: "lit-001", value: 0 }],
+                }],
+                minConfidence: 0.85,
+            };
+            const warnings = lint(m);
+            const conf = warnings.filter(w => w.warning === "confidence_below_threshold");
+            expect(conf).toHaveLength(1);
+            expect(conf[0]).toMatchObject({
+                warning: "confidence_below_threshold",
+                nodeId: "fn-001",
+                name: "process",
+                actual: 0.5,
+                required: 0.85,
+            });
+        });
+
+        it("warns when module blame confidence is below minConfidence", () => {
+            const m: EdictModule = {
+                kind: "module", id: "mod-001", name: "low_confidence_module",
+                imports: [], definitions: [{
+                    kind: "fn", id: "fn-001", name: "main",
+                    params: [], effects: ["pure"], returnType: INT, contracts: [],
+                    body: [{ kind: "literal", id: "lit-001", value: 0 }],
+                }],
+                blame: {
+                    author: "agent://general-purpose",
+                    generatedAt: "2026-03-10T00:00:00Z",
+                    confidence: 0.6,
+                },
+                minConfidence: 0.85,
+            };
+            const warnings = lint(m);
+            const conf = warnings.filter(w => w.warning === "confidence_below_threshold");
+            expect(conf).toHaveLength(1);
+            expect(conf[0]).toMatchObject({
+                warning: "confidence_below_threshold",
+                nodeId: "mod-001",
+                name: "low_confidence_module",
+                actual: 0.6,
+                required: 0.85,
+            });
+        });
+
+        it("no warning when confidence meets threshold", () => {
+            const m: EdictModule = {
+                kind: "module", id: "mod-001", name: "test",
+                imports: [], definitions: [{
+                    kind: "fn", id: "fn-001", name: "process",
+                    params: [], effects: ["pure"], returnType: INT, contracts: [],
+                    blame: {
+                        author: "agent://specialist",
+                        generatedAt: "2026-03-10T00:00:00Z",
+                        confidence: 0.95,
+                    },
+                    body: [{ kind: "literal", id: "lit-001", value: 0 }],
+                }],
+                blame: {
+                    author: "agent://orchestrator",
+                    generatedAt: "2026-03-10T00:00:00Z",
+                    confidence: 0.90,
+                },
+                minConfidence: 0.85,
+            };
+            const warnings = lint(m);
+            const conf = warnings.filter(w => w.warning === "confidence_below_threshold");
+            expect(conf).toHaveLength(0);
+        });
+
+        it("no warning when no minConfidence is set", () => {
+            const m: EdictModule = {
+                kind: "module", id: "mod-001", name: "test",
+                imports: [], definitions: [{
+                    kind: "fn", id: "fn-001", name: "process",
+                    params: [], effects: ["pure"], returnType: INT, contracts: [],
+                    blame: {
+                        author: "agent://weak-model",
+                        generatedAt: "2026-03-10T00:00:00Z",
+                        confidence: 0.1,
+                    },
+                    body: [{ kind: "literal", id: "lit-001", value: 0 }],
+                }],
+            };
+            const warnings = lint(m);
+            const conf = warnings.filter(w => w.warning === "confidence_below_threshold");
+            expect(conf).toHaveLength(0);
+        });
+
+        it("no warning when blame exists without confidence below threshold", () => {
+            const m: EdictModule = {
+                kind: "module", id: "mod-001", name: "test",
+                imports: [], definitions: [{
+                    kind: "fn", id: "fn-001", name: "process",
+                    params: [], effects: ["pure"], returnType: INT, contracts: [],
+                    blame: {
+                        author: "agent://specialist",
+                        generatedAt: "2026-03-10T00:00:00Z",
+                        confidence: 0.85,
+                    },
+                    body: [{ kind: "literal", id: "lit-001", value: 0 }],
+                }],
+                minConfidence: 0.85,
+            };
+            const warnings = lint(m);
+            const conf = warnings.filter(w => w.warning === "confidence_below_threshold");
+            expect(conf).toHaveLength(0);
+        });
+
+        it("warns on both module and function when both are below threshold", () => {
+            const m: EdictModule = {
+                kind: "module", id: "mod-001", name: "weak_module",
+                imports: [], definitions: [{
+                    kind: "fn", id: "fn-001", name: "weak_fn",
+                    params: [], effects: ["pure"], returnType: INT, contracts: [],
+                    blame: {
+                        author: "agent://general",
+                        generatedAt: "2026-03-10T00:00:00Z",
+                        confidence: 0.3,
+                    },
+                    body: [{ kind: "literal", id: "lit-001", value: 0 }],
+                }],
+                blame: {
+                    author: "agent://orchestrator",
+                    generatedAt: "2026-03-10T00:00:00Z",
+                    confidence: 0.4,
+                },
+                minConfidence: 0.85,
+            };
+            const warnings = lint(m);
+            const conf = warnings.filter(w => w.warning === "confidence_below_threshold");
+            expect(conf).toHaveLength(2);
+            expect(conf[0]).toMatchObject({ nodeId: "mod-001", name: "weak_module", actual: 0.4 });
+            expect(conf[1]).toMatchObject({ nodeId: "fn-001", name: "weak_fn", actual: 0.3 });
+        });
+
+        it("does not warn on functions without blame even if minConfidence is set", () => {
+            const m: EdictModule = {
+                kind: "module", id: "mod-001", name: "test",
+                imports: [], definitions: [{
+                    kind: "fn", id: "fn-001", name: "no_blame",
+                    params: [], effects: ["pure"], returnType: INT, contracts: [],
+                    body: [{ kind: "literal", id: "lit-001", value: 0 }],
+                }],
+                minConfidence: 0.85,
+            };
+            const warnings = lint(m);
+            const conf = warnings.filter(w => w.warning === "confidence_below_threshold");
+            expect(conf).toHaveLength(0);
+        });
+    });
 });

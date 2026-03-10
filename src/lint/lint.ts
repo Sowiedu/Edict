@@ -15,6 +15,7 @@ import {
     redundantEffect,
     decompositionSuggested,
     intentUnverifiedInvariant,
+    confidenceBelowThreshold,
     type LintWarning,
     type SuggestedSplit,
 } from "./warnings.js";
@@ -47,6 +48,7 @@ export function lint(module: EdictModule): LintWarning[] {
     checkRedundantEffects(module, warnings);
     checkDecomposition(module, warnings);
     checkIntentConsistency(module, warnings);
+    checkBlameConfidence(module, warnings);
 
     return warnings;
 }
@@ -608,4 +610,40 @@ function isInvariantCovered(
         }
     }
     return false;
+}
+
+// =============================================================================
+// Blame confidence — minConfidence threshold enforcement
+// =============================================================================
+
+/**
+ * Check blame annotations against the module's minConfidence threshold.
+ * Warns when any module-level or function-level blame.confidence is below the threshold.
+ */
+function checkBlameConfidence(module: EdictModule, warnings: LintWarning[]): void {
+    const threshold = module.minConfidence;
+    if (threshold === undefined) return;
+
+    // Check module-level blame
+    if (module.blame && module.blame.confidence < threshold) {
+        warnings.push(confidenceBelowThreshold(
+            module.id,
+            module.name,
+            module.blame.confidence,
+            threshold,
+        ));
+    }
+
+    // Check all definitions — forward-compatible for any def type with blame
+    for (const def of module.definitions) {
+        if (!('blame' in def) || !def.blame) continue;
+        if (def.blame.confidence < threshold) {
+            warnings.push(confidenceBelowThreshold(
+                def.id,
+                def.name,
+                def.blame.confidence,
+                threshold,
+            ));
+        }
+    }
 }

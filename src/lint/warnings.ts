@@ -19,7 +19,8 @@ export type LintWarning =
     | EmptyBodyWarning
     | RedundantEffectWarning
     | DecompositionSuggestedWarning
-    | IntentUnverifiedInvariantWarning;
+    | IntentUnverifiedInvariantWarning
+    | ConfidenceBelowThresholdWarning;
 
 // =============================================================================
 // Individual warning types
@@ -96,6 +97,15 @@ export interface IntentUnverifiedInvariantWarning {
     nodeId: string;
     functionName: string;
     unverifiedInvariant: IntentInvariant;
+}
+
+export interface ConfidenceBelowThresholdWarning {
+    warning: "confidence_below_threshold";
+    severity: "warning";
+    nodeId: string;
+    name: string;
+    actual: number;
+    required: number;
 }
 
 // =============================================================================
@@ -186,5 +196,22 @@ export function intentUnverifiedInvariant(
         nodeId,
         functionName,
         unverifiedInvariant,
+    };
+}
+
+/** Create a warning when a blame annotation's confidence is below the module's minConfidence threshold. */
+export function confidenceBelowThreshold(
+    nodeId: string,
+    name: string,
+    actual: number,
+    required: number,
+): ConfidenceBelowThresholdWarning {
+    return {
+        warning: "confidence_below_threshold",
+        severity: "warning",
+        nodeId,
+        name,
+        actual,
+        required,
     };
 }

@@ -1,0 +1,135 @@
+{
+    "kind": "module",
+    "id": "mod-blame-tracking",
+    "name": "blame_tracking_demo",
+    "schemaVersion": "1.1",
+    "blame": {
+        "author": "agent://orchestrator-v2",
+        "generatedAt": "2026-03-10T00:00:00Z",
+        "confidence": 0.95,
+        "sourcePrompt": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "minConfidence": 0.80,
+    "imports": [],
+    "definitions": [
+        {
+            "kind": "fn",
+            "id": "fn-validate-payment",
+            "name": "validate_payment",
+            "blame": {
+                "author": "agent://payment-specialist-v3",
+                "generatedAt": "2026-03-10T00:01:00Z",
+                "confidence": 0.92
+            },
+            "params": [
+                { "kind": "param", "id": "p-amount", "name": "amount", "type": { "kind": "basic", "name": "Int" } }
+            ],
+            "effects": ["pure"],
+            "returnType": { "kind": "basic", "name": "Bool" },
+            "contracts": [
+                {
+                    "kind": "post",
+                    "id": "post-validate",
+                    "condition": {
+                        "kind": "binop", "id": "cmp-validate",
+                        "op": "implies",
+                        "left": {
+                            "kind": "binop", "id": "cmp-positive",
+                            "op": ">",
+                            "left": { "kind": "ident", "id": "id-amt", "name": "amount" },
+                            "right": { "kind": "literal", "id": "lit-zero", "value": 0 }
+                        },
+                        "right": {
+                            "kind": "binop", "id": "cmp-result-true",
+                            "op": "==",
+                            "left": { "kind": "ident", "id": "id-result", "name": "result" },
+                            "right": { "kind": "literal", "id": "lit-true", "value": true }
+                        }
+                    }
+                }
+            ],
+            "body": [
+                {
+                    "kind": "binop", "id": "body-check",
+                    "op": ">",
+                    "left": { "kind": "ident", "id": "id-amount-ref", "name": "amount" },
+                    "right": { "kind": "literal", "id": "lit-zero-body", "value": 0 }
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-process-payment",
+            "name": "process_payment",
+            "blame": {
+                "author": "agent://general-purpose-v1",
+                "generatedAt": "2026-03-10T00:02:00Z",
+                "confidence": 0.88
+            },
+            "params": [
+                { "kind": "param", "id": "p-amount2", "name": "amount", "type": { "kind": "basic", "name": "Int" } }
+            ],
+            "effects": ["io"],
+            "returnType": { "kind": "basic", "name": "Bool" },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let", "id": "let-valid",
+                    "name": "is_valid",
+                    "type": { "kind": "basic", "name": "Bool" },
+                    "value": {
+                        "kind": "call", "id": "call-validate",
+                        "fn": { "kind": "ident", "id": "id-validate-fn", "name": "validate_payment" },
+                        "args": [{ "kind": "ident", "id": "id-amt2", "name": "amount" }]
+                    }
+                },
+                {
+                    "kind": "if", "id": "if-valid",
+                    "condition": { "kind": "ident", "id": "id-is-valid", "name": "is_valid" },
+                    "then": [
+                        {
+                            "kind": "let", "id": "let-print",
+                            "name": "_printed",
+                            "value": {
+                                "kind": "call", "id": "call-print",
+                                "fn": { "kind": "ident", "id": "id-print", "name": "print" },
+                                "args": [{ "kind": "literal", "id": "lit-msg", "value": "payment_processed" }]
+                            }
+                        },
+                        { "kind": "literal", "id": "lit-true-result", "value": true }
+                    ],
+                    "else": [
+                        { "kind": "literal", "id": "lit-false-result", "value": false }
+                    ]
+                }
+            ]
+        },
+        {
+            "kind": "fn",
+            "id": "fn-main",
+            "name": "main",
+            "params": [],
+            "effects": ["io"],
+            "returnType": { "kind": "basic", "name": "Int" },
+            "contracts": [],
+            "body": [
+                {
+                    "kind": "let", "id": "let-result",
+                    "name": "ok",
+                    "type": { "kind": "basic", "name": "Bool" },
+                    "value": {
+                        "kind": "call", "id": "call-process",
+                        "fn": { "kind": "ident", "id": "id-process-fn", "name": "process_payment" },
+                        "args": [{ "kind": "literal", "id": "lit-100", "value": 100 }]
+                    }
+                },
+                {
+                    "kind": "if", "id": "if-ok",
+                    "condition": { "kind": "ident", "id": "id-ok", "name": "ok" },
+                    "then": [{ "kind": "literal", "id": "lit-exit-0", "value": 0 }],
+                    "else": [{ "kind": "literal", "id": "lit-exit-1", "value": 1 }]
+                }
+            ]
+        }
+    ]
+}

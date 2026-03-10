@@ -667,6 +667,39 @@ function runSemanticChecks(
             }
         }
     }
+
+    // Blame confidence range check — confidence must be 0–1
+    if (props["blame"] && isObject(node["blame"])) {
+        const blame = node["blame"] as AnyNode;
+        const confidence = blame["confidence"];
+        if (typeof confidence === "number" && (confidence < 0 || confidence > 1)) {
+            errors.push(
+                invalidFieldType(
+                    `${path}.blame`,
+                    nodeId,
+                    "confidence",
+                    "number (0–1)",
+                    String(confidence),
+                ),
+            );
+        }
+    }
+
+    // minConfidence range check — must be 0–1
+    if (props["minConfidence"] && typeof node["minConfidence"] === "number") {
+        const minConf = node["minConfidence"] as number;
+        if (minConf < 0 || minConf > 1) {
+            errors.push(
+                invalidFieldType(
+                    path,
+                    nodeId,
+                    "minConfidence",
+                    "number (0–1)",
+                    String(minConf),
+                ),
+            );
+        }
+    }
 }
 
 // =============================================================================

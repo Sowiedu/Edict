@@ -30,7 +30,7 @@ Contract Verifier ── unproven? → StructuredError + counterexample → Agen
 
 **The core loop**: Agent submits AST → compiler validates → if wrong, return a `StructuredError` with enough context for the agent to self-repair → agent fixes → resubmit.
 
-**Agent onboarding**: The agent receives the AST schema (TypeScript interfaces) and 30 example programs as part of its system prompt or MCP resource. No documentation needed — the schema *is* the spec.
+**Agent onboarding**: The agent receives the AST schema (TypeScript interfaces) and 31 example programs as part of its system prompt or MCP resource. No documentation needed — the schema *is* the spec.
 
 ---
 
@@ -196,7 +196,7 @@ interface Contract {
 ```
 edict.schema()          → JSON Schema (the full AST spec)
 edict.version()         → Compiler version and capability info
-edict.examples()        → 30 example programs as AST JSON
+edict.examples()        → 31 example programs as AST JSON
 edict.validate(ast)     → StructuredError[] | "ok"
 edict.check(ast)        → StructuredError[] | "ok"       // types + effects + contracts
 edict.compile(ast)      → { wasm: Base64 } | StructuredError[]

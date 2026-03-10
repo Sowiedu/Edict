@@ -32,6 +32,17 @@ export const VALID_EFFECTS: readonly Effect[] = [
 // =============================================================================
 
 /**
+ * Structured blame / provenance annotation.
+ * Tracks which agent produced a module or function, when, and with what confidence.
+ */
+export interface BlameAnnotation {
+    author: string;           // e.g. "agent://payment-specialist-v3"
+    generatedAt: string;      // ISO 8601 timestamp
+    confidence: number;       // 0.0–1.0
+    sourcePrompt?: string;    // optional hash of the prompt, e.g. "sha256:abc123..."
+}
+
+/**
  * A complete Edict program / module.
  */
 export interface EdictModule {
@@ -42,6 +53,8 @@ export interface EdictModule {
     imports: Import[];
     definitions: Definition[];
     budget?: ComplexityConstraints;
+    blame?: BlameAnnotation;
+    minConfidence?: number;
 }
 
 /**
@@ -55,6 +68,7 @@ export interface EdictFragment {
     requires: string[];       // names this fragment depends on (external)
     imports: Import[];        // module imports needed by this fragment
     definitions: Definition[];
+    blame?: BlameAnnotation;
 }
 
 /**
@@ -92,6 +106,7 @@ export interface FunctionDef {
     contracts: Contract[];
     constraints?: ComplexityConstraints;
     intent?: IntentDeclaration;
+    blame?: BlameAnnotation;
     body: Expression[];
 }
 
@@ -135,6 +150,7 @@ export interface TypeDef {
     id: string;
     name: string;
     definition: TypeExpr;
+    blame?: BlameAnnotation;
 }
 
 /**
@@ -145,6 +161,7 @@ export interface RecordDef {
     id: string;
     name: string;
     fields: RecordField[];
+    blame?: BlameAnnotation;
 }
 
 /**
@@ -166,6 +183,7 @@ export interface EnumDef {
     id: string;
     name: string;
     variants: EnumVariant[];
+    blame?: BlameAnnotation;
 }
 
 /**
@@ -187,6 +205,7 @@ export interface ConstDef {
     name: string;
     type: TypeExpr;
     value: Expression;
+    blame?: BlameAnnotation;
 }
 
 // =============================================================================
