@@ -239,3 +239,9 @@ if (url.endsWith(".ts")) {
 - **Context**: `WebAssembly.instantiate()` has two overloads with different return types.
 - **Problem**: Passing `Uint8Array` returns `{ instance, module }` (InstantiateResult). Passing a compiled `WebAssembly.Module` returns `Instance` directly. Using `.instance.exports` on the Module overload silently returns `undefined`.
 - **Rule**: Always declare proper overloaded types when wrapping multi-signature APIs. Test both code paths.
+
+## 40. Run `npm run ci:local` Before Pushing — Not Just Tests
+- **Problem**: Ran `vitest run --coverage` locally which passed, but CI caught `validate-examples` failures.
+- **Root cause**: `npm test` only runs vitest. The `ci:local` script also runs `typecheck`, `check:jsdoc`, `build`, AND `validate-examples`.
+- **Fix**: Always run `npm run ci:local` (or at minimum `npm run validate-examples`) before pushing.
+- **Pattern**: Know the full CI pipeline. `npm test` is necessary but not sufficient. The `ci:local` script mirrors what CI runs.
