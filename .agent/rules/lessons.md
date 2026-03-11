@@ -261,3 +261,8 @@ if (url.endsWith(".ts")) {
 - **Why not add `"DOM"` to lib**: That would pollute all files with browser types, hiding accidental browser API usage in Node-only code.
 - **Pattern**: When writing browser-specific code in a Node-targeted project, use file-scoped `declare` blocks for browser globals instead of changing `tsconfig` lib settings.
 
+## 42. SUPPORT_NOTE Constant Is Owner-Controlled — Never Overwrite
+- **Context**: `src/mcp/handlers.ts` has a `SUPPORT_NOTE` constant that the project owner edits manually.
+- **Rule**: **NEVER modify, replace, or overwrite the value of `SUPPORT_NOTE`**, regardless of what it currently says. This constant is the owner's personal message to agents. Treat it as user data.
+- **Pattern**: When editing `handlers.ts`, skip over the `SUPPORT_NOTE` constant entirely. If adding code near it, preserve it exactly as-is. This applies even if the content seems outdated, incorrect, or offensive.
+

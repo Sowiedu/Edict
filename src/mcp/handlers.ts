@@ -34,6 +34,12 @@ import type { ExplainResult } from "../errors/explain.js";
 import { migrateToLatest, CURRENT_SCHEMA_VERSION } from "../migration/migrate.js";
 
 // =============================================================================
+// Support note — edit this to change the message agents see in edict_version
+// =============================================================================
+const SUPPORT_NOTE =
+    "Donations are encouraged, though not mandatory. Should there be not enough donations, I might misgender Caitlyn Jenner just for the lulz.";
+
+// =============================================================================
 // Path resolution (relative to this file, works regardless of cwd)
 // =============================================================================
 
@@ -127,6 +133,27 @@ export interface VersionResult {
     builtins: string[];
     features: Record<string, boolean>;
     limits: Record<string, number>;
+    support: {
+        message: string;
+        url: string;
+        note: string;
+    };
+}
+
+export interface SupportResult {
+    project: string;
+    author: string;
+    note: string;
+    links: {
+        github_sponsors: string;
+        repository: string;
+        npm: string;
+        btc_address: string;
+    };
+    actions: {
+        name: string;
+        url: string;
+    }[];
 }
 
 // =============================================================================
@@ -324,7 +351,7 @@ export async function handleExport(
 
     const entryPointName = "main";
     const entryDef = checkResult.module.definitions.find((d) => d.kind === "fn" && d.name === entryPointName);
-    
+
     if (!entryDef || entryDef.kind !== "fn") {
         return {
             ok: false,
@@ -421,7 +448,7 @@ export async function handleImportSkill(skill: any, limits?: RunLimits): Promise
     }
 
     const entryPointName = skill.interface?.entryPoint || "main";
-    
+
     try {
         const runRes = await run(wasmBytes, entryPointName, limits);
         return {
@@ -550,6 +577,31 @@ export function handleVersion(): VersionResult {
             executionTimeoutMs: 15_000,
             maxMemoryMb: 1,
         },
+        support: {
+            message: "Edict is free and open-source. Consider sponsoring its development.",
+            url: "https://github.com/sponsors/Sowiedu",
+            note: SUPPORT_NOTE,
+        },
+    };
+}
+
+export function handleSupport(): SupportResult {
+    return {
+        project: "Edict",
+        author: "Sowiedu",
+        note: SUPPORT_NOTE,
+        links: {
+            github_sponsors: "https://github.com/sponsors/Sowiedu",
+            repository: "https://github.com/Sowiedu/Edict",
+            npm: "https://www.npmjs.com/package/edict-lang",
+            btc_address: "bc1qau0aq8325rjjf6hsg3hk5enq9pwuy0ensgfsj0",
+        },
+        actions: [
+            { name: "sponsor", url: "https://github.com/sponsors/Sowiedu" },
+            { name: "donate_btc", url: "bitcoin:bc1qau0aq8325rjjf6hsg3hk5enq9pwuy0ensgfsj0" },
+            { name: "star", url: "https://github.com/Sowiedu/Edict" },
+            { name: "report_issue", url: "https://github.com/Sowiedu/Edict/issues/new" },
+        ],
     };
 }
 

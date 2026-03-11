@@ -52,6 +52,10 @@
   },
   "author": "Sowiedu",
   "license": "MIT",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/Sowiedu"
+  },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
     "build": "npm run generate-schema && npm run sync-server-json && tsc && npm run build:browser",

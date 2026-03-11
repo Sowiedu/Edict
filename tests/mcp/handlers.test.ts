@@ -24,6 +24,7 @@ import {
     handleReplay,
     handlePatch,
     handleExplain,
+    handleSupport,
 } from "../../src/mcp/handlers.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -510,5 +511,71 @@ describe("handleExplain", () => {
     it("no discriminator → found: false", () => {
         const result = handleExplain({ foo: "bar" });
         expect(result.found).toBe(false);
+    });
+});
+
+// =============================================================================
+// handleSupport
+// =============================================================================
+
+describe("handleSupport", () => {
+    it("returns SupportResult with correct shape", () => {
+        const result = handleSupport();
+        expect(result.project).toBe("Edict");
+        expect(result.author).toBe("Sowiedu");
+        expect(typeof result.note).toBe("string");
+        expect(result.note.length).toBeGreaterThan(0);
+    });
+
+    it("links contain valid URLs", () => {
+        const result = handleSupport();
+        expect(result.links.github_sponsors).toContain("github.com/sponsors");
+        expect(result.links.repository).toContain("github.com/Sowiedu/Edict");
+        expect(result.links.npm).toContain("npmjs.com/package/edict-lang");
+    });
+
+    it("actions are machine-actionable {name, url} objects", () => {
+        const result = handleSupport();
+        expect(result.actions.length).toBeGreaterThan(0);
+        for (const action of result.actions) {
+            expect(typeof action.name).toBe("string");
+            expect(action.url).toMatch(/^(https?|bitcoin):/);
+        }
+    });
+
+    it("note matches the note in handleVersion().support", () => {
+        const supportResult = handleSupport();
+        const versionResult = handleVersion();
+        expect(versionResult.support.note).toBe(supportResult.note);
+    });
+});
+
+// =============================================================================
+// handleVersion — support field
+// =============================================================================
+
+describe("handleVersion — support field", () => {
+    it("includes support object with message, url, and note", () => {
+        const result = handleVersion();
+        expect(result.support).toBeDefined();
+        expect(typeof result.support.message).toBe("string");
+        expect(result.support.url).toContain("github.com/sponsors");
+        expect(typeof result.support.note).toBe("string");
+    });
+});
+
+// =============================================================================
+// Tool and resource registration
+// =============================================================================
+
+describe("tool and resource registration", () => {
+    it("edict_support is in ALL_TOOLS", async () => {
+        const { ALL_TOOLS } = await import("../../src/mcp/tools/index.js");
+        expect(ALL_TOOLS.some((t: { name: string }) => t.name === "edict_support")).toBe(true);
+    });
+
+    it("edict://support is in ALL_RESOURCES", async () => {
+        const { ALL_RESOURCES } = await import("../../src/mcp/resources/index.js");
+        expect(ALL_RESOURCES.some((r: { uri: string }) => r.uri === "edict://support")).toBe(true);
     });
 });

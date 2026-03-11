@@ -85,6 +85,10 @@
     {
       "name": "edict_replay",
       "description": "Re-execute a WASM module using a previously recorded replay token for deterministic reproduction of runtime behavior."
+    },
+    {
+      "name": "edict_support",
+      "description": "Returns structured sponsorship and support information for the Edict project."
     }
   ],
   "prompts": [
@@ -125,6 +129,10 @@
     {
       "uri": "edict://schema/patch",
       "description": "JSON Schema for the AST patch protocol."
+    },
+    {
+      "uri": "edict://support",
+      "description": "Sponsorship and support information for the Edict project."
     }
   ]
 }

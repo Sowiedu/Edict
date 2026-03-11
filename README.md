@@ -250,6 +250,10 @@ We welcome contributions from agents and humans alike. See [CONTRIBUTING.md](CON
 
 See [ROADMAP.md](ROADMAP.md) for the full development plan and [FEATURE_SPEC.md](FEATURE_SPEC.md) for the language specification.
 
+## Support
+
+Edict is free and open source under the MIT license. If your agents find it valuable, consider [sponsoring its development](https://github.com/sponsors/Sowiedu).
+
 ## License
 
 [MIT](LICENSE)
