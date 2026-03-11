@@ -1,34 +1,26 @@
 {
-  "$schema": "https://registry.modelcontextprotocol.io/schema/server.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.sowiedu/edict",
-  "display_name": "Edict Compiler",
   "description": "A programming language designed for AI agents. No parser, no syntax — agents produce AST directly as JSON. Statically typed, effect-tracked, contract-verified via Z3, compiled to WASM.",
   "repository": {
     "url": "https://github.com/Sowiedu/Edict",
-    "source": "github",
-    "id": "Sowiedu/Edict"
+    "source": "github"
   },
-  "version_detail": {
-    "version": "1.5.0",
-    "release_date": "2026-03-07",
-    "is_latest": true
-  },
+  "version": "1.9.0",
   "packages": [
     {
-      "registry_name": "npm",
-      "name": "edict-lang",
-      "version": "1.6.0",
-      "runtime": "node",
-      "runtime_arguments": [],
-      "package_arguments": [],
-      "environment_variables": []
+      "registryType": "npm",
+      "identifier": "edict-lang",
+      "version": "1.9.0",
+      "transport": {
+        "type": "stdio"
+      }
     }
   ],
-  "remotes": [],
   "tools": [
     {
       "name": "edict_schema",
-      "description": "Return the JSON Schema defining valid Edict AST programs. Supports full, minimal, and compact formats."
+      "description": "Return the JSON Schema defining valid Edict AST programs. Use format 'minimal' for reduced token cost (strips descriptions)."
     },
     {
       "name": "edict_version",
@@ -36,27 +28,27 @@
     },
     {
       "name": "edict_examples",
-      "description": "Return 19 example programs as JSON ASTs."
+      "description": "Return example programs as JSON ASTs."
     },
     {
       "name": "edict_validate",
-      "description": "Validate an Edict AST against the compiler's JSON schema without typing or compiling."
+      "description": "Validate an Edict AST against the compiler's JSON schema without typing or compiling. Use this as a first pass."
     },
     {
       "name": "edict_check",
-      "description": "Run the full semantic checker: name resolution, type checking, effect checking, contract verification."
+      "description": "Run the full semantic checker (name resolution, type checking, effect checking, contract verification) on an AST. Supports single module or multi-module input."
     },
     {
       "name": "edict_compile",
-      "description": "Compile a semantically valid Edict AST into a WebAssembly module (base64)."
+      "description": "Compile a semantically valid Edict AST into a WebAssembly module. Returns the WASM binary encoded as a base64 string. Supports single module or multi-module input."
     },
     {
       "name": "edict_run",
-      "description": "Execute a compiled WASM binary in a sandboxed runtime with configurable limits."
+      "description": "Execute a compiled WebAssembly module (provided as base64) in a sandboxed runtime with configurable limits."
     },
     {
       "name": "edict_patch",
-      "description": "Apply surgical AST patches by nodeId, then re-check. Fix errors without resubmitting the entire AST."
+      "description": "Apply surgical patches to an Edict AST by nodeId, then run the full check pipeline. Fix errors without resubmitting the entire AST."
     },
     {
       "name": "edict_errors",
@@ -64,25 +56,53 @@
     },
     {
       "name": "edict_lint",
-      "description": "Run non-blocking lint analysis and return quality warnings."
+      "description": "Run non-blocking lint analysis on an Edict AST. Returns quality warnings without blocking compilation."
+    },
+    {
+      "name": "edict_debug",
+      "description": "Execute an Edict program with debug instrumentation. Returns structured crash diagnostics including call stack, crash location with nodeId, and step count."
+    },
+    {
+      "name": "edict_compose",
+      "description": "Compose multiple Edict program fragments into a single module. Fragments declare what they provide and require."
+    },
+    {
+      "name": "edict_explain",
+      "description": "Given a structured error, returns enriched repair context: pipeline stage, field metadata, example ASTs, and repair strategy."
+    },
+    {
+      "name": "edict_export",
+      "description": "Export an Edict AST as a portable WASM skill package with validation and manifest generation."
+    },
+    {
+      "name": "edict_import_skill",
+      "description": "Import and execute a compiled Edict WASM skill package, validating its checksum."
+    },
+    {
+      "name": "edict_generate_tests",
+      "description": "Auto-generate structured test cases from Z3-verified contracts. Extracts boundary values and counterexamples as regression tests."
+    },
+    {
+      "name": "edict_replay",
+      "description": "Re-execute a WASM module using a previously recorded replay token for deterministic reproduction of runtime behavior."
     }
   ],
   "prompts": [
     {
       "name": "write_program",
-      "description": "System prompt for writing a new Edict program from a task description."
+      "description": "System prompt for writing a new Edict program from a task description. Includes minimal schema, example, and builtin list."
     },
     {
       "name": "fix_error",
-      "description": "Prompt for fixing a structured Edict compiler error."
+      "description": "Prompt for fixing a structured Edict compiler error. Includes error taxonomy and fix strategy."
     },
     {
       "name": "add_contracts",
-      "description": "Prompt for adding pre/postcondition contracts for Z3 verification."
+      "description": "Prompt for adding pre/postcondition contracts to existing Edict functions for Z3 formal verification."
     },
     {
       "name": "review_ast",
-      "description": "Prompt for reviewing an Edict AST for quality issues."
+      "description": "Prompt for reviewing an Edict AST for quality issues (unused variables, missing effects, dead code, etc.)."
     }
   ],
   "resources": [
