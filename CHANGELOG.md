@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/Sowiedu/Edict/compare/v1.10.0...v1.10.1) (2026-03-11)
+
+
+### Bug Fixes
+
+* update MCP barrel export test expectations for support tool/resource ([74e9750](https://github.com/Sowiedu/Edict/commit/74e9750c695765d576218b17657e4db017555e12))
+
 ## [1.10.0](https://github.com/Sowiedu/Edict/compare/v1.9.2...v1.10.0) (2026-03-11)
 
 

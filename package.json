@@ -1,6 +1,6 @@
 {
   "name": "edict-lang",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "mcpName": "io.github.Sowiedu/edict",
   "description": "Edict — A programming language designed for AI agents. No parser, no syntax — agents produce AST directly as JSON. Statically typed, effect-tracked, contract-verified, compiled to WASM.",
   "type": "module",
