@@ -1,18 +1,19 @@
 /**
- * @module edict-lang
+ * @module edict-lang/browser
  *
- * Edict Public API — the complete compiler pipeline and supporting utilities.
+ * Edict Browser API — the Node-free subset of the compiler pipeline.
  *
- * Pipeline phases (in order):
- * 1. **Validation** — structural AST validation (`validate`)
- * 2. **Resolution** — name resolution with did-you-mean suggestions (`resolve`)
- * 3. **Type Checking** — bidirectional type inference (`typeCheck`)
- * 4. **Effect Checking** — call-graph-based effect propagation (`effectCheck`)
- * 5. **Contract Verification** — Z3 SMT proving of pre/post contracts (`contractVerify`)
- * 6. **Code Generation** — WASM compilation via binaryen (`compile`)
- * 7. **Execution** — WASM instantiation and execution (`run`, `runDirect`)
+ * This entry point exports everything that runs without Node.js APIs.
+ * It includes phases 1–3 (validate, resolve, typeCheck, effectCheck),
+ * plus lint, patch, compose, compact expansion, migration, and error utilities.
  *
- * Convenience wrappers: `check` (phases 1–5), `compileAndRun` (phases 1–7).
+ * Excluded (require Node.js):
+ * - Phase 4: Contract verification (Z3, worker threads)
+ * - Phase 5–6: WASM compilation and execution (binaryen, worker threads)
+ * - MCP server (filesystem, crypto)
+ * - Incremental checking (crypto for hashing)
+ *
+ * Convenience wrapper: `checkBrowser` (phases 1–3 without contract verification).
  */
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,11 @@ export { TypeEnv } from "./checker/type-env.js";
 export { typesEqual, isUnknown, resolveType } from "./checker/types-equal.js";
 
 // ---------------------------------------------------------------------------
+// Phase 2c — Complexity Checking: AST size and depth limits
+// ---------------------------------------------------------------------------
+export { complexityCheck } from "./checker/complexity.js";
+
+// ---------------------------------------------------------------------------
 // Phase 3 — Effect Checking: call-graph effect propagation
 // ---------------------------------------------------------------------------
 export { effectCheck } from "./effects/effect-check.js";
@@ -50,23 +56,7 @@ export { buildCallGraph, collectCalls } from "./effects/call-graph.js";
 export type { CallEdge, CallGraph, EffectSource } from "./effects/call-graph.js";
 
 // ---------------------------------------------------------------------------
-// Phase 4 — Contract Verification: Z3 SMT proving of pre/post contracts
-// ---------------------------------------------------------------------------
-export { contractVerify, clearVerificationCache, type ContractVerifyOptions } from "./contracts/verify.js";
-export type { ContractVerifyResult } from "./contracts/verify.js";
-export { getZ3, resetZ3 } from "./contracts/z3-context.js";
-export { translateExpr, translateExprList, createParamVariables } from "./contracts/translate.js";
-export type { TranslationContext, TranslationError } from "./contracts/translate.js";
-export { computeVerificationHash } from "./contracts/hash.js";
-
-// ---------------------------------------------------------------------------
-// Full Pipeline: validate → resolve → typeCheck → effectCheck → contractVerify
-// ---------------------------------------------------------------------------
-export { check } from "./check.js";
-export type { CheckResult } from "./check.js";
-
-// ---------------------------------------------------------------------------
-// Browser Pipeline: validate → resolve → typeCheck → effectCheck (no contracts)
+// Browser Pipeline — validate → resolve → typeCheck → effectCheck (no contracts)
 // ---------------------------------------------------------------------------
 export { checkBrowser } from "./check-browser.js";
 export type { CheckBrowserResult } from "./check-browser.js";
@@ -172,7 +162,7 @@ export type {
     // Phase 3
     EffectViolationError,
     EffectInPureError,
-    // Phase 4
+    // Phase 4 (types only — still useful for consumers even without contract verification)
     ContractFailureError,
     VerificationTimeoutError,
     UndecidablePredicateError,
@@ -231,7 +221,7 @@ export {
     // Phase 3
     effectViolation,
     effectInPure,
-    // Phase 4
+    // Phase 4 (constructors — useful for test fixtures even without Z3)
     contractFailure,
     verificationTimeout,
     undecidablePredicate,
@@ -261,38 +251,6 @@ export {
 } from "./errors/structured-errors.js";
 
 // ---------------------------------------------------------------------------
-// Phase 5 — Code Generation: WASM compilation via binaryen
-// ---------------------------------------------------------------------------
-export { compile } from "./codegen/codegen.js";
-export type {
-    CompileResult,
-    CompileSuccess,
-    CompileFailure,
-    CompileOptions,
-} from "./codegen/codegen.js";
-export { run, runDirect } from "./codegen/runner.js";
-export type { RunResult, RunLimits } from "./codegen/runner.js";
-export type { ReplayToken, ReplayEntry } from "./codegen/replay-types.js";
-export { createRecordingAdapter } from "./codegen/recording-adapter.js";
-export { createReplayAdapter, ReplayExhaustedError } from "./codegen/replay-adapter.js";
-export { compileAndRun } from "./compile.js";
-export type {
-    CompileAndRunResult,
-    CompileAndRunSuccess,
-    CompileAndRunFailure,
-} from "./compile.js";
-export { StringTable } from "./codegen/string-table.js";
-export { BUILTIN_FUNCTIONS, isBuiltin, getBuiltin } from "./builtins/builtins.js";
-
-// ---------------------------------------------------------------------------
-// Host Adapters: platform-specific I/O implementations (Node, Browser)
-// ---------------------------------------------------------------------------
-export type { EdictHostAdapter } from "./codegen/host-adapter.js";
-export { NodeHostAdapter } from "./codegen/node-host-adapter.js";
-export { BrowserHostAdapter } from "./codegen/browser-host-adapter.js";
-export { EdictOomError } from "./builtins/host-helpers.js";
-
-// ---------------------------------------------------------------------------
 // Error Catalog: machine-readable registry of all error types with examples
 // ---------------------------------------------------------------------------
 export { buildErrorCatalog } from "./errors/error-catalog.js";
@@ -303,11 +261,6 @@ export type { ErrorCatalog, ErrorCatalogEntry } from "./errors/error-catalog.js"
 // ---------------------------------------------------------------------------
 export { explainError } from "./errors/explain.js";
 export type { ExplainResult, ExplainResultFound, ExplainResultNotFound, RepairAction } from "./errors/explain.js";
-
-// ---------------------------------------------------------------------------
-// Compact AST Format: token-efficient abbreviated AST representation
-// ---------------------------------------------------------------------------
-export { expandCompact, isCompactAst, compactSchemaReference } from "./compact/expand.js";
 
 // ---------------------------------------------------------------------------
 // Lint: non-blocking code quality warnings
@@ -352,25 +305,9 @@ export { compose } from "./compose/compose.js";
 export type { ComposeResult } from "./compose/compose.js";
 
 // ---------------------------------------------------------------------------
-// Multi-Module Compilation: cross-module resolution and linking
+// Compact AST Format: token-efficient abbreviated AST representation
 // ---------------------------------------------------------------------------
-export { checkMultiModule } from "./multi-module.js";
-export type { MultiModuleCheckResult } from "./multi-module.js";
-
-// ---------------------------------------------------------------------------
-// Incremental Checking: re-verify only changed definitions
-// ---------------------------------------------------------------------------
-export { incrementalCheck } from "./incremental/check.js";
-export type { IncrementalCheckResult } from "./incremental/check.js";
-export { buildDepGraph, transitiveDependents } from "./incremental/dep-graph.js";
-export type { DepGraph } from "./incremental/dep-graph.js";
-export { diffDefinitions } from "./incremental/diff.js";
-
-// ---------------------------------------------------------------------------
-// Test-Contract Bridge: auto-generate tests from Z3-verified contracts
-// ---------------------------------------------------------------------------
-export { generateTests } from "./contracts/generate-tests.js";
-export type { GeneratedTest, GenerateTestsResult } from "./contracts/generate-tests.js";
+export { expandCompact, isCompactAst, compactSchemaReference } from "./compact/expand.js";
 
 // ---------------------------------------------------------------------------
 // Schema Migration: auto-migrate ASTs from older schema versions
@@ -378,3 +315,8 @@ export type { GeneratedTest, GenerateTestsResult } from "./contracts/generate-te
 export { migrateToLatest, applyMigration, CURRENT_SCHEMA_VERSION, MINIMUM_SCHEMA_VERSION, MIGRATION_REGISTRY } from "./migration/migrate.js";
 export type { Migration, MigrationOp, MigrationResult, MigrationSuccess, MigrationFailure } from "./migration/migrate.js";
 
+// ---------------------------------------------------------------------------
+// Builtins: type metadata (Node-free — imports from builtin-meta, not registry)
+// ---------------------------------------------------------------------------
+export { BUILTIN_FUNCTIONS, isBuiltin, getBuiltin } from "./builtins/builtin-meta.js";
+export type { BuiltinFunction } from "./builtins/builtin-meta.js";

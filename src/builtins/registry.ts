@@ -1,15 +1,13 @@
 // =============================================================================
-// Builtin Registry — single source of truth for all Edict builtins
+// Builtin Registry — runtime concerns (host imports + WASM generators)
 // =============================================================================
-// Each builtin's type signature and implementation are co-located in domain
-// files under src/builtins/domains/. This registry composes all domains and
-// derives the BUILTIN_FUNCTIONS map, host imports, and WASM generators.
+// Re-exports type metadata from builtin-meta.ts (Node-free) and adds
+// runtime-specific code: createHostImports (needs NodeHostAdapter) and
+// generateWasmBuiltins (needs binaryen). Only codegen should import this.
 //
-// Adding a new builtin:
-//   1. Add a BuiltinDef entry to the appropriate domain file
-//   2. That's it — registry derives everything else automatically
+// For type metadata only (resolver, checker, effects), import from
+// builtin-meta.ts or builtins.ts instead.
 
-import type { FunctionType } from "../ast/types.js";
 import type { EdictHostAdapter } from "../codegen/host-adapter.js";
 import { NodeHostAdapter } from "../codegen/node-host-adapter.js";
 import type { RuntimeState, HostContext } from "./host-helpers.js";
@@ -19,100 +17,13 @@ import type { ReplayEntry } from "../codegen/replay-types.js";
 
 // Re-export types so consumers can import from registry or builtin-types
 export type { BuiltinDef, BuiltinImpl } from "./builtin-types.js";
-import type { BuiltinDef } from "./builtin-types.js";
 
-// ── Domain imports ──────────────────────────────────────────────────────────
+// Re-export all metadata from builtin-meta (the Node-free source of truth)
+export { ALL_BUILTINS, BUILTIN_FUNCTIONS, isBuiltin, getBuiltin } from "./builtin-meta.js";
+export type { BuiltinFunction } from "./builtin-meta.js";
 
-import { CORE_BUILTINS } from "./domains/core.js";
-import { STRING_BUILTINS } from "./domains/string.js";
-import { MATH_BUILTINS } from "./domains/math.js";
-import { TYPE_CONVERSION_BUILTINS } from "./domains/type-conversion.js";
-import { INT64_BUILTINS } from "./domains/int64.js";
-import { ARRAY_BUILTINS } from "./domains/array.js";
-import { OPTION_BUILTINS } from "./domains/option.js";
-import { RESULT_BUILTINS } from "./domains/result.js";
-import { JSON_BUILTINS } from "./domains/json.js";
-import { RANDOM_BUILTINS } from "./domains/random.js";
-import { DATETIME_BUILTINS } from "./domains/datetime.js";
-import { REGEX_BUILTINS } from "./domains/regex.js";
-import { CRYPTO_BUILTINS } from "./domains/crypto.js";
-import { HTTP_BUILTINS } from "./domains/http.js";
-import { IO_BUILTINS } from "./domains/io.js";
-
-
-
-/**
- * Backward-compatible builtin interface — same shape as the old BuiltinFunction.
- * Used by resolver, checker, codegen, etc.
- */
-export interface BuiltinFunction {
-    /** Edict-level function type signature (includes effects, params, returnType) */
-    type: FunctionType;
-    /** WASM import: [module, base] names */
-    wasmImport: [string, string];
-    /** Provenance source tag — auto-wraps return type in ProvenanceType at the checker level */
-    provenance?: string;
-}
-
-// =============================================================================
-// Registry composition
-// =============================================================================
-
-/** All builtins from all domains, composed in one flat array. */
-export const ALL_BUILTINS: readonly BuiltinDef[] = [
-    ...CORE_BUILTINS,
-    ...STRING_BUILTINS,
-    ...MATH_BUILTINS,
-    ...TYPE_CONVERSION_BUILTINS,
-    ...INT64_BUILTINS,
-    ...ARRAY_BUILTINS,
-    ...OPTION_BUILTINS,
-    ...RESULT_BUILTINS,
-    ...JSON_BUILTINS,
-    ...RANDOM_BUILTINS,
-    ...DATETIME_BUILTINS,
-    ...REGEX_BUILTINS,
-    ...CRYPTO_BUILTINS,
-    ...HTTP_BUILTINS,
-    ...IO_BUILTINS,
-];
-
-// =============================================================================
-// Derived maps
-// =============================================================================
-
-/** Derive the WASM import path from the implementation kind. */
-function deriveWasmImport(def: BuiltinDef): [string, string] {
-    return def.impl.kind === "host"
-        ? ["host", def.name]
-        : ["__wasm", def.name];
-}
-
-/**
- * Backward-compatible builtin function map — derived from the registry.
- * Same API as the old BUILTIN_FUNCTIONS in builtins.ts.
- */
-export const BUILTIN_FUNCTIONS: ReadonlyMap<string, BuiltinFunction> = new Map(
-    ALL_BUILTINS.map(b => [b.name, {
-        type: b.type,
-        wasmImport: deriveWasmImport(b),
-        ...(b.provenance ? { provenance: b.provenance } : {}),
-    }])
-);
-
-/**
- * Check if a name refers to a built-in function.
- */
-export function isBuiltin(name: string): boolean {
-    return BUILTIN_FUNCTIONS.has(name);
-}
-
-/**
- * Get the built-in function definition, or undefined.
- */
-export function getBuiltin(name: string): BuiltinFunction | undefined {
-    return BUILTIN_FUNCTIONS.get(name);
-}
+// Import ALL_BUILTINS locally for use in createHostImports/generateWasmBuiltins
+import { ALL_BUILTINS } from "./builtin-meta.js";
 
 // =============================================================================
 // Replay log mode — controls record/replay behavior for nondeterministic builtins

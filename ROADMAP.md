@@ -248,7 +248,7 @@ Multi-file programs use a simple module system:
 | **5** | WASM Code Gen | ✅ Complete |
 | **6** | MCP Toolchain | ✅ Complete |
 
-All 6 phases are implemented and shipping (v1.8.0+). 1800+ tests across 105 test files. 38 example programs.
+All 6 phases are implemented and shipping (v1.9.2+). 1860+ tests across 106 test files. 38 example programs.
 
 ---
 
@@ -275,8 +275,7 @@ With the full pipeline operational, these are the open areas for further develop
 | **Type system reconciliation** | #87 | Runtime is monomorphic (all `i32`); type system appears parametric. Choose honest monomorphism or real monomorphization. |
 | **Mid-level IR** | #89 | Introduce IR between AST and WASM for optimizations and retargetability. |
 | **Effect polymorphism** | #94 | Higher-order functions need effect variables to propagate closure effects. Depends on #87. |
-| **Browser compilation** | #75 | All dependencies (binaryen, z3) already ship as WASM. Browser-compatible build is feasible. |
+| **Browser compilation** | #75 | Phase 1 complete: `edict-lang/browser` ESM bundle (310KB) exposes phases 1-3, lint, patch, compose. Phase 2: binaryen/Z3 in browser. |
 | **Edge deployment** | #77 | Deploy compiled WASM to Cloudflare Workers, Deno Deploy, etc. |
 | **Deploy pipeline** | #78 | One-step `edict_deploy` MCP tool: AST → WASM → live service. |
-| **MCP registry** | #97 | Publish to `registry.modelcontextprotocol.io` for discoverability. |
 | **Self-hosting** | #81 | Compile the Edict compiler itself to WASM (moonshot). |

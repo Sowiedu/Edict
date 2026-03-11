@@ -8,12 +8,17 @@
     "edict-lang": "./dist/mcp/server.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "schema"
   ],
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./browser": {
+      "import": "./dist/browser.js",
+      "types": "./dist/browser.d.ts"
     }
   },
   "main": "dist/index.js",
@@ -49,7 +54,8 @@
   "license": "MIT",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
-    "build": "npm run generate-schema && npm run sync-server-json && tsc",
+    "build": "npm run generate-schema && npm run sync-server-json && tsc && npm run build:browser",
+    "build:browser": "tsx scripts/build-browser.ts",
     "sync-server-json": "tsx scripts/sync-server-json.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -70,6 +76,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@vitest/coverage-v8": "^4.0.18",
+    "esbuild": "^0.25.0",
     "fast-check": "^4.5.3",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
