@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.sowiedu/edict",
+  "name": "io.github.Sowiedu/edict",
   "description": "AI-agent programming language. JSON AST in, WASM out. Typed, effect-tracked, Z3-verified.",
   "repository": {
     "url": "https://github.com/Sowiedu/Edict",
