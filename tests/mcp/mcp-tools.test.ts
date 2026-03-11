@@ -80,7 +80,7 @@ describe("MCP resource wrappers", () => {
 
 describe("MCP barrel exports", () => {
     it("ALL_TOOLS exports the expected number of tools", () => {
-        expect(ALL_TOOLS.length).toBe(17);
+        expect(ALL_TOOLS.length).toBe(18);
         const names = ALL_TOOLS.map(t => t.name);
         expect(names).toContain("edict_lint");
         expect(names).toContain("edict_run");
@@ -89,11 +89,13 @@ describe("MCP barrel exports", () => {
         expect(names).toContain("edict_generate_tests");
         expect(names).toContain("edict_explain");
         expect(names).toContain("edict_replay");
+        expect(names).toContain("edict_support");
     });
 
     it("ALL_RESOURCES exports the expected number of resources", () => {
-        expect(ALL_RESOURCES.length).toBe(5);
+        expect(ALL_RESOURCES.length).toBe(6);
         const uris = ALL_RESOURCES.map(r => r.uri);
         expect(uris).toContain("edict://schema/patch");
+        expect(uris).toContain("edict://support");
     });
 });
