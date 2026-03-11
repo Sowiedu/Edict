@@ -17,6 +17,13 @@ import {
     handleCheckMulti,
     handleRun,
     handleVersion,
+    handleLint,
+    handleExport,
+    handleImportSkill,
+    handleDebug,
+    handleReplay,
+    handlePatch,
+    handleExplain,
 } from "../../src/mcp/handlers.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -291,5 +298,216 @@ describe("end-to-end roundtrip", () => {
         expect(result.schemaVersion).toBeDefined();
         expect(result.builtins.length).toBeGreaterThan(0);
         expect(result.features.contracts).toBeDefined();
+    });
+});
+
+// =============================================================================
+// handleSchema — format variants
+// =============================================================================
+
+describe("handleSchema — format variants", () => {
+    it("returns minimal schema with reduced token estimate", () => {
+        const full = handleSchema("full");
+        const minimal = handleSchema("minimal");
+        expect(minimal.format).toBe("minimal");
+        expect(minimal.tokenEstimate).toBeLessThan(full.tokenEstimate);
+    });
+
+    it("returns compact schema reference", () => {
+        const compact = handleSchema("compact");
+        expect(compact.format).toBe("compact");
+        expect(compact.schema).toBeDefined();
+    });
+});
+
+// =============================================================================
+// handleLint
+// =============================================================================
+
+describe("handleLint", () => {
+    it("valid program with no warnings → ok: true, empty warnings", () => {
+        const ast = JSON.parse(
+            readFileSync(
+                resolve(projectRoot, "examples", "hello.edict.json"),
+                "utf-8",
+            ),
+        );
+        const result = handleLint(ast);
+        expect(result.ok).toBe(true);
+        expect(result.warnings).toBeDefined();
+    });
+
+    it("invalid AST → ok: false", () => {
+        const result = handleLint({ not: "an ast" });
+        expect(result.ok).toBe(false);
+        expect(result.errors).toBeDefined();
+    });
+});
+
+// =============================================================================
+// handleExport
+// =============================================================================
+
+describe("handleExport", () => {
+    it("valid program → exports UASF skill package", async () => {
+        const hello = JSON.parse(
+            readFileSync(
+                resolve(projectRoot, "examples", "hello.edict.json"),
+                "utf-8",
+            ),
+        );
+        const result = await handleExport(hello, { name: "hello", version: "1.0.0" });
+        expect(result.ok).toBe(true);
+        expect(result.skill).toBeDefined();
+        const skill = result.skill as Record<string, any>;
+        expect(skill.uasf).toBe("1.0");
+        expect(skill.metadata.name).toBe("hello");
+        expect(skill.binary.wasm).toBeDefined();
+    });
+
+    it("invalid AST → errors", async () => {
+        const result = await handleExport({ not: "an ast" }, {});
+        expect(result.ok).toBe(false);
+    });
+});
+
+// =============================================================================
+// handleImportSkill
+// =============================================================================
+
+describe("handleImportSkill", () => {
+    it("invalid format → error", async () => {
+        const result = await handleImportSkill(null);
+        expect(result.ok).toBe(false);
+        expect(result.error).toContain("Invalid skill package format");
+    });
+
+    it("checksum mismatch → error", async () => {
+        const result = await handleImportSkill({
+            binary: { wasm: "AAAA", checksum: "sha256:wrong" },
+        });
+        expect(result.ok).toBe(false);
+        expect(result.error).toContain("Checksum mismatch");
+    });
+});
+
+// =============================================================================
+// handleDebug
+// =============================================================================
+
+describe("handleDebug", () => {
+    it("valid program → returns debug info", async () => {
+        const hello = JSON.parse(
+            readFileSync(
+                resolve(projectRoot, "examples", "hello.edict.json"),
+                "utf-8",
+            ),
+        );
+        const result = await handleDebug(hello);
+        expect(result.ok).toBe(true);
+        expect(result.exitCode).toBe(0);
+        expect(result.stepsExecuted).toBeDefined();
+    });
+
+    it("invalid AST → errors", async () => {
+        const result = await handleDebug({ not: "an ast" });
+        expect(result.ok).toBe(false);
+    });
+});
+
+// =============================================================================
+// handleReplay
+// =============================================================================
+
+describe("handleReplay", () => {
+    it("record + replay round-trip produces same output", async () => {
+        const hello = JSON.parse(
+            readFileSync(
+                resolve(projectRoot, "examples", "hello.edict.json"),
+                "utf-8",
+            ),
+        );
+        const compiled = await handleCompile(hello);
+        expect(compiled.ok).toBe(true);
+
+        // Record
+        const runResult = await handleRun(compiled.wasm!, undefined, undefined, true);
+        expect(runResult.exitCode).toBe(0);
+        expect(runResult.replayToken).toBeDefined();
+
+        // Replay
+        const replayResult = await handleReplay(compiled.wasm!, runResult.replayToken!);
+        expect(replayResult.exitCode).toBe(0);
+        expect(replayResult.output).toBe(runResult.output);
+    });
+});
+
+// =============================================================================
+// handlePatch
+// =============================================================================
+
+describe("handlePatch", () => {
+    it("valid patch with returnAst → includes patchedAst", async () => {
+        const ast = {
+            kind: "module", id: "mod-001", name: "test", imports: [],
+            definitions: [{
+                kind: "fn", id: "fn-main-001", name: "main",
+                params: [], effects: ["pure"],
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [{ kind: "literal", id: "lit-001", value: 42 }],
+            }],
+        };
+        const result = await handlePatch(
+            ast,
+            [{ nodeId: "lit-001", op: "replace", field: "value", value: 99 }],
+            true,
+        );
+        expect(result.ok).toBe(true);
+        expect(result.patchedAst).toBeDefined();
+    });
+
+    it("invalid patch target → errors", async () => {
+        const ast = {
+            kind: "module", id: "mod-001", name: "test", imports: [],
+            definitions: [{
+                kind: "fn", id: "fn-main-001", name: "main",
+                params: [], effects: ["pure"],
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [{ kind: "literal", id: "lit-001", value: 42 }],
+            }],
+        };
+        const result = await handlePatch(
+            ast,
+            [{ nodeId: "nonexistent", op: "replace", field: "value", value: 99 }],
+            false,
+        );
+        expect(result.ok).toBe(false);
+    });
+});
+
+// =============================================================================
+// handleExplain
+// =============================================================================
+
+describe("handleExplain", () => {
+    it("known error type → found: true with repair strategy", () => {
+        const result = handleExplain({ error: "type_mismatch" });
+        expect(result.found).toBe(true);
+        if (result.found) {
+            expect(result.pipelineStage).toBeDefined();
+            expect(result.repairStrategy.length).toBeGreaterThan(0);
+        }
+    });
+
+    it("unknown error type → found: false", () => {
+        const result = handleExplain({ error: "totally_unknown_error" });
+        expect(result.found).toBe(false);
+    });
+
+    it("no discriminator → found: false", () => {
+        const result = handleExplain({ foo: "bar" });
+        expect(result.found).toBe(false);
     });
 });

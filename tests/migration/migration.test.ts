@@ -255,3 +255,77 @@ describe("handleVersion", () => {
         expect(version.features.schemaMigrations).toBe(true);
     });
 });
+
+// =============================================================================
+// applyMigration — nested paths and error cases
+// =============================================================================
+
+describe("applyMigration — nested paths", () => {
+    it("applies set_field on nested dot-path", () => {
+        const ast = makeModule({ metadata: { version: "old" } });
+        const migration: Migration = {
+            from: "1.0",
+            to: "1.1",
+            ops: [{ op: "set_field", path: "metadata.version", value: "new" }],
+        };
+        const result = applyMigration(ast, migration);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect((result.ast as any).metadata.version).toBe("new");
+    });
+
+    it("applies add_field on nested dot-path (adds only if missing)", () => {
+        const ast = makeModule({ metadata: { existing: true } });
+        const migration: Migration = {
+            from: "1.0",
+            to: "1.1",
+            ops: [{ op: "add_field", path: "metadata.newKey", default: "hello" }],
+        };
+        const result = applyMigration(ast, migration);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect((result.ast as any).metadata.newKey).toBe("hello");
+    });
+
+    it("throws error when path segment does not resolve to object", () => {
+        const ast = makeModule({ flat: 42 });
+        const migration: Migration = {
+            from: "1.0",
+            to: "1.1",
+            ops: [{ op: "set_field", path: "flat.nested", value: "x" }],
+        };
+        const result = applyMigration(ast, migration);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors[0]).toMatchObject({ error: "migration_failed" });
+    });
+
+    it("rename_field on missing field is a no-op", () => {
+        const ast = makeModule();
+        const migration: Migration = {
+            from: "1.0",
+            to: "1.1",
+            ops: [{ op: "rename_field", path: "nonexistentField", newName: "newField" }],
+        };
+        const result = applyMigration(ast, migration);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        // Neither the old nor new field should exist
+        expect("nonexistentField" in (result.ast as Record<string, unknown>)).toBe(false);
+        expect("newField" in (result.ast as Record<string, unknown>)).toBe(false);
+    });
+
+    it("remove_field on nested dot-path", () => {
+        const ast = makeModule({ metadata: { toRemove: true, keep: true } });
+        const migration: Migration = {
+            from: "1.0",
+            to: "1.1",
+            ops: [{ op: "remove_field", path: "metadata.toRemove" }],
+        };
+        const result = applyMigration(ast, migration);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect("toRemove" in (result.ast as any).metadata).toBe(false);
+        expect((result.ast as any).metadata.keep).toBe(true);
+    });
+});
