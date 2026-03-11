@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.9.2](https://github.com/Sowiedu/Edict/compare/v1.9.1...v1.9.2) (2026-03-11)
+
+
+### Bug Fixes
+
+* close test coverage gaps with targeted tests and strategic exclusions ([ee0aba6](https://github.com/Sowiedu/Edict/commit/ee0aba6de1649e8ffaae1f65d0698296157bf984))
+* set 45s timeout for handleReplay test (3 worker spawns on CI) ([954f77e](https://github.com/Sowiedu/Edict/commit/954f77eab3fc0bd88beb8d5b1165685446bc619e))
+* validate-examples handles multi-module and compile-exempt examples ([ee97019](https://github.com/Sowiedu/Edict/commit/ee970195570c42cef6d0a353dfa1c4b5ef42002c))
+
 ## [1.9.1](https://github.com/Sowiedu/Edict/compare/v1.9.0...v1.9.1) (2026-03-11)
 
 
