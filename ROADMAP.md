@@ -1,4 +1,4 @@
-# Edict Development Roadmap v3
+# Edict Development Roadmap
 
 > Implementation: **TypeScript** · Pipeline: **AST-first** · Users: **Agents only**
 > Canonical format: **JSON AST** · Transmission: **MCP structured output**
@@ -45,7 +45,7 @@ The canonical representation of an Edict program is a **JSON object** conforming
 
 ---
 
-## Phase 1: AST Schema & Validator
+## Phase 1: AST Schema & Validator ✅
 **What**: Define every valid Edict program as TypeScript interfaces + a runtime validator.
 
 **Deliverables**:
@@ -91,7 +91,7 @@ interface Contract {
 
 ---
 
-## Phase 2: Name Resolution + Type Checker
+## Phase 2: Name Resolution + Type Checker ✅
 **What**: Walk the AST and verify all names resolve and types are consistent.
 
 ### 2a. Name Resolution
@@ -121,7 +121,7 @@ interface Contract {
 
 ---
 
-## Phase 3: Effect Checker
+## Phase 3: Effect Checker ✅
 **What**: Verify effect annotations are consistent through the call graph.
 
 **Effect categories** (canonical strings):
@@ -143,7 +143,7 @@ interface Contract {
 
 ---
 
-## Phase 4: Contract Verifier (Z3 Integration)
+## Phase 4: Contract Verifier (Z3 Integration) ✅
 **What**: Take `[pre]` and `[post]` contracts, translate to SMT formulas, prove them with Z3.
 
 **How it works**:
@@ -170,7 +170,7 @@ interface Contract {
 
 ---
 
-## Phase 5: WASM Code Generator
+## Phase 5: WASM Code Generator ✅
 **What**: Translate verified AST → WASM bytecode via `binaryen` (npm).
 
 **Memory model**: Edict targets the **WASM GC proposal** (reference types + garbage collection). No manual memory management. If WASM GC support is insufficient, fall back to linear memory with a simple bump allocator + arena pattern.
@@ -189,7 +189,7 @@ interface Contract {
 
 ---
 
-## Phase 6: MCP Toolchain (Agent Interface)
+## Phase 6: MCP Toolchain (Agent Interface) ✅
 **What**: An MCP server exposing Edict's compiler as tools.
 
 **Tools exposed**:
@@ -239,18 +239,16 @@ Multi-file programs use a simple module system:
 
 ## Timeline
 
-| Phase | What | Duration | Cumulative |
-|---|---|---|---|
-| **1** | AST Schema + Validator | 2–3 weeks | ~3 weeks |
-| **2** | Name Resolution + Type Checker | 4–6 weeks | ~9 weeks |
-| **3** | Effect Checker | 1–2 weeks | ~11 weeks |
-| **4** | Contract Verifier (Z3) | 4–6 weeks | ~17 weeks |
-| **5** | WASM Code Gen | 4–8 weeks | ~25 weeks |
-| **6** | MCP Toolchain | 2–3 weeks | ~28 weeks |
+| Phase | What | Status |
+|---|---|---|
+| **1** | AST Schema + Validator | ✅ Complete |
+| **2** | Name Resolution + Type Checker | ✅ Complete |
+| **3** | Effect Checker | ✅ Complete |
+| **4** | Contract Verifier (Z3) | ✅ Complete |
+| **5** | WASM Code Gen | ✅ Complete |
+| **6** | MCP Toolchain | ✅ Complete |
 
-**MVP** (Phases 1–3): ~11 weeks. Agent can produce Edict ASTs, get them validated, type-checked, and effect-checked with structured errors.
-
-**Full pipeline** (Phases 1–6): ~7 months. Agent can write, verify, compile, and run Edict programs end-to-end via MCP.
+All 6 phases are implemented and shipping (v1.8.0+). 1800+ tests across 105 test files. 38 example programs.
 
 ---
 
@@ -268,9 +266,17 @@ Multi-file programs use a simple module system:
 
 ---
 
-## Where to Start Tomorrow
+## Open Challenges
 
-1. **Define 10 example programs as JSON ASTs** — force every schema decision
-2. **Write the TypeScript interfaces** for every AST node type
-3. **Build the schema validator** with concrete error types
-4. **Write one type-check rule** and one test — prove the architecture end-to-end
+With the full pipeline operational, these are the open areas for further development:
+
+| Area | Issues | Impact |
+|---|---|---|
+| **Type system reconciliation** | #87 | Runtime is monomorphic (all `i32`); type system appears parametric. Choose honest monomorphism or real monomorphization. |
+| **Mid-level IR** | #89 | Introduce IR between AST and WASM for optimizations and retargetability. |
+| **Effect polymorphism** | #94 | Higher-order functions need effect variables to propagate closure effects. Depends on #87. |
+| **Browser compilation** | #75 | All dependencies (binaryen, z3) already ship as WASM. Browser-compatible build is feasible. |
+| **Edge deployment** | #77 | Deploy compiled WASM to Cloudflare Workers, Deno Deploy, etc. |
+| **Deploy pipeline** | #78 | One-step `edict_deploy` MCP tool: AST → WASM → live service. |
+| **MCP registry** | #97 | Publish to `registry.modelcontextprotocol.io` for discoverability. |
+| **Self-hosting** | #81 | Compile the Edict compiler itself to WASM (moonshot). |

@@ -191,9 +191,32 @@ Preconditions and postconditions are first-class language constructs, not option
 - The compiler receives all modules at once (no filesystem dependency resolution)
 - Circular imports rejected at name resolution phase
 
+#### Multi-Module Compilation
+
+Multiple Edict modules can be compiled together into a single WASM binary. The `edict_compile` MCP tool accepts an array of modules via the `modules` parameter. Cross-module references are resolved during name resolution, and all modules are linked at the WASM level.
+
+#### Typed Imports
+
+Imports can include type declarations for cross-module (and cross-WASM) type safety:
+
+```json
+{
+  "kind": "import",
+  "id": "imp-1",
+  "module": "math_ext",
+  "names": ["sqrt", "pow"],
+  "types": {
+    "sqrt": { "kind": "fn_type", "params": [{ "kind": "basic", "name": "Float" }], "effects": ["pure"], "returnType": { "kind": "basic", "name": "Float" } },
+    "pow": { "kind": "fn_type", "params": [{ "kind": "basic", "name": "Float" }, { "kind": "basic", "name": "Float" }], "effects": ["pure"], "returnType": { "kind": "basic", "name": "Float" } }
+  }
+}
+```
+
+When `types` is provided, the type checker uses these declarations for type-safe cross-module calls. Without `types`, import signatures are inferred heuristically from call sites (backwards-compatible fallback).
+
 ---
 
-## 5. AST Schema (Phase 1 — First Deliverable)
+## 5. AST Schema
 
 The entire language is defined as TypeScript interfaces. The schema _is_ the specification.
 
@@ -755,17 +778,45 @@ Edict: { output: "42", exitCode: 0 }
 ## 7. WASM Code Generation
 
 - **Target**: WASM bytecode via `binaryen` (npm)
-- **Memory model**: WASM GC proposal (reference types + garbage collection). No manual memory management. Fallback: linear memory with bump allocator + arena pattern
-- **Execution**: Node.js built-in `WebAssembly` API
+- **Memory model**: Linear memory with bump allocator + arena pattern. Heap size configurable via `RunLimits.maxMemoryMb`.
+- **Execution**: Node.js built-in `WebAssembly` API, with worker thread isolation for timeout enforcement
 
-**Incremental build order**:
-1. Arithmetic expressions and local variables
-2. Function definitions and calls
-3. Conditionals and pattern matching
-4. Arrays and data structures (via WASM GC structs or linear memory)
-5. IO effects (via WASI interface)
+### 7.1 WASM Module Interop
 
-### 7.1 Execution Model & Security
+Edict programs can import and call functions from external WASM modules. This enables interoperability with libraries compiled from C, Rust, or any WASM-targeting language.
+
+**Two instantiation strategies:**
+
+| Strategy | When used | How it works |
+|---|---|---|
+| **V1 — Isolated** | External module has no memory import (scalar returns only) | External module instantiated with its own memory. Function pointers passed directly. |
+| **V2 — Shared memory** | External module imports memory (String/Array returns) | External module instantiated with Edict's linear memory + heap allocator. Pointers valid across module boundaries. |
+
+Shared memory instantiation uses a two-phase approach:
+1. **Phase 1**: Compile external modules, inspect imports. Create delegate functions for memory-dependent modules.
+2. **Phase 2**: After Edict module instantiation, re-instantiate deferred modules with Edict's memory and allocator. Patch delegates with real function references.
+
+External modules are provided via `RunLimits.externalModules` as base64-encoded WASM binaries, keyed by import namespace.
+
+### 7.2 Debug Execution
+
+Programs compiled with `debugMode: true` include call stack instrumentation (`__trace_enter` / `__trace_exit`). The `edict_debug` MCP tool provides:
+
+- **Call stack tracking** at crash time
+- **Crash location mapping** (function name → AST `nodeId` via `debugMetadata.fnMap`)
+- **Step limiting** to catch infinite loops (`maxSteps`, default: 10,000)
+- **Structured crash diagnostics** with `callStack`, `crashLocation`, and `stepsExecuted`
+
+### 7.3 Execution Replay
+
+Deterministic execution replay for debugging and reproducibility:
+
+- **Record mode** (`record: true`): Captures all non-deterministic host responses (HTTP, file IO, crypto, randomness, timestamps) into a `ReplayToken`.
+- **Replay mode** (`replayToken: {...}`): Replays from a saved token. All host calls return recorded values instead of calling real APIs.
+
+This ensures bit-identical execution across runs — same inputs + same replay token → same output. Useful for debugging agent-generated programs that interact with external services.
+
+### 7.4 Execution Model & Security
 
 > WASM sandboxing with explicit host bridging is a **deliberate security feature**, not a limitation.
 
@@ -777,14 +828,23 @@ AI agents write Edict programs. Unlike human-authored code reviewed before deplo
 |---|---|---|
 | **Compile-time** | Effect system (`io`, `reads`, `writes`, `fails`) | Declares what capabilities a program _requires_. The host can inspect effects before execution and reject programs that request unwanted capabilities. |
 | **Runtime — adapter** | `EdictHostAdapter` interface | Pluggable contract that controls _how_ platform capabilities are provided. Implementations exist for Node.js (full-featured) and browser (restricted). Custom adapters can restrict, audit, or mock any capability. |
-| **Runtime — limits** | `RunLimits` API | Fine-grained enforcement: execution timeout (`timeoutMs`), memory ceiling (`maxMemoryMb`), filesystem sandbox (`sandboxDir`). |
+| **Runtime — limits** | `RunLimits` API | Fine-grained enforcement: execution timeout, memory ceiling, filesystem sandbox, HTTP host allowlist, external modules, and execution replay. |
 | **Runtime — WASM VM** | WebAssembly sandbox | The WASM VM itself provides memory isolation, no ambient authority, and no access to host APIs unless explicitly imported. |
 
-**Why this matters for agents:**
-- A compiled WASM module **cannot** access the filesystem, network, or OS unless the host explicitly provides those capabilities via `EdictHostAdapter`
-- The effect system means the host can know _before execution_ whether a program needs IO, networking, or other capabilities — and can refuse to run it
-- The `sandboxDir` constraint ensures file IO is always scoped to a specific directory, preventing path traversal
-- Timeout and memory limits prevent infinite loops and memory exhaustion from agent-generated code
+**`RunLimits` configuration:**
+
+```typescript
+interface RunLimits {
+  timeoutMs?: number;          // Max execution time (default: 15_000, min: 100)
+  maxMemoryMb?: number;        // Max WASM heap in MB (default: 1)
+  sandboxDir?: string;         // Filesystem sandbox for readFile/writeFile
+  allowedHosts?: string[];     // HTTP host allowlist (default: all allowed)
+  adapter?: EdictHostAdapter;  // Custom host adapter (default: NodeHostAdapter)
+  externalModules?: Record<string, string>;  // External WASM modules (base64)
+  record?: boolean;            // Enable execution recording
+  replayToken?: ReplayToken;   // Replay from saved token
+}
+```
 
 **Available host capabilities (via adapters):**
 
@@ -819,34 +879,35 @@ New capabilities are added by extending the `EdictHostAdapter` interface and imp
 
 ## 9. Phased Delivery
 
-| Phase | Deliverable | Duration | Cumulative |
-|---|---|---|---|
-| **1** | AST Schema + Validator | 2–3 weeks | ~3 weeks |
-| **2** | Name Resolution + Type Checker | 4–6 weeks | ~9 weeks |
-| **3** | Effect Checker | 1–2 weeks | ~11 weeks |
-| **4** | Contract Verifier (Z3) | 4–6 weeks | ~17 weeks |
-| **5** | WASM Code Generator | 4–8 weeks | ~25 weeks |
-| **6** | MCP Toolchain | 2–3 weeks | ~28 weeks |
+| Phase | Deliverable | Status |
+|---|---|---|
+| **1** | AST Schema + Validator | ✅ Complete |
+| **2** | Name Resolution + Type Checker | ✅ Complete |
+| **3** | Effect Checker | ✅ Complete |
+| **4** | Contract Verifier (Z3) | ✅ Complete |
+| **5** | WASM Code Generator | ✅ Complete |
+| **6** | MCP Toolchain | ✅ Complete |
 
-**MVP** (Phases 1–3): ~11 weeks — agents can produce, validate, type-check, and effect-check Edict programs with structured error feedback.
-
-**Full pipeline** (Phases 1–6): ~7 months — agents write, verify, compile, and run Edict programs end-to-end via MCP.
+All 6 phases are implemented and shipping (v1.8.0+). The full pipeline is operational: agents write JSON AST, the compiler validates, type-checks, effect-checks, verifies contracts via Z3, compiles to WASM, and executes — all via MCP tool calls.
 
 ---
 
-## 10. Phase 1 Acceptance Criteria
+## 10. Acceptance Criteria (All Phases)
 
-Phase 1 is complete when:
+All pipeline phases are complete and verified:
 
-- [x] TypeScript interfaces exist for every AST node type listed in §5.1
-- [x] JSON Schema auto-generated via `typescript-json-schema` for agent consumption
-- [x] `validate(ast: unknown): EdictModule | StructuredError[]` function implemented
-- [x] Validator catches: duplicate node IDs, unknown `kind` values, missing required fields
-- [x] Every error type in §5.2 (Phase 1 subset: `duplicate_id`, `unknown_node_kind`, `missing_field`) returns structured JSON with enough context for agent self-repair
-- [x] 10 example programs defined as JSON ASTs covering all node types
-- [x] Unit tests for every AST node type — valid and invalid inputs
-- [x] 100% statement/line/function coverage on the validator (97.5% branch)
-- [x] One end-to-end smoke test: give an LLM the schema, have it produce a valid AST, validate it
+- [x] TypeScript interfaces exist for every AST node type listed in §5
+- [x] JSON Schema auto-generated from TypeScript interfaces for agent consumption
+- [x] Schema-driven validation (Phase 1) — structural errors caught at submission time
+- [x] Name resolution (Phase 2a) — undefined references with Levenshtein-distance suggestions
+- [x] Type checking (Phase 2b) — bidirectional type inference, unit types, refinement types
+- [x] Effect checking (Phase 3) — call-graph propagation, fixed-point analysis
+- [x] Contract verification (Phase 4) — Z3/SMT with counterexamples, caching, worker offloading
+- [x] WASM code generation (Phase 5) — binaryen codegen, closures, HOFs, records, enums, strings
+- [x] MCP toolchain (Phase 6) — 17 MCP tools, 5 resources, schema/examples/errors access
+- [x] 38 example programs covering all language features (beginner → advanced)
+- [x] 1800+ tests across 105 test files
+- [x] End-to-end smoke test: agent produces AST → compile → run via MCP
 
 ---
 
