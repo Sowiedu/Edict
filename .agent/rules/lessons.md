@@ -253,3 +253,11 @@ if (url.endsWith(".ts")) {
 - **Root cause**: `npm test` only runs vitest. The `ci:local` script also runs `typecheck`, `check:jsdoc`, `build`, AND `validate-examples`.
 - **Fix**: Always run `npm run ci:local` (or at minimum `npm run validate-examples`) before pushing.
 - **Pattern**: Know the full CI pipeline. `npm test` is necessary but not sufficient. The `ci:local` script mirrors what CI runs.
+
+## 41. Browser Globals Require Local Declarations in Node-Targeted TypeScript
+- **Context**: Implementing `BrowserHostAdapter.fetch()` using sync `XMLHttpRequest` in a project where `tsconfig.json` targets Node (no DOM lib).
+- **Problem**: `tsc --noEmit` fails with `Cannot find name 'XMLHttpRequest'` because the type only exists in `lib.dom.d.ts`.
+- **Fix**: Add a minimal `declare class XMLHttpRequest { ... }` at the top of the browser-specific file, declaring only the methods actually used.
+- **Why not add `"DOM"` to lib**: That would pollute all files with browser types, hiding accidental browser API usage in Node-only code.
+- **Pattern**: When writing browser-specific code in a Node-targeted project, use file-scoped `declare` blocks for browser globals instead of changing `tsconfig` lib settings.
+

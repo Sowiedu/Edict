@@ -10,9 +10,10 @@
  * Platform-specific host operations that vary across runtimes.
  *
  * Implementations exist for:
- * - Node.js (`NodeHostAdapter`) — default, full-featured
- * - Browser (`BrowserHostAdapter`) — stub for portability demonstration
+ * - Node.js (`NodeHostAdapter`) — full-featured, uses node:crypto, node:fs, etc.
+ * - Browser (`BrowserHostAdapter`) — pure-JS crypto, sync XHR, sandboxed IO
  *
+ * All methods are synchronous — called from WASM host import callbacks.
  * All methods operate on plain JS types — no WASM pointers or RuntimeState.
  */
 export interface EdictHostAdapter {

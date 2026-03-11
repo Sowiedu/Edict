@@ -320,3 +320,11 @@ export type { Migration, MigrationOp, MigrationResult, MigrationSuccess, Migrati
 // ---------------------------------------------------------------------------
 export { BUILTIN_FUNCTIONS, isBuiltin, getBuiltin } from "./builtins/builtin-meta.js";
 export type { BuiltinFunction } from "./builtins/builtin-meta.js";
+
+// ---------------------------------------------------------------------------
+// Host Adapter: browser-compatible platform adapter (Node-free)
+// ---------------------------------------------------------------------------
+export { BrowserHostAdapter } from "./codegen/browser-host-adapter.js";
+export type { BrowserHostAdapterOptions } from "./codegen/browser-host-adapter.js";
+export type { EdictHostAdapter } from "./codegen/host-adapter.js";
+

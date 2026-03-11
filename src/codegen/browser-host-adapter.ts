@@ -1,46 +1,97 @@
 // =============================================================================
-// Browser Host Adapter — stub for browser/edge runtimes
+// Browser Host Adapter — functional browser/edge runtime adapter
 // =============================================================================
-// Demonstrates the adapter pattern for non-Node environments.
-// Operations that require Node-specific APIs return structured errors
-// instead of crashing. Full browser support (async crypto, async fetch)
-// is a separate issue.
+// Implements EdictHostAdapter using browser-compatible APIs:
+//   Crypto: pure-JS (./pure-crypto.ts) — sync, no Web Crypto API needed
+//   HTTP:   sync XMLHttpRequest (deprecated but functional in main thread)
+//   IO:    structured errors (no filesystem in browser)
 
 import type { EdictHostAdapter } from "./host-adapter.js";
+import { sha256Bytes, md5Bytes, hmacBytes, toHex } from "./pure-crypto.js";
+
+// Minimal XMLHttpRequest type for browser environments.
+// TypeScript is configured for Node (no DOM lib), so we declare just
+// the surface area needed by the sync fetch implementation.
+declare class XMLHttpRequest {
+    open(method: string, url: string, async: boolean): void;
+    setRequestHeader(name: string, value: string): void;
+    send(body?: string | null): void;
+    readonly status: number;
+    readonly responseText: string;
+}
+
+const encoder = new TextEncoder();
+
+/** Max response body size (1 MB) — matches NodeHostAdapter. */
+const HTTP_MAX_RESPONSE_BYTES = 1_048_576;
+
+/** Options for BrowserHostAdapter construction. */
+export interface BrowserHostAdapterOptions {
+    /** Environment variable map. Lookups return "" for missing keys. */
+    envMap?: Record<string, string>;
+}
 
 /**
- * Browser/edge runtime adapter stub.
+ * Browser/edge runtime adapter with functional crypto and optional HTTP.
  *
- * Provides meaningful error responses for operations that aren't available
- * in browser environments (sync fetch, filesystem) while maintaining the
- * adapter contract.
+ * - Crypto: pure-JS SHA-256, MD5, HMAC (synchronous, no Web Crypto API)
+ * - HTTP: sync XMLHttpRequest (deprecated but functional in main thread)
+ * - File IO: returns structured errors (no filesystem in browser)
+ * - env: configurable via constructor envMap
  */
 export class BrowserHostAdapter implements EdictHostAdapter {
+    private readonly envMap: Record<string, string>;
+
+    constructor(options?: BrowserHostAdapterOptions) {
+        this.envMap = options?.envMap ?? {};
+    }
+
     // ── Crypto ──────────────────────────────────────────────────────────
-    // Web Crypto API (crypto.subtle) is async-only. These synchronous
-    // methods can't use it without an async execution model.
 
-    sha256(_data: string): string {
-        throw new Error("not_supported: sha256 requires async crypto.subtle in browser");
+    sha256(data: string): string {
+        return toHex(sha256Bytes(encoder.encode(data)));
     }
 
-    md5(_data: string): string {
-        throw new Error("not_supported: md5 not available in Web Crypto API");
+    md5(data: string): string {
+        return toHex(md5Bytes(encoder.encode(data)));
     }
 
-    hmac(_algo: string, _key: string, _data: string): string {
-        throw new Error("not_supported: hmac requires async crypto.subtle in browser");
+    hmac(algo: string, key: string, data: string): string {
+        const result = hmacBytes(algo, encoder.encode(key), encoder.encode(data));
+        return result ? toHex(result) : "";
     }
 
     // ── HTTP ────────────────────────────────────────────────────────────
-    // Browser fetch is async-only. Synchronous XHR is deprecated.
 
-    fetch(_url: string, _method: string, _body?: string): { ok: boolean; data: string } {
-        throw new Error("not_supported: synchronous fetch not available in browser");
+    fetch(url: string, method: string, body?: string): { ok: boolean; data: string } {
+        if (typeof XMLHttpRequest === "undefined") {
+            return { ok: false, data: "sync_xhr_not_available" };
+        }
+
+        try {
+            const xhr = new XMLHttpRequest();
+            xhr.open(method, url, false);
+            if (body !== undefined && body !== "") {
+                xhr.setRequestHeader("Content-Type", "application/json");
+            }
+            xhr.send(body || null);
+
+            let responseText = xhr.responseText;
+            if (responseText.length > HTTP_MAX_RESPONSE_BYTES) {
+                responseText = responseText.slice(0, HTTP_MAX_RESPONSE_BYTES);
+            }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                return { ok: true, data: responseText };
+            }
+            return { ok: false, data: xhr.status + " " + responseText };
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            return { ok: false, data: msg };
+        }
     }
 
     // ── IO ──────────────────────────────────────────────────────────────
-    // No filesystem access in browser environments.
 
     readFile(_path: string): { ok: false; error: string } {
         return { ok: false, error: "filesystem_not_available" };
@@ -50,8 +101,8 @@ export class BrowserHostAdapter implements EdictHostAdapter {
         return { ok: false, error: "filesystem_not_available" };
     }
 
-    env(_name: string): string {
-        return "";
+    env(name: string): string {
+        return Object.hasOwn(this.envMap, name) ? this.envMap[name]! : "";
     }
 
     args(): string[] {
