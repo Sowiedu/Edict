@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.1](https://github.com/Sowiedu/Edict/compare/v1.9.0...v1.9.1) (2026-03-11)
+
+
+### Bug Fixes
+
+* capitalize namespace to match GitHub username (Sowiedu) ([13e20ea](https://github.com/Sowiedu/Edict/commit/13e20ead28ef7be324771ed9ba97085af82deabd))
+* shorten server.json description to ≤100 chars (registry limit) ([8e1e03c](https://github.com/Sowiedu/Edict/commit/8e1e03c4619b94a0bee82ee49a552d6704c67b5a))
+
 ## [1.9.0](https://github.com/Sowiedu/Edict/compare/v1.8.0...v1.9.0) (2026-03-11)
 
 
