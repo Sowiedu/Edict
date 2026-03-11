@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.9.0](https://github.com/Sowiedu/Edict/compare/v1.8.0...v1.9.0) (2026-03-11)
+
+
+### Features
+
+* add approval gates — compile-time approval propagation ([#70](https://github.com/Sowiedu/Edict/issues/70)) ([c578d34](https://github.com/Sowiedu/Edict/commit/c578d34657b5661949ffc6a5faa5ca0ab5eb229f))
+* add confidence-typed values ([#69](https://github.com/Sowiedu/Edict/issues/69)) ([6821218](https://github.com/Sowiedu/Edict/commit/682121827df6655f94ddedcc27c1ee732cbf3265))
+* add edict_explain MCP tool ([#7](https://github.com/Sowiedu/Edict/issues/7)) ([0f38862](https://github.com/Sowiedu/Edict/commit/0f388622560c6e3d6af8f5af63c59971448ec050))
+* add edict_generate_tests MCP tool (test-contract bridge, [#73](https://github.com/Sowiedu/Edict/issues/73)) ([a7c57bd](https://github.com/Sowiedu/Edict/commit/a7c57bd6d9917a8a2db308014d5c34d8948de7d9))
+* agent contribution infrastructure — structured issue metadata, CI feedback, auto-labeling ([#47](https://github.com/Sowiedu/Edict/issues/47)) ([107a414](https://github.com/Sowiedu/Edict/commit/107a414daa8efb93d57d93aef4caeaa1a1858ba5))
+* **blame:** add blame tracking / error attribution ([#63](https://github.com/Sowiedu/Edict/issues/63)) ([eb1cad1](https://github.com/Sowiedu/Edict/commit/eb1cad1ac217f9be82ce86b7b0ebcdec3590b944))
+* execution replay — deterministic snapshot ([#65](https://github.com/Sowiedu/Edict/issues/65)) ([48d3189](https://github.com/Sowiedu/Edict/commit/48d3189124dbdc9f72e728e6317c13c00ca11be9))
+* first-class tool call type — ToolDef, tool_call expression, compile-time validation ([c11d7da](https://github.com/Sowiedu/Edict/commit/c11d7da645a593d744b203543385e04b2529fef1))
+* host function provenance annotation ([#115](https://github.com/Sowiedu/Edict/issues/115)) ([1117f2c](https://github.com/Sowiedu/Edict/commit/1117f2c603f98707cdd40d914576a37d69d42330))
+* implement capability tokens (issue [#59](https://github.com/Sowiedu/Edict/issues/59)) ([5bb6e01](https://github.com/Sowiedu/Edict/commit/5bb6e01a47a76d03c3c815cc3c23944c81a1a248))
+* incremental checking — only re-verify changed definitions ([#8](https://github.com/Sowiedu/Edict/issues/8)) ([c160774](https://github.com/Sowiedu/Edict/commit/c16077461505591a8e9f53d45df091d461c221ed))
+* intent declarations — structured 'what, not how' metadata ([#62](https://github.com/Sowiedu/Edict/issues/62)) ([bef6ef5](https://github.com/Sowiedu/Edict/commit/bef6ef56faf50fb749e2c9c05088a6d01f0cf1d1))
+* **lint:** auto-decomposition suggestions with reach-pointer segmentation ([#67](https://github.com/Sowiedu/Edict/issues/67)) ([e55789c](https://github.com/Sowiedu/Edict/commit/e55789c9e7b4b5bb3ac54d1363acb0fc6cfa5977))
+* multi-module compilation and linking ([#30](https://github.com/Sowiedu/Edict/issues/30)) ([163aed6](https://github.com/Sowiedu/Edict/commit/163aed614d14e70332a9f570e45d37dec47a367b))
+* provenance / data lineage tracking ([#60](https://github.com/Sowiedu/Edict/issues/60)) ([6e37c3c](https://github.com/Sowiedu/Edict/commit/6e37c3c37e6ac95af932f5c854969d4512a28249))
+* semantic assertions — pre-built Z3 postcondition catalog (issue [#66](https://github.com/Sowiedu/Edict/issues/66)) ([f8988df](https://github.com/Sowiedu/Edict/commit/f8988df340add0c857349d2c05a628fb4e84bf6e))
+* versioned schema migration — auto-migrate ASTs from older schema versions ([#64](https://github.com/Sowiedu/Edict/issues/64)) ([90b70f4](https://github.com/Sowiedu/Edict/commit/90b70f484a0c702e00fd17e5e4e6f51ed9cde222))
+* WASM interop v2 — shared memory for String/Array returns ([#114](https://github.com/Sowiedu/Edict/issues/114)) ([9110667](https://github.com/Sowiedu/Edict/commit/911066721fa205bef69f4a913a1c0caac76a16ca))
+* WASM module interop — import external WASM functions ([#38](https://github.com/Sowiedu/Edict/issues/38)) ([42a731f](https://github.com/Sowiedu/Edict/commit/42a731f6b826021c838755c3d571388dd13c04bd))
+
+
+### Bug Fixes
+
+* rename ApprovalGate.description to .reason + update examples/README ([0ab5231](https://github.com/Sowiedu/Edict/commit/0ab52314a6fa57ebbd355dab24ef4b13ecd5ec54))
+
 ## [1.8.0](https://github.com/Sowiedu/Edict/compare/v1.7.0...v1.8.0) (2026-03-09)
 
 
