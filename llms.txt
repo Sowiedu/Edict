@@ -63,6 +63,43 @@ process.stdout.write(result.output);
 
 > **Important**: Edict is an ESM package — use `import`, not `require()`. `check()` is async (Z3 contracts). `compile()` takes the checked `module` and `typeInfo` from the check result, not the raw AST.
 
+## API Return Shapes
+
+Every pipeline function returns a typed result. Check the `ok` field to branch on success/failure.
+
+### `validate(ast)` → `ValidationResult`
+```
+Success: { ok: true }
+Failure: { ok: false, errors: StructuredError[] }
+```
+
+### `check(ast)` → `Promise<CheckResult>`
+```
+Success: { ok: true,  errors: [], module: EdictModule, typeInfo: TypedModuleInfo, diagnostics?: AnalysisDiagnostic[], coverage?: VerificationCoverage }
+Failure: { ok: false, errors: StructuredError[], diagnostics?: AnalysisDiagnostic[] }
+```
+> `check()` is async (Z3 contract verification). Always `await` it. On success, pass `module` and `typeInfo` to `compile()`.
+
+### `compile(module, { typeInfo })` → `CompileResult`
+```
+Success: { ok: true,  wasm: Uint8Array }
+Failure: { ok: false, errors: StructuredError[] }
+```
+> Takes the checked `module` and `typeInfo` from a successful `check()` result — not the raw AST.
+
+### `run(wasm)` → `Promise<RunResult>`
+```
+Always: { output: string, exitCode: number, returnValue?: number, error?: "execution_timeout" | "execution_oom", limitInfo?: { timeoutMs?: number, maxMemoryMb?: number }, heapUsed?: number }
+```
+> No `ok` field — check `exitCode === 0` for success. `output` contains captured stdout. `error` is only set when execution was killed by a limit.
+
+### `compileAndRun(ast)` → `Promise<CompileAndRunResult>`
+```
+Success: { ok: true,  output: string, exitCode: number, returnValue?: number, heapUsed?: number }
+Failure: { ok: false, phase: "check" | "compile", errors: StructuredError[] }
+```
+> Full pipeline in one call. On failure, `phase` indicates which stage failed.
+
 ## MCP Tools
 
 - `edict_schema`: Returns the full AST JSON Schema (supports full/minimal/compact formats)
