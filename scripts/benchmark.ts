@@ -17,8 +17,12 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { check } from "../src/check.js";
+import { checkMultiModule } from "../src/multi-module.js";
 import { compile } from "../src/codegen/codegen.js";
 import { runDirect } from "../src/codegen/runner.js";
+
+// Examples that use host-dispatched constructs (tool_call) can't emit WASM
+const COMPILE_SKIP = new Set(["tool-calls"]);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,36 +81,57 @@ function fmtMs(ms: number): string {
 
 const RUNS = 3;
 
-async function benchmarkProgram(name: string, ast: unknown): Promise<ProgramResult> {
+async function benchmarkProgram(name: string, ast: unknown, compileSkip: boolean): Promise<ProgramResult> {
     const checkTimes: number[] = [];
     const compileTimes: number[] = [];
     const executeTimes: number[] = [];
     const pipelineTimes: number[] = [];
     let wasmBytes = 0;
+    const isMultiModule = Array.isArray(ast);
 
     for (let i = 0; i < RUNS; i++) {
         const pipelineStart = performance.now();
 
         // --- Check ---
         const checkStart = performance.now();
-        const checkResult = await check(ast);
+        let module: import("../src/ast/nodes.js").EdictModule | undefined;
+        let typeInfo: import("../src/checker/check.js").TypedModuleInfo | undefined;
+        if (isMultiModule) {
+            const multiResult = await checkMultiModule(ast);
+            if (!multiResult.ok || !multiResult.mergedModule) {
+                return {
+                    checkMs: performance.now() - checkStart,
+                    compileMs: 0, executeMs: 0, pipelineMs: 0, wasmBytes: 0,
+                    error: `Check failed: ${multiResult.errors[0]?.error ?? "unknown"}`,
+                };
+            }
+            module = multiResult.mergedModule;
+            typeInfo = multiResult.typeInfo;
+        } else {
+            const checkResult = await check(ast);
+            if (!checkResult.ok || !checkResult.module) {
+                return {
+                    checkMs: performance.now() - checkStart,
+                    compileMs: 0, executeMs: 0, pipelineMs: 0, wasmBytes: 0,
+                    error: `Check failed: ${checkResult.errors[0]?.error ?? "unknown"}`,
+                };
+            }
+            module = checkResult.module;
+            typeInfo = checkResult.typeInfo;
+        }
         const checkEnd = performance.now();
         checkTimes.push(checkEnd - checkStart);
 
-        if (!checkResult.ok || !checkResult.module) {
-            return {
-                checkMs: median(checkTimes),
-                compileMs: 0,
-                executeMs: 0,
-                pipelineMs: 0,
-                wasmBytes: 0,
-                error: `Check failed: ${checkResult.errors[0]?.error ?? "unknown"}`,
-            };
+        // Skip compilation for programs that use host-dispatched constructs
+        if (compileSkip) {
+            const pipelineEnd = performance.now();
+            pipelineTimes.push(pipelineEnd - pipelineStart);
+            continue;
         }
 
         // --- Compile ---
         const compileStart = performance.now();
-        const compileResult = compile(checkResult.module, { typeInfo: checkResult.typeInfo });
+        const compileResult = compile(module, { typeInfo });
         const compileEnd = performance.now();
         compileTimes.push(compileEnd - compileStart);
 
@@ -215,12 +240,20 @@ async function main(): Promise<void> {
     console.log("-".repeat(nameCol + 8 + 8 + 8 + 9 + 7 + 5));
 
     for (const file of files) {
+        const name = file.replace(".edict.json", "");
+        const skip = COMPILE_SKIP.has(name);
         const ast = JSON.parse(readFileSync(`${dir}/${file}`, "utf-8"));
-        const result = await benchmarkProgram(file, ast);
+        const result = await benchmarkProgram(file, ast, skip);
         programs[file] = result;
 
         if (result.error) {
             console.log(`${padEnd(file, nameCol)} ERROR: ${result.error}`);
+        } else if (skip) {
+            totals.checkMs += result.checkMs;
+            totals.pipelineMs += result.pipelineMs;
+            console.log(
+                `${padEnd(file, nameCol)} ${padStart(fmtMs(result.checkMs), 7)}ms ${padStart("(skip)", 8)} ${padStart("(skip)", 8)} ${padStart(fmtMs(result.pipelineMs), 8)}ms ${padStart("—", 6)} `,
+            );
         } else {
             totals.checkMs += result.checkMs;
             totals.compileMs += result.compileMs;
