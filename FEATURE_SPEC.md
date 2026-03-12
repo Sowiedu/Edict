@@ -859,6 +859,22 @@ interface RunLimits {
 
 New capabilities are added by extending the `EdictHostAdapter` interface and implementing them per platform. The code inside the WASM module calls these through imported host functions — it never has direct access to the underlying APIs.
 
+### 7.5 Container Runtime Model
+
+Edict uses **monomorphic containers**. The AST schema allows generic container types (`Array<T>`, `Option<T>`, `Result<T,E>`), but the WASM runtime only supports specific concrete instantiations. The supported set is derived from the builtin function registry:
+
+| Container | Supported Instantiations |
+|---|---|
+| `Array` | `Array<Int>` |
+| `Option` | `Option<Int>` |
+| `Result` | `Result<Int, Int>`, `Result<String, String>` |
+
+**Lint enforcement**: The `unsupported_container` lint warning fires when a type annotation uses a container instantiation not present in any builtin function signature. This is non-blocking — the program still compiles — but the runtime behavior is undefined for unsupported element types.
+
+**Forward compatibility**: The supported set is not hardcoded. Adding a new builtin that accepts `Array<String>` automatically extends the supported set and suppresses the warning. The schema intentionally keeps container element types generic.
+
+**Version metadata**: `edict_version()` includes `monomorphicContainers: true` in the `features` map, allowing agents to query the runtime model before writing programs.
+
 ---
 
 ## 8. What We Explicitly Don't Build

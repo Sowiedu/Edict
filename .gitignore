@@ -24,3 +24,4 @@ Thumbs.db
 
 # Benchmark output (transient — baseline file is committed separately)
 benchmark-results.json
+.mcpregistry_*

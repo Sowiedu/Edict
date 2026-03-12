@@ -22,10 +22,13 @@ import {
     approvalMissingOnIo,
     toolCallNoRetry,
     toolCallNoTimeout,
+    unsupportedContainer,
     type LintWarning,
     type SuggestedSplit,
 } from "./warnings.js";
 import { walkExpression } from "../ast/walk.js";
+import type { TypeExpr } from "../ast/types.js";
+import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 
 // Re-export for convenience
 export type { LintWarning } from "./warnings.js";
@@ -61,6 +64,7 @@ export function lint(module: EdictModule): LintWarning[] {
     checkFreshnessOnPure(module, warnings);
     checkApprovalOnIo(module, warnings);
     checkToolCallWarnings(module, warnings);
+    checkMonomorphicContainers(module, warnings);
 
     return warnings;
 }
@@ -801,6 +805,128 @@ function checkToolCallWarnings(module: EdictModule, warnings: LintWarning[]): vo
                     }
                 }
             });
+        }
+    }
+}
+
+// =============================================================================
+// Monomorphic container warnings — unsupported element types
+// =============================================================================
+
+/**
+ * Build the set of supported container types from the builtin function registry.
+ * Scans all builtin fn_type signatures (params + return) to find every concrete
+ * container instantiation (array, option, result) actually used.
+ *
+ * Returns a map: containerKind → list of supported TypeExpr instances.
+ */
+function buildSupportedContainers(): Map<string, TypeExpr[]> {
+    const supported = new Map<string, TypeExpr[]>();
+
+    function registerType(type: TypeExpr): void {
+        if (type.kind === "array" || type.kind === "option" || type.kind === "result") {
+            const list = supported.get(type.kind) ?? [];
+            // Deduplicate by JSON comparison (small set, acceptable)
+            const key = JSON.stringify(type);
+            if (!list.some(t => JSON.stringify(t) === key)) {
+                list.push(type);
+                supported.set(type.kind, list);
+            }
+        }
+        // Recurse into nested types
+        if (type.kind === "fn_type") {
+            for (const p of type.params) registerType(p);
+            registerType(type.returnType);
+        } else if (type.kind === "array") {
+            registerType(type.element);
+        } else if (type.kind === "option") {
+            registerType(type.inner);
+        } else if (type.kind === "result") {
+            registerType(type.ok);
+            registerType(type.err);
+        }
+    }
+
+    for (const [, builtin] of BUILTIN_FUNCTIONS) {
+        registerType(builtin.type);
+    }
+
+    return supported;
+}
+
+/** Cached supported containers — built once per process. */
+let cachedSupportedContainers: Map<string, TypeExpr[]> | null = null;
+
+function getSupportedContainers(): Map<string, TypeExpr[]> {
+    if (!cachedSupportedContainers) {
+        cachedSupportedContainers = buildSupportedContainers();
+    }
+    return cachedSupportedContainers;
+}
+
+/**
+ * Check all type annotations in the module for container types not supported
+ * by any builtin. Warns on Array<T>, Option<T>, Result<T,E> where the concrete
+ * instantiation doesn't appear in the builtin registry.
+ */
+function checkMonomorphicContainers(module: EdictModule, warnings: LintWarning[]): void {
+    const supported = getSupportedContainers();
+
+    function checkType(type: TypeExpr, nodeId: string, location: string): void {
+        if (!type || !type.kind) return; // defensive: skip malformed types
+        if (type.kind === "array" || type.kind === "option" || type.kind === "result") {
+            const supportedList = supported.get(type.kind) ?? [];
+            const key = JSON.stringify(type);
+            if (!supportedList.some(t => JSON.stringify(t) === key)) {
+                const suggestion = supportedList.length > 0
+                    ? { nodeId, field: "type", value: supportedList[0] }
+                    : undefined;
+                warnings.push(unsupportedContainer(
+                    nodeId,
+                    location,
+                    type.kind,
+                    type,
+                    supportedList,
+                    suggestion,
+                ));
+            }
+        }
+        // Recurse into nested types
+        if (type.kind === "array") {
+            checkType(type.element, nodeId, location);
+        } else if (type.kind === "option") {
+            checkType(type.inner, nodeId, location);
+        } else if (type.kind === "result") {
+            checkType(type.ok, nodeId, location);
+            checkType(type.err, nodeId, location);
+        }
+    }
+
+    for (const def of module.definitions) {
+        switch (def.kind) {
+            case "fn":
+                // Check param types
+                for (const param of def.params) {
+                    if (param.type) checkType(param.type, def.id, `param ${param.name}`);
+                }
+                // Check return type
+                if (def.returnType) checkType(def.returnType, def.id, "returnType");
+                break;
+            case "const":
+                checkType(def.type, def.id, `const ${def.name}`);
+                break;
+            case "record":
+                for (const field of def.fields) {
+                    checkType(field.type, def.id, `field ${field.name}`);
+                }
+                break;
+            case "enum":
+                for (const variant of def.variants) {
+                    for (const field of variant.fields) {
+                        checkType(field.type, def.id, `field ${variant.name}.${field.name}`);
+                    }
+                }
+                break;
         }
     }
 }

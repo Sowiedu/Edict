@@ -1,5 +1,11 @@
 # Lessons Learned
 
+## Runtime Type Assumptions Must Be Verified Against Builtins Registry
+- **Problem**: Assumed the runtime was "Int-only" for containers, but `Result<String, String>` is used by HTTP/IO/JSON builtins
+- **Root cause**: Designing based on pattern observation (`ARRAY_INT_TYPE`, `OPTION_INT_TYPE`) instead of exhaustively scanning the builtin registry
+- **Solution**: Always derive supported types from `BUILTIN_FUNCTIONS` registry — the source of truth. Never hardcode type constraints when a machine-readable registry exists.
+- **Pattern**: `buildSupportedContainers()` scans all builtin `fn_type` signatures to build the supported set dynamically
+
 ## Worker Threads + TypeScript in ESM Projects
 - **Problem**: `worker_threads` with eval:true can't directly load `.ts` files in ESM projects
 - **Failed approaches**: `--import tsx` in execArgv (doesn't work with eval workers), `require("node:module").register("tsx/esm", ...)` (tsx rejects loader-style registration), `require()` in worker script (`type: module` forces ESM in eval workers)

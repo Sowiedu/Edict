@@ -5,6 +5,7 @@
 // Each uses `warning` as the discriminator (not `error`), plus `severity: "warning"`.
 
 import type { Effect, IntentInvariant } from "../ast/nodes.js";
+import type { TypeExpr } from "../ast/types.js";
 import type { FixSuggestion } from "../errors/structured-errors.js";
 
 // =============================================================================
@@ -26,7 +27,8 @@ export type LintWarning =
     | StaleDataWarning
     | ApprovalMissingOnIoWarning
     | ToolCallNoRetryWarning
-    | ToolCallNoTimeoutWarning;
+    | ToolCallNoTimeoutWarning
+    | UnsupportedContainerWarning;
 
 // =============================================================================
 // Individual warning types
@@ -153,6 +155,17 @@ export interface ToolCallNoRetryWarning {
     severity: "warning";
     nodeId: string;
     toolName: string;
+}
+
+export interface UnsupportedContainerWarning {
+    warning: "unsupported_container";
+    severity: "warning";
+    nodeId: string;
+    location: string;
+    containerKind: "array" | "option" | "result";
+    actualType: TypeExpr;
+    supportedTypes: TypeExpr[];
+    suggestion?: FixSuggestion;
 }
 
 export interface ToolCallNoTimeoutWarning {
@@ -342,4 +355,26 @@ export function toolCallNoRetry(nodeId: string, toolName: string): ToolCallNoRet
 /** Create a warning when a tool_call expression is missing a timeout. */
 export function toolCallNoTimeout(nodeId: string, toolName: string): ToolCallNoTimeoutWarning {
     return { warning: "tool_call_no_timeout", severity: "warning", nodeId, toolName };
+}
+
+/** Create a warning when a container type (array/option/result) uses an element type not supported by any builtin. */
+export function unsupportedContainer(
+    nodeId: string,
+    location: string,
+    containerKind: "array" | "option" | "result",
+    actualType: TypeExpr,
+    supportedTypes: TypeExpr[],
+    suggestion?: FixSuggestion,
+): UnsupportedContainerWarning {
+    const w: UnsupportedContainerWarning = {
+        warning: "unsupported_container",
+        severity: "warning",
+        nodeId,
+        location,
+        containerKind,
+        actualType,
+        supportedTypes,
+    };
+    if (suggestion) w.suggestion = suggestion;
+    return w;
 }

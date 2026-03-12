@@ -1068,4 +1068,120 @@ describe("lint", () => {
             expect(conf).toHaveLength(0);
         });
     });
+
+    // =========================================================================
+    // unsupported_container — monomorphic container warnings
+    // =========================================================================
+
+    describe("unsupported_container", () => {
+        const STRING = { kind: "basic" as const, name: "String" as const };
+        const FLOAT = { kind: "basic" as const, name: "Float" as const };
+        const BOOL = { kind: "basic" as const, name: "Bool" as const };
+        const ARRAY_STRING = { kind: "array" as const, element: STRING };
+        const ARRAY_INT_T = { kind: "array" as const, element: INT };
+        const OPTION_FLOAT = { kind: "option" as const, inner: FLOAT };
+        const OPTION_INT_T = { kind: "option" as const, inner: INT };
+        const RESULT_INT_INT = { kind: "result" as const, ok: INT, err: INT };
+        const RESULT_STRING_STRING = { kind: "result" as const, ok: STRING, err: STRING };
+
+        it("warns on Array<String> param type", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "main", params: [
+                    { kind: "param", id: "p-001", name: "data", type: ARRAY_STRING },
+                ], effects: ["pure"],
+                returnType: INT, contracts: [],
+                body: [{ kind: "literal", id: "lit-001", value: 0 }],
+            }]);
+            const warnings = lint(m);
+            const uc = warnings.filter(w => w.warning === "unsupported_container");
+            expect(uc).toHaveLength(1);
+            expect(uc[0]).toMatchObject({
+                warning: "unsupported_container",
+                nodeId: "fn-001",
+                location: "param data",
+                containerKind: "array",
+            });
+            expect((uc[0] as any).supportedTypes.length).toBeGreaterThan(0);
+        });
+
+        it("warns on Option<Float> return type", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "main", params: [],
+                effects: ["pure"],
+                returnType: OPTION_FLOAT, contracts: [],
+                body: [{ kind: "literal", id: "lit-001", value: 0 }],
+            }]);
+            const warnings = lint(m);
+            const uc = warnings.filter(w => w.warning === "unsupported_container");
+            expect(uc).toHaveLength(1);
+            expect(uc[0]).toMatchObject({
+                warning: "unsupported_container",
+                containerKind: "option",
+                location: "returnType",
+            });
+        });
+
+        it("warns on Array<Bool> in record field", () => {
+            const m = mod([{
+                kind: "record", id: "rec-001", name: "Config",
+                fields: [{ name: "flags", type: { kind: "array" as const, element: BOOL } }],
+            }]);
+            const warnings = lint(m);
+            const uc = warnings.filter(w => w.warning === "unsupported_container");
+            expect(uc).toHaveLength(1);
+            expect(uc[0]).toMatchObject({
+                containerKind: "array",
+                location: "field flags",
+            });
+        });
+
+        it("does not warn on Array<Int>", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "main", params: [
+                    { kind: "param", id: "p-001", name: "nums", type: ARRAY_INT_T },
+                ], effects: ["pure"],
+                returnType: INT, contracts: [],
+                body: [{ kind: "literal", id: "lit-001", value: 0 }],
+            }]);
+            const warnings = lint(m);
+            const uc = warnings.filter(w => w.warning === "unsupported_container");
+            expect(uc).toHaveLength(0);
+        });
+
+        it("does not warn on Option<Int>", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "main", params: [],
+                effects: ["pure"],
+                returnType: OPTION_INT_T, contracts: [],
+                body: [{ kind: "literal", id: "lit-001", value: 0 }],
+            }]);
+            const warnings = lint(m);
+            const uc = warnings.filter(w => w.warning === "unsupported_container");
+            expect(uc).toHaveLength(0);
+        });
+
+        it("does not warn on Result<String, String> (supported by HTTP builtins)", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "main", params: [],
+                effects: ["io"],
+                returnType: RESULT_STRING_STRING, contracts: [],
+                body: [{ kind: "literal", id: "lit-001", value: 0 }],
+            }]);
+            const warnings = lint(m);
+            const uc = warnings.filter(w => w.warning === "unsupported_container");
+            expect(uc).toHaveLength(0);
+        });
+
+        it("does not warn on Result<Int, Int>", () => {
+            const m = mod([{
+                kind: "fn", id: "fn-001", name: "main", params: [],
+                effects: ["pure"],
+                returnType: RESULT_INT_INT, contracts: [],
+                body: [{ kind: "literal", id: "lit-001", value: 0 }],
+            }]);
+            const warnings = lint(m);
+            const uc = warnings.filter(w => w.warning === "unsupported_container");
+            expect(uc).toHaveLength(0);
+        });
+    });
 });
