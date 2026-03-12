@@ -230,4 +230,117 @@ describe("browser-full", () => {
             expect(run.returnValue).toBe(0);
         });
     });
+
+    // -----------------------------------------------------------------------
+    // Z3 Integration — contract verification in browser-full pipeline
+    // -----------------------------------------------------------------------
+
+    describe("Z3 contract verification", () => {
+        it("initializes Z3 successfully", async () => {
+            const { initEdictBrowser } = await import("../../src/browser-full.js");
+            const result = await initEdictBrowser();
+            expect(result.ok).toBe(true);
+        });
+
+        it("isZ3Initialized returns true after init", async () => {
+            // Z3 was initialized in the previous test (lazy singleton)
+            expect(isZ3Initialized()).toBe(true);
+        });
+
+        it("compileBrowserFull proves a valid postcondition", async () => {
+            /** fn absolute(x: Int) -> Int { post: result >= 0; if x < 0 then -x else x } */
+            const contractProgram = {
+                kind: "module",
+                id: "mod-contract",
+                name: "contract_test",
+                imports: [],
+                definitions: [{
+                    kind: "fn",
+                    id: "fn-absolute",
+                    name: "absolute",
+                    params: [{ kind: "param", id: "p-x", name: "x", type: { kind: "basic", name: "Int" } }],
+                    effects: ["pure"],
+                    returnType: { kind: "basic", name: "Int" },
+                    contracts: [{
+                        kind: "post",
+                        id: "post-nonneg",
+                        condition: {
+                            kind: "binop", id: "cond-gte", op: ">=",
+                            left: { kind: "ident", id: "id-result", name: "result" },
+                            right: { kind: "literal", id: "lit-0", value: 0 },
+                        },
+                    }],
+                    body: [{
+                        kind: "if",
+                        id: "if-neg",
+                        condition: {
+                            kind: "binop", id: "cmp-lt", op: "<",
+                            left: { kind: "ident", id: "id-x-cmp", name: "x" },
+                            right: { kind: "literal", id: "lit-0-cmp", value: 0 },
+                        },
+                        then: [{
+                            kind: "unop", id: "neg-x", op: "-",
+                            operand: { kind: "ident", id: "id-x-neg", name: "x" },
+                        }],
+                        else: [{ kind: "ident", id: "id-x-ret", name: "x" }],
+                    }],
+                }, {
+                    kind: "fn",
+                    id: "fn-main",
+                    name: "main",
+                    params: [],
+                    effects: ["pure"],
+                    returnType: { kind: "basic", name: "Int" },
+                    contracts: [],
+                    body: [{
+                        kind: "call",
+                        id: "call-abs",
+                        fn: { kind: "ident", id: "id-absolute", name: "absolute" },
+                        args: [{ kind: "literal", id: "lit-neg-7", value: -7 }],
+                    }],
+                }],
+            };
+
+            const result = await compileBrowserFull(contractProgram);
+            expect(result.ok).toBe(true);
+            expect(result.wasm).toBeInstanceOf(Uint8Array);
+            expect(result.errors).toEqual([]);
+            // Z3 should have verified the contract — coverage should be present
+            expect(result.coverage).toBeDefined();
+        });
+
+        it("compileBrowserFull detects a contract violation", async () => {
+            /** fn bad(x: Int) -> Int { post: result > 0; x } — fails when x <= 0 */
+            const failingProgram = {
+                kind: "module",
+                id: "mod-fail",
+                name: "fail_test",
+                imports: [],
+                definitions: [{
+                    kind: "fn",
+                    id: "fn-bad",
+                    name: "main",
+                    params: [{ kind: "param", id: "p-x", name: "x", type: { kind: "basic", name: "Int" } }],
+                    effects: ["pure"],
+                    returnType: { kind: "basic", name: "Int" },
+                    contracts: [{
+                        kind: "post",
+                        id: "post-positive",
+                        condition: {
+                            kind: "binop", id: "cond-gt", op: ">",
+                            left: { kind: "ident", id: "id-result", name: "result" },
+                            right: { kind: "literal", id: "lit-0", value: 0 },
+                        },
+                    }],
+                    body: [{ kind: "ident", id: "id-x-ret", name: "x" }],
+                }],
+            };
+
+            const result = await compileBrowserFull(failingProgram);
+            // Contract verification should fail — postcondition can't be proven
+            expect(result.ok).toBe(false);
+            expect(result.errors.length).toBeGreaterThan(0);
+            expect(result.errors.some(e => e.error === "contract_failure")).toBe(true);
+        });
+    });
 });

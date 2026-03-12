@@ -8,7 +8,8 @@
 // Usage: tsx scripts/build-browser.ts [--full-only]
 
 import { build, type BuildResult } from "esbuild";
-import { readFileSync } from "node:fs";
+import { readFileSync, copyFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf-8")) as { version: string };
 const fullOnly = process.argv.includes("--full-only");
@@ -125,9 +126,31 @@ const fullResult = await build({
     treeShaking: true,
     metafile: true,
     plugins: [nodeModuleShim],
+    // z3-solver's browser.js uses `global.initZ3` — map to globalThis for browsers
+    define: { global: "globalThis" },
     banner: {
-        js: `// edict-lang v${pkg.version} — browser-full bundle (phases 1-5, compile, execute)\n// https://github.com/Sowiedu/Edict\n`,
+        js: `// edict-lang v${pkg.version} — browser-full bundle (phases 1-5, compile, execute, Z3 contracts)\n// https://github.com/Sowiedu/Edict\n`,
     },
 });
 reportSize(fullResult);
 verifyNoNodeImports("dist/browser-full.bundle.js");
+
+// ---------------------------------------------------------------------------
+// Copy Z3 WASM assets — required for contract verification in the browser
+// ---------------------------------------------------------------------------
+console.log("\n--- Copying Z3 assets ---");
+const z3Dir = resolve("node_modules/z3-solver/build");
+for (const file of ["z3-built.js", "z3-built.wasm"]) {
+    const src = resolve(z3Dir, file);
+    const dst = resolve("dist", file);
+    if (existsSync(src)) {
+        copyFileSync(src, dst);
+        const sizeMB = readFileSync(dst).length / 1048576;
+        const display = sizeMB >= 1
+            ? `${sizeMB.toFixed(1)} MB`
+            : `${(readFileSync(dst).length / 1024).toFixed(1)} KB`;
+        console.log(`✓ dist/${file}: ${display}`);
+    } else {
+        console.warn(`⚠ ${src} not found — Z3 contract verification will not work in browser`);
+    }
+}

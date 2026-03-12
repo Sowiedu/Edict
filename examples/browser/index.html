@@ -37,6 +37,11 @@
 
     <div class="panel" id="status">Initializing…</div>
 
+    <div class="panel" id="z3-panel" style="display:none">
+        <div class="label">Z3 Contract Verification</div>
+        <pre id="z3-result"></pre>
+    </div>
+
     <div class="panel" id="compile-panel" style="display:none">
         <div class="label">Compilation</div>
         <pre id="compile-result"></pre>
@@ -48,16 +53,23 @@
     </div>
 </div>
 
+<!-- Z3 WASM loader — must load before the Edict bundle (sets globalThis.initZ3) -->
+<script src="../../dist/z3-built.js"></script>
+
 <script type="module">
 // Edict Browser Compilation Demo
 // Serve this directory via HTTP (e.g. `npx serve .` from the repo root).
 // ESM imports don't work from file:// due to CORS restrictions.
 import {
+    compileBrowserFull,
     compileBrowser,
+    initEdictBrowser,
+    isZ3Initialized,
     runBrowserDirect,
 } from '../../dist/browser-full.bundle.js';
 
-// The Edict program: fn main() -> Int { print("Hello from the browser!"); 2 + 3 }
+// The Edict program: fn absolute(x: Int) -> Int { pre: x >= 0; post: result >= 0; if x < 0 then -x else x }
+// This demonstrates contract verification: Z3 proves the postcondition holds.
 const program = {
     kind: 'module',
     id: 'mod-browser-demo',
@@ -79,13 +91,44 @@ const program = {
                 args: [{ kind: 'literal', id: 'lit-hello', value: 'Hello from the browser!' }],
             },
             {
-                kind: 'binop',
-                id: 'binop-add',
-                op: '+',
-                left: { kind: 'literal', id: 'lit-2', value: 2 },
-                right: { kind: 'literal', id: 'lit-3', value: 3 },
+                kind: 'call',
+                id: 'call-absolute',
+                fn: { kind: 'ident', id: 'id-absolute', name: 'absolute' },
+                args: [{ kind: 'literal', id: 'lit-neg', value: -7 }],
             },
         ],
+    }, {
+        kind: 'fn',
+        id: 'fn-absolute',
+        name: 'absolute',
+        params: [{ kind: 'param', id: 'p-x', name: 'x', type: { kind: 'basic', name: 'Int' } }],
+        effects: ['pure'],
+        returnType: { kind: 'basic', name: 'Int' },
+        contracts: [
+            {
+                kind: 'post',
+                id: 'post-nonneg',
+                condition: {
+                    kind: 'binop', id: 'cond-gte', op: '>=',
+                    left: { kind: 'ident', id: 'id-result', name: 'result' },
+                    right: { kind: 'literal', id: 'lit-zero', value: 0 },
+                },
+            },
+        ],
+        body: [{
+            kind: 'if',
+            id: 'if-neg',
+            condition: {
+                kind: 'binop', id: 'cmp-lt', op: '<',
+                left: { kind: 'ident', id: 'id-x-cmp', name: 'x' },
+                right: { kind: 'literal', id: 'lit-0-cmp', value: 0 },
+            },
+            then: [{
+                kind: 'unop', id: 'neg-x', op: '-',
+                operand: { kind: 'ident', id: 'id-x-neg', name: 'x' },
+            }],
+            else: [{ kind: 'ident', id: 'id-x-ret', name: 'x' }],
+        }],
     }],
 };
 
@@ -93,16 +136,39 @@ const program = {
 document.getElementById('source').textContent = JSON.stringify(program, null, 2);
 
 const status = document.getElementById('status');
+const z3Panel = document.getElementById('z3-panel');
+const z3Result = document.getElementById('z3-result');
 const compilePanel = document.getElementById('compile-panel');
 const compileResult = document.getElementById('compile-result');
 const runPanel = document.getElementById('run-panel');
 const runResult = document.getElementById('run-result');
 
 try {
-    // Step 1: Compile
-    status.textContent = 'Compiling…';
+    // Step 0: Initialize Z3 (loads ~32MB WASM)
+    status.textContent = 'Loading Z3 WASM (~32MB)…';
+    const z3t0 = performance.now();
+    const z3Init = await initEdictBrowser();
+    const z3Ms = (performance.now() - z3t0).toFixed(0);
+
+    z3Panel.style.display = 'block';
+    if (z3Init.ok) {
+        z3Result.innerHTML =
+            `<span class="ok">✓ Z3 initialized</span> <span class="info">(${z3Ms}ms)</span>\n` +
+            `<span class="info">Contract verification: enabled</span>`;
+    } else {
+        z3Result.innerHTML =
+            `<span class="err">✗ Z3 init failed: ${z3Init.error}</span>\n` +
+            `<span class="info">Falling back to compilation without contract verification</span>`;
+    }
+
+    // Step 1: Compile (with Z3 contract verification if available)
+    status.textContent = isZ3Initialized()
+        ? 'Compiling with contract verification…'
+        : 'Compiling (no Z3)…';
     const t0 = performance.now();
-    const compiled = compileBrowser(program);
+    const compiled = isZ3Initialized()
+        ? await compileBrowserFull(program)
+        : compileBrowser(program);
     const compileMs = (performance.now() - t0).toFixed(1);
 
     compilePanel.style.display = 'block';
@@ -113,9 +179,15 @@ try {
         throw new Error('stop');
     }
 
+    const coverageInfo = compiled.coverage
+        ? `\n<span class="info">Contracts verified: ${compiled.coverage.contractsVerified ?? 0} proven, ` +
+          `${compiled.coverage.contractsFailed ?? 0} failed</span>`
+        : '';
+
     compileResult.innerHTML =
         `<span class="ok">✓ Compiled successfully</span> <span class="info">(${compileMs}ms)</span>\n` +
-        `<span class="info">WASM size: ${compiled.wasm.length} bytes</span>`;
+        `<span class="info">WASM size: ${compiled.wasm.length} bytes</span>` +
+        coverageInfo;
 
     // Step 2: Execute
     status.textContent = 'Executing WASM…';
@@ -135,7 +207,8 @@ try {
             (result.output ? `<span class="info">Output: ${result.output}</span>` : '') +
             (result.heapUsed ? `\n<span class="info">Heap used: ${result.heapUsed} bytes</span>` : '');
 
-        status.innerHTML = '<span class="ok">✓ Complete — compiled and executed in the browser</span>';
+        const z3Status = isZ3Initialized() ? ' with Z3 contract verification' : '';
+        status.innerHTML = `<span class="ok">✓ Complete — compiled${z3Status} and executed in the browser</span>`;
     }
 } catch (e) {
     if (e.message !== 'stop') {
