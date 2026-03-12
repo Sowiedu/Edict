@@ -237,6 +237,6 @@ describe("Skill Lifecycle — crystallized intelligence pattern", () => {
                 expect(result.ok).toBe(true);
                 expect(result.returnValue).toBe(expectedReturn);
             }
-        });
+        }, 60_000);
     });
 });

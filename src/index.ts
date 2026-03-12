@@ -395,3 +395,42 @@ export type {
     InvokeSkillResult,
 } from "./skills/types.js";
 
+// ---------------------------------------------------------------------------
+// Mid-Level IR: codegen-friendly representation between AST and WASM
+// ---------------------------------------------------------------------------
+export { countIRNodes, irExprKindLabel } from "./ir/types.js";
+export type {
+    IRModule,
+    IRImport,
+    IRFunction,
+    IRParam,
+    IRClosureVar,
+    IRConstant,
+    IRRecordDef,
+    IRFieldDef,
+    IREnumDef,
+    IRVariantDef,
+    IRExpr,
+    IRLiteral,
+    IRIdent,
+    IRIdentScope,
+    IRBinop,
+    IRUnop,
+    IRCall,
+    IRCallKind,
+    IRIf,
+    IRLet,
+    IRBlock,
+    IRMatch,
+    IRMatchArm,
+    IRArray,
+    IRTuple,
+    IRRecordExpr,
+    IREnumConstructor,
+    IRFieldInit,
+    IRAccess,
+    IRLambdaRef,
+    IRStringInterp,
+    IRStringInterpPart,
+} from "./ir/types.js";
+
