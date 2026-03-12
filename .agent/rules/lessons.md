@@ -1,5 +1,11 @@
 # Lessons Learned
 
+## Schema Walker validateValue Assumes anyOf = Object Union
+- **Problem**: `validateValue` in `schema-walker.ts` assumed all `anyOf` items are objects (`if (!isObject(value))` rejection). When `Effect` became `ConcreteEffect | EffectVariable` (string | object union), concrete string effects in `fn_type.effects` were rejected.
+- **Root cause**: The validator was designed for kind-discriminated object unions only. Mixed scalar + object unions weren't supported.
+- **Solution**: Check if string values match any enum branch in the `anyOf` before falling through to object validation.
+- **Pattern**: When extending a type from scalar to union (scalar | object), always audit validators that consume `anyOf` schemas.
+
 ## Runtime Type Assumptions Must Be Verified Against Builtins Registry
 - **Problem**: Assumed the runtime was "Int-only" for containers, but `Result<String, String>` is used by HTTP/IO/JSON builtins
 - **Root cause**: Designing based on pattern observation (`ARRAY_INT_TYPE`, `OPTION_INT_TYPE`) instead of exhaustively scanning the builtin registry

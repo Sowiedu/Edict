@@ -126,7 +126,7 @@
         "effects": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Effect"
+            "$ref": "#/definitions/ConcreteEffect"
           }
         },
         "returnType": {
@@ -615,15 +615,39 @@
       ]
     },
     "Effect": {
-      "description": "The 5 canonical effect categories.\nA function's signature includes which effects it may perform.",
-      "enum": [
-        "fails",
-        "io",
-        "pure",
-        "reads",
-        "writes"
-      ],
-      "type": "string"
+      "description": "An effect is either a concrete effect literal or an effect variable.\nConcrete effects appear in function/tool definitions.\nEffect variables appear only in FunctionType (type annotations for callbacks).",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/EffectVariable"
+        },
+        {
+          "enum": [
+            "fails",
+            "io",
+            "pure",
+            "reads",
+            "writes"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "EffectVariable": {
+      "description": "Effect variable — a placeholder for an unknown set of effects.\nUsed in FunctionType to express effect polymorphism for higher-order functions.\nOnly valid in type annotations (fn_type), NOT in function/tool definitions.\nNames must be single uppercase ASCII letters (e.g., \"E\", \"F\").",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "effect_var"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ]
     },
     "NamedType": {
       "description": "Reference to a user-defined type (RecordDef or EnumDef) by name.",
@@ -1544,6 +1568,17 @@
       ],
       "type": "string"
     },
+    "ConcreteEffect": {
+      "description": "The 5 canonical concrete effect categories.\nA function definition's signature includes which concrete effects it may perform.",
+      "enum": [
+        "fails",
+        "io",
+        "pure",
+        "reads",
+        "writes"
+      ],
+      "type": "string"
+    },
     "Contract": {
       "description": "Pre/post contract on a function.\nMust have exactly one of `condition` (manual expression) or `semantic` (pre-built assertion).\n`semantic` is only valid on `post` contracts (v1).",
       "type": "object",
@@ -2093,7 +2128,7 @@
         "effects": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Effect"
+            "$ref": "#/definitions/ConcreteEffect"
           }
         },
         "blame": {

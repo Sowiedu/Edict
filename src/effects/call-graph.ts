@@ -7,9 +7,10 @@
 import type {
     EdictModule,
     Expression,
-    Effect,
+    ConcreteEffect,
     ApprovalGate,
 } from "../ast/nodes.js";
+import { isConcreteEffect } from "../ast/nodes.js";
 import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import { walkExpression } from "../ast/walk.js";
 
@@ -32,7 +33,7 @@ export type CallGraph = Map<string, CallEdge[]>;
 export interface EffectSource {
     name: string;
     id: string;
-    effects: Effect[];
+    effects: ConcreteEffect[];
     approval?: ApprovalGate;
 }
 
@@ -105,7 +106,7 @@ export function buildCallGraph(module: EdictModule): {
         effectSources.set(name, {
             name,
             id: `builtin-${name}`,
-            effects: [...builtin.type.effects],
+            effects: builtin.type.effects.filter(isConcreteEffect),
         });
     }
 
@@ -114,10 +115,12 @@ export function buildCallGraph(module: EdictModule): {
         for (const name of imp.names) {
             const declaredType = imp.types?.[name];
             if (declaredType && declaredType.kind === "fn_type" && declaredType.effects.length > 0) {
+                // Filter out effect variables — only concrete effects are checked
+                const concreteEffects = declaredType.effects.filter(isConcreteEffect);
                 effectSources.set(name, {
                     name,
                     id: `import-${imp.module}-${name}`,
-                    effects: [...declaredType.effects],
+                    effects: concreteEffects,
                 });
             } else {
                 importedNames.add(name);

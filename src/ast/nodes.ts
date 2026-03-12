@@ -14,12 +14,44 @@ export type { TypeExpr } from "./types.js";
 // =============================================================================
 
 /**
- * The 5 canonical effect categories.
- * A function's signature includes which effects it may perform.
+ * The 5 canonical concrete effect categories.
+ * A function definition's signature includes which concrete effects it may perform.
  */
-export type Effect = "pure" | "reads" | "writes" | "io" | "fails";
+export type ConcreteEffect = "pure" | "reads" | "writes" | "io" | "fails";
 
-export const VALID_EFFECTS: readonly Effect[] = [
+/**
+ * Effect variable — a placeholder for an unknown set of effects.
+ * Used in FunctionType to express effect polymorphism for higher-order functions.
+ * Only valid in type annotations (fn_type), NOT in function/tool definitions.
+ * Names must be single uppercase ASCII letters (e.g., "E", "F").
+ */
+export interface EffectVariable {
+    kind: "effect_var";
+    name: string;
+}
+
+/**
+ * An effect is either a concrete effect literal or an effect variable.
+ * Concrete effects appear in function/tool definitions.
+ * Effect variables appear only in FunctionType (type annotations for callbacks).
+ */
+export type Effect = ConcreteEffect | EffectVariable;
+
+/**
+ * Type guard: is this effect a concrete string literal?
+ */
+export function isConcreteEffect(e: Effect): e is ConcreteEffect {
+    return typeof e === "string";
+}
+
+/**
+ * Type guard: is this effect an effect variable?
+ */
+export function isEffectVariable(e: Effect): e is EffectVariable {
+    return typeof e === "object" && e !== null && e.kind === "effect_var";
+}
+
+export const VALID_EFFECTS: readonly ConcreteEffect[] = [
     "pure",
     "reads",
     "writes",
@@ -151,7 +183,7 @@ export interface FunctionDef {
     id: string;
     name: string;
     params: Param[];
-    effects: Effect[];
+    effects: ConcreteEffect[];
     returnType?: TypeExpr;
     contracts: Contract[];
     constraints?: ComplexityConstraints;
@@ -271,7 +303,7 @@ export interface ToolDef {
     uri: string;               // tool URI: "mcp://github/create_issue"
     params: Param[];           // typed parameters
     returnType: TypeExpr;      // Ok payload; tool_call returns Result<returnType, String>
-    effects: Effect[];         // must include "io"; may include others
+    effects: ConcreteEffect[]; // must include "io"; may include others
     blame?: BlameAnnotation;
 }
 
@@ -678,6 +710,7 @@ export const ALL_VALID_KINDS = [
     "arm",
     "field_init",
     "constraints",
+    "effect_var",
     ...VALID_EXPRESSION_KINDS,
     ...VALID_TYPE_KINDS,
     ...VALID_PATTERN_KINDS,

@@ -89,6 +89,8 @@ export type {
     Param,
     Contract,
     Effect,
+    ConcreteEffect,
+    EffectVariable,
     Expression,
     Literal,
     Identifier,
@@ -126,7 +128,7 @@ export type {
     RetryPolicy,
     BackoffKind,
 } from "./ast/nodes.js";
-export { VALID_APPROVAL_SCOPES } from "./ast/nodes.js";
+export { VALID_APPROVAL_SCOPES, isConcreteEffect, isEffectVariable } from "./ast/nodes.js";
 
 // ---------------------------------------------------------------------------
 // Type Expressions: all type annotation node types

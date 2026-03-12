@@ -351,15 +351,35 @@ function validateValue(
 ): void {
     const resolved = resolve(schema);
 
-    // anyOf — discriminated union
+    // anyOf — discriminated union (may include non-object branches like string enums)
     if (resolved["anyOf"]) {
+        const branches = resolved["anyOf"] as JsonSchema[];
+
+        // If value is a string, check if any branch is a string enum that includes it
+        if (isString(value)) {
+            for (const branch of branches) {
+                const branchResolved = resolve(branch);
+                if (branchResolved["enum"] && (branchResolved["enum"] as string[]).includes(value as string)) {
+                    return; // valid match against enum branch
+                }
+                if (branchResolved["type"] === "string") {
+                    return; // valid match against string type branch
+                }
+            }
+            // No enum branch matched — report error
+            errors.push(
+                invalidFieldType(path, null, path, "object", typeof value),
+            );
+            return;
+        }
+
         if (!isObject(value)) {
             errors.push(
                 invalidFieldType(path, null, path, "object", typeof value),
             );
             return;
         }
-        validateUnion(value, resolved["anyOf"] as JsonSchema[], path, errors, idTracker);
+        validateUnion(value, branches, path, errors, idTracker);
         return;
     }
 
@@ -527,39 +547,80 @@ function runSemanticChecks(
     if (props["effects"] && isArray(node["effects"])) {
         const effects = node["effects"] as unknown[];
         let hasPure = false;
+        let hasEffectVar = false;
 
-        // Validate each effect value against the Effect enum from the schema
+        // Resolve the items schema to find valid concrete effects.
+        // Items may be a plain enum (ConcreteEffect) or an anyOf union (Effect = ConcreteEffect | EffectVariable).
         const effectSchema = resolve(props["effects"]);
         if (effectSchema["type"] === "array" && effectSchema["items"]) {
             const itemResolved = resolve(effectSchema["items"] as JsonSchema);
+
+            // Extract valid concrete effect strings from schema
+            let validEffects: string[] | null = null;
             if (itemResolved["enum"]) {
-                const validEffects = itemResolved["enum"] as string[];
+                // Plain enum: ConcreteEffect
+                validEffects = itemResolved["enum"] as string[];
+            } else if (itemResolved["anyOf"]) {
+                // Union: Effect = ConcreteEffect | EffectVariable
+                for (const branch of itemResolved["anyOf"] as JsonSchema[]) {
+                    const branchResolved = resolve(branch);
+                    if (branchResolved["enum"]) {
+                        validEffects = branchResolved["enum"] as string[];
+                        break;
+                    }
+                }
+            }
+
+            if (validEffects) {
                 for (let i = 0; i < effects.length; i++) {
+                    const eff = effects[i];
+
+                    // Case 1: Effect variable object { kind: "effect_var", name: "..." }
+                    if (isObject(eff) && (eff as AnyNode)["kind"] === "effect_var") {
+                        hasEffectVar = true;
+                        // Validate naming convention: single uppercase ASCII letter
+                        const varName = (eff as AnyNode)["name"];
+                        if (!isString(varName) || !/^[A-Z]$/.test(varName)) {
+                            errors.push(
+                                invalidFieldType(
+                                    `${path}.effects[${i}]`,
+                                    nodeId,
+                                    "name",
+                                    "single uppercase letter (A-Z)",
+                                    isString(varName) ? `"${varName}"` : typeof varName,
+                                ),
+                            );
+                        }
+                        continue;
+                    }
+
+                    // Case 2: Concrete effect string
                     if (
-                        !isString(effects[i]) ||
-                        !validEffects.includes(effects[i] as string)
+                        !isString(eff) ||
+                        !validEffects.includes(eff as string)
                     ) {
                         errors.push(
                             invalidEffect(
                                 `${path}.effects[${i}]`,
                                 nodeId,
-                                String(effects[i]),
+                                String(eff),
                                 validEffects,
                             ),
                         );
-                    } else if (effects[i] === "pure") {
+                    } else if (eff === "pure") {
                         hasPure = true;
                     }
                 }
             }
         }
 
-        if (hasPure && effects.length > 1) {
+        // "pure" can't coexist with other concrete effects or effect variables
+        if (hasPure && (effects.length > 1 || hasEffectVar)) {
             errors.push(
                 conflictingEffects(
                     `${path}.effects`,
                     nodeId,
-                    effects as string[],
+                    effects.map(e => isObject(e) ? `effect_var(${(e as AnyNode)["name"]})` : String(e)),
                 ),
             );
         }
