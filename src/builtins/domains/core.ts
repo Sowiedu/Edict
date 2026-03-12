@@ -25,6 +25,23 @@ export const CORE_BUILTINS: BuiltinDef[] = [
         },
     },
     {
+        name: "println",
+        type: {
+            kind: "fn_type",
+            params: [STRING_TYPE],
+            effects: ["io"],
+            returnType: STRING_TYPE,
+        },
+        impl: {
+            kind: "host",
+            factory: (ctx: HostContext) => (ptr: number): number => {
+                const text = readString(ctx.state, ptr, ctx.decoder);
+                ctx.state.outputParts.push(text + "\n");
+                return ptr;
+            },
+        },
+    },
+    {
         name: "string_replace",
         type: {
             kind: "fn_type",

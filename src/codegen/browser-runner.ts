@@ -230,8 +230,13 @@ export async function runBrowser(
                 const hostFunctions = {
                     print: (ptr) => {
                         const str = readString(wasmExports.memory, ptr);
-                        outputParts.push(str + "\\n");
-                        return writeString(wasmExports, str);
+                        outputParts.push(str);
+                        return ptr;
+                    },
+                    println: (ptr) => {
+                        const str = readString(wasmExports.memory, ptr);
+                        outputParts.push(str + "\n");
+                        return ptr;
                     },
                     int_to_string: (n) => writeString(wasmExports, String(n)),
                     float_to_string: (n) => writeString(wasmExports, String(n)),

@@ -222,6 +222,79 @@ describe("runner — print output", () => {
     });
 });
 
+describe("runner — println output", () => {
+    it("captures println output with trailing newline", async () => {
+        const mod = mkModule([
+            mkFn(
+                "main",
+                [
+                    {
+                        kind: "call", id: "c-1",
+                        fn: { kind: "ident", id: "i-println", name: "println" },
+                        args: [mkLiteral("hello", "l-s")],
+                    },
+                    mkLiteral(0, "l-ret"),
+                ],
+                { effects: ["io"] },
+            ),
+        ]);
+        const result = await compileAndRunModule(mod);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.output).toBe("hello\n");
+    });
+
+    it("captures multiple println calls with individual newlines", async () => {
+        const mod = mkModule([
+            mkFn(
+                "main",
+                [
+                    {
+                        kind: "call", id: "c-1",
+                        fn: { kind: "ident", id: "i-p1", name: "println" },
+                        args: [mkLiteral("line1", "l-s1")],
+                    },
+                    {
+                        kind: "call", id: "c-2",
+                        fn: { kind: "ident", id: "i-p2", name: "println" },
+                        args: [mkLiteral("line2", "l-s2")],
+                    },
+                    mkLiteral(0, "l-ret"),
+                ],
+                { effects: ["io"] },
+            ),
+        ]);
+        const result = await compileAndRunModule(mod);
+
+        expect(result.output).toBe("line1\nline2\n");
+    });
+
+    it("print and println can be mixed", async () => {
+        const mod = mkModule([
+            mkFn(
+                "main",
+                [
+                    {
+                        kind: "call", id: "c-1",
+                        fn: { kind: "ident", id: "i-p1", name: "print" },
+                        args: [mkLiteral("no-newline", "l-s1")],
+                    },
+                    {
+                        kind: "call", id: "c-2",
+                        fn: { kind: "ident", id: "i-p2", name: "println" },
+                        args: [mkLiteral("with-newline", "l-s2")],
+                    },
+                    mkLiteral(0, "l-ret"),
+                ],
+                { effects: ["io"] },
+            ),
+        ]);
+        const result = await compileAndRunModule(mod);
+
+        expect(result.output).toBe("no-newlinewith-newline\n");
+    });
+});
+
 describe("runner — missing entry function", () => {
     it("returns exitCode 1 when entry function is missing", async () => {
         // Module with function named "helper", not "main"
