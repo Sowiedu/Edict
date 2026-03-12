@@ -63,6 +63,7 @@ export { computeVerificationHash } from "./contracts/hash.js";
 // IR Lowering: AST + TypedModuleInfo → mid-level IR
 // ---------------------------------------------------------------------------
 export { lowerModule } from "./ir/lower.js";
+export { optimize } from "./ir/optimize.js";
 
 // ---------------------------------------------------------------------------
 // Full Pipeline: validate → resolve → typeCheck → effectCheck → contractVerify
@@ -292,11 +293,13 @@ export { StringTable } from "./codegen/string-table.js";
 export { BUILTIN_FUNCTIONS, isBuiltin, getBuiltin } from "./builtins/builtins.js";
 
 // ---------------------------------------------------------------------------
-// Host Adapters: platform-specific I/O implementations (Node, Browser)
+// Host Adapters: platform-specific I/O implementations (Node, Browser, Cloudflare)
 // ---------------------------------------------------------------------------
 export type { EdictHostAdapter } from "./codegen/host-adapter.js";
 export { NodeHostAdapter } from "./codegen/node-host-adapter.js";
 export { BrowserHostAdapter } from "./codegen/browser-host-adapter.js";
+export { CloudflareHostAdapter } from "./codegen/cloudflare-host-adapter.js";
+export type { CloudflareHostAdapterOptions } from "./codegen/cloudflare-host-adapter.js";
 export { EdictOomError } from "./builtins/host-helpers.js";
 
 // ---------------------------------------------------------------------------
