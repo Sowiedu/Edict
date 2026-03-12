@@ -66,6 +66,12 @@ export { lowerModule } from "./ir/lower.js";
 export { optimize } from "./ir/optimize.js";
 
 // ---------------------------------------------------------------------------
+// Deploy: Worker scaffold generation for edge runtimes
+// ---------------------------------------------------------------------------
+export { generateWorkerScaffold, getHostBuiltinNames } from "./deploy/scaffold.js";
+export type { WorkerConfig, WorkerBundle, WorkerBundleFile, ScaffoldResult } from "./deploy/scaffold.js";
+
+// ---------------------------------------------------------------------------
 // Full Pipeline: validate → resolve → typeCheck → effectCheck → contractVerify
 // ---------------------------------------------------------------------------
 export { check } from "./check.js";
