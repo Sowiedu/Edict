@@ -289,3 +289,15 @@ if (url.endsWith(".ts")) {
 - **Mitigation**: Document the limitation clearly. Recommend `runBrowserDirect()` for programs using non-basic builtins. `runBrowserDirect()` uses the full `createHostImports()` registry.
 - **Future**: Consider generating the Worker script from the builtin registry at build time, or find a way to pass the full host import set to the Worker via `postMessage`.
 
+## 45. Effect Variables Live in Param Types, Not Callee Top-Level Effects
+- **Problem**: When implementing effect variable unification, I initially checked `resolved.effects` (the callee's FunctionType top-level effects) for effect variables. But `FunctionDef.effects` is `ConcreteEffect[]` — only concrete effects. Effect variables appear in **param types** (e.g., `f: (Int) -[E]-> Int`), not the callee's own effects.
+- **Rule**: Always distinguish between `FunctionDef.effects` (concrete, runtime) and `FunctionType.effects` (polymorphic, in param type annotations). Scan param types for effect variables, not the callee function.
+
+## 46. Early Continue Breaks Independent Checks
+- **Problem**: The effect checker had `if (calleeNonPure.length === 0) continue;` which skipped the entire edge — including the new resolved effect variable propagation check. A pure HOF with effect-polymorphic callbacks resolves to `calleeNonPure = []` but still has resolved effects from unification.
+- **Rule**: When adding a new independent check to an existing loop, audit all `continue` statements above it. Restructure to allow both checks to run.
+
+## 47. Test Fixture Return Types Must Match Callback Signatures
+- **Problem**: Test lambdas called `print("hello")` which returns `String`, but the expected callback return type was `Int`. This caused `type_mismatch` errors in the type checker before reaching the effect logic under test.
+- **Rule**: When writing test fixtures with lambdas, use `let _ = sideEffect(); returnValue` pattern to decouple the effect call from the return type.
+

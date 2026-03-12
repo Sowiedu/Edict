@@ -215,3 +215,384 @@ describe("effect variables — effect checker compatibility", () => {
         });
     });
 });
+
+// ---------------------------------------------------------------------------
+// Effect polymorphism — inference and propagation
+// ---------------------------------------------------------------------------
+
+import { typeCheck } from "../../src/checker/check.js";
+
+describe("effect polymorphism — inference and propagation", () => {
+    /**
+     * Helper: build a module with a HOF that takes a callback with effect variable E,
+     * a caller that calls the HOF with a lambda, and optionally a built-in that
+     * the lambda calls.
+     */
+    function mkHofModule(opts: {
+        hofName: string;
+        hofEffects: ConcreteEffect[];
+        callerName: string;
+        callerEffects: ConcreteEffect[];
+        lambdaBody: any[];
+        /** Extra definitions (e.g., effectful functions the lambda calls) */
+        extraDefs?: any[];
+    }): EdictModule {
+        return mkModule([
+            // The HOF: takes a callback f: (Int) -[E]-> Int
+            {
+                kind: "fn",
+                id: `fn-${opts.hofName}`,
+                name: opts.hofName,
+                params: [
+                    {
+                        kind: "param",
+                        id: `p-${opts.hofName}-f`,
+                        name: "f",
+                        type: {
+                            kind: "fn_type",
+                            params: [{ kind: "basic", name: "Int" }],
+                            effects: [{ kind: "effect_var", name: "E" }],
+                            returnType: { kind: "basic", name: "Int" },
+                        },
+                    },
+                ],
+                effects: opts.hofEffects,
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [
+                    // HOF body: calls f (callback)
+                    {
+                        kind: "call",
+                        id: `call-f-in-${opts.hofName}`,
+                        fn: { kind: "ident", id: `id-f-in-${opts.hofName}`, name: "f" },
+                        args: [{ kind: "literal", id: `l-${opts.hofName}`, value: 1 }],
+                    },
+                ],
+            },
+            // The caller: calls hofName(lambda(...) { ...lambdaBody })
+            {
+                kind: "fn",
+                id: `fn-${opts.callerName}`,
+                name: opts.callerName,
+                params: [],
+                effects: opts.callerEffects,
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [
+                    {
+                        kind: "call",
+                        id: `call-${opts.hofName}-in-${opts.callerName}`,
+                        fn: { kind: "ident", id: `id-${opts.hofName}-in-${opts.callerName}`, name: opts.hofName },
+                        args: [
+                            {
+                                kind: "lambda",
+                                id: `lam-in-${opts.callerName}`,
+                                params: [{ kind: "param", id: `lam-p-x`, name: "x" }],
+                                body: opts.lambdaBody,
+                            },
+                        ],
+                    },
+                ],
+            },
+            ...(opts.extraDefs ?? []),
+        ]);
+    }
+
+    it("HOF with pure lambda — no effects propagated", () => {
+        const mod = mkHofModule({
+            hofName: "apply",
+            hofEffects: ["pure"],
+            callerName: "main",
+            callerEffects: ["pure"],
+            lambdaBody: [
+                // Pure lambda: just returns x
+                { kind: "ident", id: "id-x-1", name: "x" },
+            ],
+        });
+
+        const { errors: typeErrors, typeInfo } = typeCheck(mod);
+        expect(typeErrors).toEqual([]);
+
+        // No resolved effects for the call site (lambda is pure)
+        expect(typeInfo.resolvedCallSiteEffects.size).toBe(0);
+
+        const { errors } = effectCheck(mod, typeInfo);
+        expect(errors).toEqual([]);
+    });
+
+    it("HOF with IO lambda — io propagated to call site", () => {
+        const mod = mkHofModule({
+            hofName: "apply",
+            hofEffects: ["pure"],
+            callerName: "main",
+            callerEffects: ["io"],
+            lambdaBody: [
+                // Lambda calls print (builtin with io effect) then returns x
+                {
+                    kind: "let",
+                    id: "let-discard",
+                    name: "_",
+                    value: {
+                        kind: "call",
+                        id: "call-print",
+                        fn: { kind: "ident", id: "id-print", name: "print" },
+                        args: [{ kind: "literal", id: "l-str", value: "hello" }],
+                    },
+                },
+                { kind: "ident", id: "id-x-ret", name: "x" },
+            ],
+        });
+
+        const { errors: typeErrors, typeInfo } = typeCheck(mod);
+        expect(typeErrors).toEqual([]);
+
+        // Effect variable E was resolved to [io] at the call site
+        const callSiteId = "call-apply-in-main";
+        const resolved = typeInfo.resolvedCallSiteEffects.get(callSiteId);
+        expect(resolved).toBeDefined();
+        expect(resolved).toContain("io");
+
+        // Caller has [io] — should pass
+        const { errors } = effectCheck(mod, typeInfo);
+        expect(errors).toEqual([]);
+    });
+
+    it("pure caller + HOF with IO lambda → effect_in_pure", () => {
+        const mod = mkHofModule({
+            hofName: "apply",
+            hofEffects: ["pure"],
+            callerName: "main",
+            callerEffects: ["pure"],
+            lambdaBody: [
+                {
+                    kind: "let",
+                    id: "let-discard",
+                    name: "_",
+                    value: {
+                        kind: "call",
+                        id: "call-print",
+                        fn: { kind: "ident", id: "id-print", name: "print" },
+                        args: [{ kind: "literal", id: "l-str", value: "hello" }],
+                    },
+                },
+                { kind: "ident", id: "id-x-ret", name: "x" },
+            ],
+        });
+
+        const { errors: typeErrors, typeInfo } = typeCheck(mod);
+        expect(typeErrors).toEqual([]);
+
+        // Effect variable E resolved to [io]
+        expect(typeInfo.resolvedCallSiteEffects.get("call-apply-in-main")).toContain("io");
+
+        // Caller is pure but call site introduces io → effect error
+        const { errors } = effectCheck(mod, typeInfo);
+        expect(errors.length).toBeGreaterThanOrEqual(1);
+        const effError = errors.find(
+            (e: any) => (e.error === "effect_in_pure" || e.error === "effect_violation")
+                && e.functionName === "main",
+        );
+        expect(effError).toBeDefined();
+    });
+
+    it("caller with [reads] + HOF resolving to [io] → effect_violation", () => {
+        const mod = mkHofModule({
+            hofName: "apply",
+            hofEffects: ["pure"],
+            callerName: "main",
+            callerEffects: ["reads"],
+            lambdaBody: [
+                {
+                    kind: "let",
+                    id: "let-discard",
+                    name: "_",
+                    value: {
+                        kind: "call",
+                        id: "call-print",
+                        fn: { kind: "ident", id: "id-print", name: "print" },
+                        args: [{ kind: "literal", id: "l-str", value: "hello" }],
+                    },
+                },
+                { kind: "ident", id: "id-x-ret", name: "x" },
+            ],
+        });
+
+        const { errors: typeErrors, typeInfo } = typeCheck(mod);
+        expect(typeErrors).toEqual([]);
+
+        const { errors } = effectCheck(mod, typeInfo);
+        expect(errors.length).toBeGreaterThanOrEqual(1);
+        const violation = errors.find(
+            (e: any) => e.error === "effect_violation" && e.functionName === "main",
+        );
+        expect(violation).toBeDefined();
+        expect((violation as any).missingEffects).toContain("io");
+    });
+
+    it("HOF with no lambda arg — no extra effects", () => {
+        // Caller passes an ident (not a lambda) — effect variable not unified
+        const mod: EdictModule = mkModule([
+            {
+                kind: "fn",
+                id: "fn-apply",
+                name: "apply",
+                params: [
+                    {
+                        kind: "param",
+                        id: "p-f",
+                        name: "f",
+                        type: {
+                            kind: "fn_type",
+                            params: [{ kind: "basic", name: "Int" }],
+                            effects: [{ kind: "effect_var", name: "E" }],
+                            returnType: { kind: "basic", name: "Int" },
+                        },
+                    },
+                ],
+                effects: ["pure"],
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [
+                    {
+                        kind: "call",
+                        id: "call-f",
+                        fn: { kind: "ident", id: "id-f", name: "f" },
+                        args: [{ kind: "literal", id: "l1", value: 1 }],
+                    },
+                ],
+            },
+            {
+                kind: "fn",
+                id: "fn-identity",
+                name: "identity",
+                params: [{ kind: "param", id: "p-x", name: "x", type: { kind: "basic", name: "Int" } }],
+                effects: ["pure"],
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [{ kind: "ident", id: "id-x", name: "x" }],
+            },
+            {
+                kind: "fn",
+                id: "fn-main",
+                name: "main",
+                params: [],
+                effects: ["pure"],
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [
+                    {
+                        kind: "call",
+                        id: "call-apply",
+                        fn: { kind: "ident", id: "id-apply", name: "apply" },
+                        args: [{ kind: "ident", id: "id-identity", name: "identity" }],
+                    },
+                ],
+            },
+        ]);
+
+        const { errors: typeErrors, typeInfo } = typeCheck(mod);
+        expect(typeErrors).toEqual([]);
+
+        // No resolved effects (arg is ident, not lambda)
+        expect(typeInfo.resolvedCallSiteEffects.size).toBe(0);
+
+        const { errors } = effectCheck(mod, typeInfo);
+        expect(errors).toEqual([]);
+    });
+
+    it("multiple effect variables resolved independently", () => {
+        // HOF takes two callbacks with different effect variables
+        const mod: EdictModule = mkModule([
+            {
+                kind: "fn",
+                id: "fn-compose",
+                name: "compose",
+                params: [
+                    {
+                        kind: "param",
+                        id: "p-f",
+                        name: "f",
+                        type: {
+                            kind: "fn_type",
+                            params: [{ kind: "basic", name: "Int" }],
+                            effects: [{ kind: "effect_var", name: "E" }],
+                            returnType: { kind: "basic", name: "Int" },
+                        },
+                    },
+                    {
+                        kind: "param",
+                        id: "p-g",
+                        name: "g",
+                        type: {
+                            kind: "fn_type",
+                            params: [{ kind: "basic", name: "Int" }],
+                            effects: [{ kind: "effect_var", name: "F" }],
+                            returnType: { kind: "basic", name: "Int" },
+                        },
+                    },
+                ],
+                effects: ["pure"],
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [{ kind: "literal", id: "l-compose", value: 42 }],
+            },
+            {
+                kind: "fn",
+                id: "fn-main",
+                name: "main",
+                params: [],
+                effects: ["io"],
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [
+                    {
+                        kind: "call",
+                        id: "call-compose",
+                        fn: { kind: "ident", id: "id-compose", name: "compose" },
+                        args: [
+                            // f: pure lambda
+                            {
+                                kind: "lambda",
+                                id: "lam-f",
+                                params: [{ kind: "param", id: "lam-f-x", name: "x" }],
+                                body: [{ kind: "ident", id: "id-f-x", name: "x" }],
+                            },
+                            // g: io lambda (calls print)
+                            {
+                                kind: "lambda",
+                                id: "lam-g",
+                                params: [{ kind: "param", id: "lam-g-x", name: "x" }],
+                                body: [
+                                    {
+                                        kind: "let",
+                                        id: "let-discard-g",
+                                        name: "_",
+                                        value: {
+                                            kind: "call",
+                                            id: "call-print-g",
+                                            fn: { kind: "ident", id: "id-print-g", name: "print" },
+                                            args: [{ kind: "literal", id: "l-str-g", value: "hi" }],
+                                        },
+                                    },
+                                    { kind: "ident", id: "id-g-x-ret", name: "x" },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ]);
+
+        const { errors: typeErrors, typeInfo } = typeCheck(mod);
+        expect(typeErrors).toEqual([]);
+
+        // Only E→pure (nothing), F→io should be resolved
+        const resolved = typeInfo.resolvedCallSiteEffects.get("call-compose");
+        expect(resolved).toBeDefined();
+        expect(resolved).toContain("io");
+
+        // Caller has [io] — should pass
+        const { errors } = effectCheck(mod, typeInfo);
+        expect(errors).toEqual([]);
+    });
+});

@@ -13,7 +13,10 @@ import type {
     RecordDef,
     EnumDef,
     ToolCallExpr,
+    ConcreteEffect,
 } from "../ast/nodes.js";
+import { isConcreteEffect } from "../ast/nodes.js";
+import { walkExpression } from "../ast/walk.js";
 import type { TypeExpr, FunctionType } from "../ast/types.js";
 import type { StructuredError } from "../errors/structured-errors.js";
 import {
@@ -49,6 +52,8 @@ export interface TypedModuleInfo {
     inferredLambdaParamTypes: Map<string, TypeExpr>;
     /** string_interp part nodeId → coercion builtin name (e.g. "intToString") */
     stringInterpCoercions: Map<string, string>;
+    /** callSiteNodeId → resolved concrete effects from effect variable unification */
+    resolvedCallSiteEffects: Map<string, ConcreteEffect[]>;
 }
 
 export interface TypeCheckResult {
@@ -73,6 +78,7 @@ export function typeCheck(module: EdictModule): TypeCheckResult {
         inferredLetTypes: new Map(),
         inferredLambdaParamTypes: new Map(),
         stringInterpCoercions: new Map(),
+        resolvedCallSiteEffects: new Map(),
     };
     const rootEnv = new TypeEnv();
 
@@ -479,6 +485,7 @@ function inferCall(
 
     // Check arg types (up to the minimum of args/params)
     const checkCount = Math.min(expr.args.length, resolved.params.length);
+    const argTypes: TypeExpr[] = [];
     for (let i = 0; i < checkCount; i++) {
         const arg = expr.args[i]!;
         const expectedParamType = resolved.params[i]!;
@@ -487,12 +494,50 @@ function inferCall(
         const argType = (arg.kind === "lambda" && resolvedExpected.kind === "fn_type")
             ? inferLambdaWithContext(arg, resolvedExpected as FunctionType, env, errors, typeInfo)
             : inferExpr(arg, env, errors, typeInfo);
+        argTypes.push(argType);
         checkExpectedType(argType, expectedParamType, arg.id, env, errors);
     }
 
     // Infer remaining surplus args
     for (let i = checkCount; i < expr.args.length; i++) {
         inferExpr(expr.args[i]!, env, errors, typeInfo);
+    }
+
+    // --- Effect variable unification ---
+    // If any callee param is a fn_type with effect variables, unify those
+    // effect variables with the concrete effects of the corresponding lambda args.
+    // Effect variables appear in param types (e.g., f: (Int) -[E]-> Int),
+    // NOT in the callee's top-level effects (which are always ConcreteEffect[]).
+    {
+        const resolvedEffects = new Set<ConcreteEffect>();
+
+        for (let i = 0; i < checkCount; i++) {
+            const expectedParamType = resolved.params[i]!;
+            const resolvedParam = resolveType(expectedParamType, env);
+            if (resolvedParam.kind !== "fn_type") continue;
+
+            // Check if this param's fn_type has any effect variables
+            const hasParamEffectVars = resolvedParam.effects.some(e => !isConcreteEffect(e));
+            if (!hasParamEffectVars) continue;
+
+            // Get the inferred arg type (should be fn_type with concrete effects)
+            const argType = argTypes[i];
+            if (!argType || argType.kind !== "fn_type") continue;
+
+            // Collect concrete effects from the lambda arg's inferred type
+            for (const eff of argType.effects) {
+                if (isConcreteEffect(eff) && eff !== "pure") {
+                    resolvedEffects.add(eff);
+                }
+            }
+        }
+
+        if (resolvedEffects.size > 0) {
+            typeInfo.resolvedCallSiteEffects.set(
+                expr.id,
+                [...resolvedEffects] as ConcreteEffect[],
+            );
+        }
     }
 
     // Auto-annotate provenance for builtins with a provenance source tag
@@ -893,10 +938,11 @@ function inferLambda(
         lamEnv.bind(param.name, param.type ?? UNKNOWN_TYPE);
     }
     const bodyType = inferExprList(expr.body, lamEnv, errors, typeInfo);
+    const effects = collectLambdaEffects(expr.body, lamEnv);
     return {
         kind: "fn_type",
         params: expr.params.map((p) => p.type ?? UNKNOWN_TYPE),
-        effects: [],
+        effects,
         returnType: bodyType,
     } satisfies FunctionType;
 }
@@ -931,12 +977,45 @@ function inferLambdaWithContext(
     }
 
     const bodyType = inferExprList(expr.body, lamEnv, errors, typeInfo);
+    const effects = collectLambdaEffects(expr.body, lamEnv);
     return {
         kind: "fn_type",
         params: expr.params.map((p) => p.type ?? typeInfo.inferredLambdaParamTypes.get(p.id) ?? UNKNOWN_TYPE),
-        effects: [],
+        effects,
         returnType: bodyType,
     } satisfies FunctionType;
+}
+
+/**
+ * Collect concrete effects from a lambda body by scanning for ident-based calls.
+ * Looks up each callee's type in the environment and collects concrete effects
+ * from their FunctionType. Stops at nested lambdas (opaque boundary).
+ */
+function collectLambdaEffects(body: Expression[], env: TypeEnv): ConcreteEffect[] {
+    const effects = new Set<ConcreteEffect>();
+    for (const expr of body) {
+        walkExpression(expr, {
+            enter(node) {
+                if (node.kind === "lambda") {
+                    // Don't recurse into nested lambdas — their effects are their own
+                    return false;
+                }
+                if (node.kind === "call" && node.fn.kind === "ident") {
+                    // Builtins are registered in the env via registerBuiltins(),
+                    // so env.getType() covers both user-defined and builtin functions.
+                    const calleeType = env.getType(node.fn.name);
+                    if (calleeType && calleeType.kind === "fn_type") {
+                        for (const eff of calleeType.effects) {
+                            if (isConcreteEffect(eff) && eff !== "pure") {
+                                effects.add(eff);
+                            }
+                        }
+                    }
+                }
+            },
+        });
+    }
+    return effects.size > 0 ? [...effects] : [];
 }
 
 function inferStringInterp(

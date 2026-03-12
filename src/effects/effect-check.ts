@@ -15,6 +15,7 @@ import {
     type AnalysisDiagnostic,
 } from "../errors/structured-errors.js";
 import { buildCallGraph } from "./call-graph.js";
+import type { TypedModuleInfo } from "../checker/check.js";
 
 /**
  * Result of effect checking: errors (violations) + diagnostics (skipped checks).
@@ -34,12 +35,16 @@ export interface EffectCheckResult {
  * Also checks approval propagation: if a callee requires approval,
  * the caller must also require approval.
  *
+ * When `typeInfo` is provided, also checks resolved call-site effects from
+ * effect variable unification (e.g., HOF called with an IO lambda).
+ *
  * Skipped checks produce INFO-level diagnostics instead of silent success.
  *
  * @param module - A validated and type-checked Edict module
+ * @param typeInfo - Optional type checker output with resolved effect variable bindings
  * @returns `{ errors, diagnostics }` — effect violation errors and skipped-check diagnostics
  */
-export function effectCheck(module: EdictModule): EffectCheckResult {
+export function effectCheck(module: EdictModule, typeInfo?: TypedModuleInfo): EffectCheckResult {
     const { effectSources: functionDefs, graph, importedNames } = buildCallGraph(module);
     const errors: StructuredError[] = [];
     const diagnostics: AnalysisDiagnostic[] = [];
@@ -75,39 +80,86 @@ export function effectCheck(module: EdictModule): EffectCheckResult {
                 continue;
             }
 
+            // --- Check callee's own concrete effects ---
             const calleeNonPure = callee.effects.filter(e => e !== "pure");
-            if (calleeNonPure.length === 0) continue;
-
-            if (isPure) {
-                const suggestion: FixSuggestion = {
-                    nodeId: fn.id,
-                    field: "effects",
-                    value: calleeNonPure,
-                };
-                errors.push(effectInPure(
-                    fn.id,
-                    fnName,
-                    edge.callSiteNodeId,
-                    edge.calleeName,
-                    calleeNonPure,
-                    suggestion,
-                ));
-            } else {
-                const missing = calleeNonPure.filter(e => !callerEffects.has(e));
-                if (missing.length > 0) {
+            if (calleeNonPure.length > 0) {
+                if (isPure) {
                     const suggestion: FixSuggestion = {
                         nodeId: fn.id,
                         field: "effects",
-                        value: [...fn.effects, ...missing],
+                        value: calleeNonPure,
                     };
-                    errors.push(effectViolation(
+                    errors.push(effectInPure(
                         fn.id,
                         fnName,
-                        missing,
                         edge.callSiteNodeId,
                         edge.calleeName,
+                        calleeNonPure,
                         suggestion,
                     ));
+                } else {
+                    const missing = calleeNonPure.filter(e => !callerEffects.has(e));
+                    if (missing.length > 0) {
+                        const suggestion: FixSuggestion = {
+                            nodeId: fn.id,
+                            field: "effects",
+                            value: [...fn.effects, ...missing],
+                        };
+                        errors.push(effectViolation(
+                            fn.id,
+                            fnName,
+                            missing,
+                            edge.callSiteNodeId,
+                            edge.calleeName,
+                            suggestion,
+                        ));
+                    }
+                }
+            }
+
+            // --- Effect variable propagation ---
+            // If the type checker resolved effect variables at this call site,
+            // verify the caller's effects cover the resolved concrete effects.
+            // This check is independent of the callee's own effects — a pure HOF
+            // can still introduce effects via effect-polymorphic callbacks.
+            if (typeInfo?.resolvedCallSiteEffects) {
+                const resolvedEffects = typeInfo.resolvedCallSiteEffects.get(edge.callSiteNodeId);
+                if (resolvedEffects && resolvedEffects.length > 0) {
+                    const resolvedNonPure = resolvedEffects.filter(e => e !== "pure");
+                    if (resolvedNonPure.length > 0) {
+                        if (isPure) {
+                            const suggestion: FixSuggestion = {
+                                nodeId: fn.id,
+                                field: "effects",
+                                value: resolvedNonPure,
+                            };
+                            errors.push(effectInPure(
+                                fn.id,
+                                fnName,
+                                edge.callSiteNodeId,
+                                edge.calleeName,
+                                resolvedNonPure,
+                                suggestion,
+                            ));
+                        } else {
+                            const missing = resolvedNonPure.filter(e => !callerEffects.has(e));
+                            if (missing.length > 0) {
+                                const suggestion: FixSuggestion = {
+                                    nodeId: fn.id,
+                                    field: "effects",
+                                    value: [...fn.effects, ...missing],
+                                };
+                                errors.push(effectViolation(
+                                    fn.id,
+                                    fnName,
+                                    missing,
+                                    edge.callSiteNodeId,
+                                    edge.calleeName,
+                                    suggestion,
+                                ));
+                            }
+                        }
+                    }
                 }
             }
         }

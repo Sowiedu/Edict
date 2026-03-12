@@ -82,7 +82,7 @@ export async function incrementalCheck(
     }
 
     // Phase 3 — Effect checking (always full)
-    const effectResult = effectCheck(module);
+    const effectResult = effectCheck(module, typeInfo);
     if (effectResult.errors.length > 0) {
         return {
             ok: false,

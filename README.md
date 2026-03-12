@@ -73,7 +73,7 @@ npx edict-lang          # start MCP server
 
 ```bash
 npm install
-npm test          # 1945 tests across 111 files
+npm test          # 1951 tests across 111 files
 npm run mcp       # start MCP server (stdio transport)
 ```
 
@@ -238,7 +238,7 @@ src/
 ├── mcp/           # MCP server (tools + resources + prompts)
 └── errors/        # Structured error types
 
-tests/             # 1945 tests across 111 files
+tests/             # 1951 tests across 111 files
 examples/          # 38 example programs (⭐→⭐⭐⭐ difficulty in README)
 schema/            # Auto-generated JSON Schema
 ```
