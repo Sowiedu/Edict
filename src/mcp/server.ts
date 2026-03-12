@@ -20,6 +20,34 @@ import crypto from "node:crypto";
 
 async function main(): Promise<void> {
     const args = process.argv.slice(2);
+
+    // -------------------------------------------------------------------------
+    // Argument validation — fail fast on unrecognized CLI arguments (#149)
+    // -------------------------------------------------------------------------
+    // edict-lang is an MCP server, not a CLI tool. Agents and users sometimes
+    // run `npx edict-lang check file.json` expecting CLI behavior. Without this
+    // guard, the server starts in stdio mode and hangs waiting for MCP JSON-RPC
+    // messages — the CLI arguments are silently ignored.
+    const KNOWN_FLAGS = new Set(["--http", "--port"]);
+    const unknownArgs: string[] = [];
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i]!;
+        if (KNOWN_FLAGS.has(arg)) {
+            if (arg === "--port") i++; // skip the port value
+        } else {
+            unknownArgs.push(arg);
+        }
+    }
+    if (unknownArgs.length > 0) {
+        const error = {
+            error: "unknown_cli_argument",
+            arguments: unknownArgs,
+            hint: "edict-lang is an MCP server, not a CLI tool. Start without arguments for stdio transport, or with --http for HTTP transport. Use MCP tools (edict_check, edict_validate, edict_compile, edict_run) to interact with the compiler.",
+        };
+        process.stderr.write(JSON.stringify(error, null, 2) + "\n");
+        process.exit(1);
+    }
+
     const useHttp = args.includes("--http") || process.env.EDICT_TRANSPORT === "http";
 
     // Default to port 3000 unless specified or provided in EDICT_PORT
