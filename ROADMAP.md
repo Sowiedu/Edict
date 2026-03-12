@@ -248,7 +248,7 @@ Multi-file programs use a simple module system:
 | **5** | WASM Code Gen | ✅ Complete |
 | **6** | MCP Toolchain | ✅ Complete |
 
-All 6 phases are implemented and shipping (v1.9.2+). 1860+ tests across 106 test files. 38 example programs.
+All 6 phases are implemented and shipping (v1.10.1+). 1920+ tests across 108 test files. 38 example programs.
 
 ---
 
@@ -272,10 +272,15 @@ With the full pipeline operational, these are the open areas for further develop
 
 | Area | Issues | Impact |
 |---|---|---|
-| **Type system reconciliation** | #87 | Runtime is monomorphic (all `i32`); type system appears parametric. Choose honest monomorphism or real monomorphization. |
 | **Mid-level IR** | #89 | Introduce IR between AST and WASM for optimizations and retargetability. |
-| **Effect polymorphism** | #94 | Higher-order functions need effect variables to propagate closure effects. Depends on #87. |
-| **Browser compilation** | #75 | Phase 1 complete: `edict-lang/browser` ESM bundle (310KB) exposes phases 1-3, lint, patch, compose. Phase 2: binaryen/Z3 in browser. |
+| **Effect polymorphism** | #94 | Higher-order functions need effect variables to propagate closure effects. |
 | **Edge deployment** | #77 | Deploy compiled WASM to Cloudflare Workers, Deno Deploy, etc. |
 | **Deploy pipeline** | #78 | One-step `edict_deploy` MCP tool: AST → WASM → live service. |
 | **Self-hosting** | #81 | Compile the Edict compiler itself to WASM (moonshot). |
+
+### Recently Completed
+
+| Area | Issues | Outcome |
+|---|---|---|
+| **Type system reconciliation** | #87 ✅ | Resolved via honest monomorphism: `unsupported_container` lint warning derived from builtin registry. |
+| **Browser compilation** | #75 ✅ | Full pipeline in browser: phases 1-5, binaryen codegen, Z3 contract verification, WASM execution. |
