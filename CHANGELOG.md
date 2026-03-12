@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.11.0](https://github.com/Sowiedu/Edict/compare/v1.10.1...v1.11.0) (2026-03-12)
+
+
+### Features
+
+* browser-full bundle — full compilation pipeline + WASM execution ([#75](https://github.com/Sowiedu/Edict/issues/75)) ([7fe0ced](https://github.com/Sowiedu/Edict/commit/7fe0ced8466c30c0b528ebf013ccc191b5184a01))
+* effect polymorphism AST schema + validation ([#127](https://github.com/Sowiedu/Edict/issues/127)) ([f4b92e7](https://github.com/Sowiedu/Edict/commit/f4b92e707189812473b24f4a00ed1687daae721e))
+* honest monomorphism — unsupported_container lint warning ([#87](https://github.com/Sowiedu/Edict/issues/87) Direction A) ([ad2260a](https://github.com/Sowiedu/Edict/commit/ad2260a3254ee8481c45ecbd4d4cb50cc70ffcac))
+* integrate Z3 contract verification into browser bundle ([9b7bf7d](https://github.com/Sowiedu/Edict/commit/9b7bf7d46dc99f46acc03861f4ca9f2c6dfd4a9d)), closes [#75](https://github.com/Sowiedu/Edict/issues/75)
+
+
+### Bug Fixes
+
+* close coverage gaps — exclude browser-only files, add support handler tests ([6c0209e](https://github.com/Sowiedu/Edict/commit/6c0209e4ff5701971a2be2f29981f03ae86db414))
+* increase test timeouts for worker-thread tests (30s) ([8091909](https://github.com/Sowiedu/Edict/commit/809190906a26d36f5601ca6b5172e500de6afcc2))
+
 ## [1.10.1](https://github.com/Sowiedu/Edict/compare/v1.10.0...v1.10.1) (2026-03-11)
 
 
