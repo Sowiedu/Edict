@@ -2,27 +2,31 @@
   "name": "edict-lang",
   "version": "1.11.0",
   "mcpName": "io.github.Sowiedu/edict",
-  "description": "Edict — A programming language designed for AI agents. No parser, no syntax — agents produce AST directly as JSON. Statically typed, effect-tracked, contract-verified, compiled to WASM.",
+  "description": "Edict — A programming language for AI agents. JSON AST in, WASM out. MCP server included. Statically typed, effect-tracked, contract-verified.",
   "type": "module",
   "bin": {
     "edict-lang": "./dist/mcp/server.js"
   },
   "files": [
     "dist",
-    "schema"
+    "schema",
+    "cjs-error.cjs"
   ],
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "require": "./cjs-error.cjs"
     },
     "./browser": {
       "import": "./dist/browser.js",
-      "types": "./dist/browser.d.ts"
+      "types": "./dist/browser.d.ts",
+      "require": "./cjs-error.cjs"
     },
     "./browser-full": {
       "import": "./dist/browser-full.js",
-      "types": "./dist/browser-full.d.ts"
+      "types": "./dist/browser-full.d.ts",
+      "require": "./cjs-error.cjs"
     }
   },
   "main": "dist/index.js",
@@ -93,6 +97,14 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "peerDependencies": {
+    "tsx": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "tsx": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",

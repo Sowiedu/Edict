@@ -52,9 +52,28 @@ Host capabilities available through adapters: filesystem (sandboxed), HTTP, cryp
 
 ## Quick Start
 
+### For AI Agents (MCP)
+
+The fastest way to use Edict is through the **MCP server** — it exposes the entire compiler pipeline as tool calls:
+
+```bash
+npx edict-lang          # start MCP server (stdio transport, no install needed)
+```
+
+Or install locally:
+
+```bash
+npm install edict-lang
+npx edict-lang          # start MCP server
+```
+
+**Two calls to get started**: `edict_schema` (learn the AST format) → `edict_check` (submit a program). See [MCP Tools](#mcp-tools) for the full tool list.
+
+### For Development
+
 ```bash
 npm install
-npm test          # 1937 tests across 110 files
+npm test          # 1944 tests across 111 files
 npm run mcp       # start MCP server (stdio transport)
 ```
 

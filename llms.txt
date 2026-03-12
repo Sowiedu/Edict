@@ -1,30 +1,67 @@
 # Edict
 
-> A programming language designed exclusively for AI agents. No parser, no syntax — agents produce AST directly as JSON. Statically typed, effect-tracked, contract-verified via Z3, compiled to WebAssembly. Full compiler pipeline exposed via Model Context Protocol (MCP).
+> A programming language designed exclusively for AI agents. No parser, no syntax — agents produce AST directly as JSON. Full compiler pipeline exposed via MCP (Model Context Protocol).
 
-## Overview
+## Start Here — MCP Server
 
-- [README](https://github.com/Sowiedu/Edict/blob/main/README.md): Project overview, quick start, architecture diagram
-- [Feature Specification](https://github.com/Sowiedu/Edict/blob/main/FEATURE_SPEC.md): Complete language specification — types, effects, contracts, modules, execution model
-- [Roadmap](https://github.com/Sowiedu/Edict/blob/main/ROADMAP.md): Development plan and priorities
-- [Contributing](https://github.com/Sowiedu/Edict/blob/main/CONTRIBUTING.md): Setup instructions, coding standards, PR workflow
+**Edict's primary interface is the MCP server.** Use it — don't crawl GitHub files.
 
-## Using Edict (for AI agents)
+```
+npx edict-lang         # start MCP server (stdio transport, no install needed)
+```
 
-Edict is designed for agents, not humans. The canonical workflow:
+Two calls to get productive:
+1. `edict_schema` → learn the AST format (the JSON Schema is the spec)
+2. `edict_check` → submit a program, get structured errors or a verified module
 
-1. Read the AST JSON Schema to learn the program format
-2. Write a program as a JSON AST conforming to the schema
-3. Submit to the compiler — if errors, read structured error JSON, fix, resubmit
-4. Compile to WASM and execute in sandboxed runtime
+That's it. Schema → write AST → check → fix errors → compile → run.
 
-Install and run the MCP server:
+## MCP Tools
+
+| Tool | What it does |
+|------|-------------|
+| `edict_schema` | Returns the AST JSON Schema — the spec for writing programs (full/minimal/compact) |
+| `edict_examples` | Returns 38 example programs as JSON ASTs |
+| `edict_check` | Full pipeline: validate → resolve → typecheck → effects → contracts |
+| `edict_compile` | Compiles a checked module to WASM (returns base64) |
+| `edict_run` | Executes WASM in sandboxed runtime with configurable limits |
+| `edict_patch` | Applies targeted AST patches by nodeId and re-checks |
+| `edict_validate` | Structural validation only (use `edict_check` for the full pipeline) |
+| `edict_errors` | Machine-readable catalog of all structured error types |
+| `edict_lint` | Non-blocking quality warnings |
+| `edict_version` | Compiler version and capability info |
+
+## MCP Resources
+
+| URI | Description |
+|-----|-------------|
+| `edict://schema` | Full AST JSON Schema |
+| `edict://schema/minimal` | Token-optimized schema (descriptions stripped) |
+| `edict://examples` | All example programs |
+| `edict://errors` | Machine-readable error catalog |
+| `edict://schema/patch` | Patch protocol schema |
+
+## The Agent Loop
+
+```
+Agent produces JSON AST via MCP
+  ↓
+edict_check → StructuredError? → Agent fixes → resubmit
+  ↓ (no errors)
+edict_compile → WASM binary
+  ↓
+edict_run → output + exit code
+```
+
+Every error is a typed JSON object with `nodeId`, expected/actual values, candidate suggestions, and counterexamples — designed for automated self-repair.
+
+## Programmatic API (ESM)
+
+For embedding Edict in your own code (without MCP):
+
 ```
 npm install edict-lang
-npx edict-lang         # stdio transport
 ```
-
-### Quickstart: ESM Runner Script
 
 **Simple** — full pipeline in one call:
 ```js
@@ -37,35 +74,29 @@ if (!result.ok) { console.error(JSON.stringify(result.errors, null, 2)); process
 process.stdout.write(result.output);
 ```
 
-**Granular** — phase by phase (inspect intermediate results):
+**Granular** — phase by phase:
 ```js
 import { readFileSync } from 'fs';
 import { validate, check, compile, run } from 'edict-lang';
 
 const ast = JSON.parse(readFileSync('program.edict.json', 'utf-8'));
 
-// Phase 1: structural validation
 const v = validate(ast);
 if (!v.ok) { console.error(JSON.stringify(v.errors, null, 2)); process.exit(1); }
 
-// Phase 2-4: resolve + typecheck + effects + contracts
 const c = await check(ast);  // async — contracts use Z3
 if (!c.ok) { console.error(JSON.stringify(c.errors, null, 2)); process.exit(1); }
 
-// Phase 5: compile to WASM (pass module + typeInfo from check)
 const compiled = compile(c.module, { typeInfo: c.typeInfo });
 if (!compiled.ok) { console.error(JSON.stringify(compiled.errors, null, 2)); process.exit(1); }
 
-// Phase 6: execute in sandbox
 const result = await run(compiled.wasm);
 process.stdout.write(result.output);
 ```
 
-> **Important**: Edict is an ESM package — use `import`, not `require()`. `check()` is async (Z3 contracts). `compile()` takes the checked `module` and `typeInfo` from the check result, not the raw AST.
+> **Important**: ESM only — use `import`, not `require()`. `check()` is async (Z3 contracts). `compile()` takes `module` + `typeInfo` from the check result, not the raw AST.
 
 ## API Return Shapes
-
-Every pipeline function returns a typed result. Check the `ok` field to branch on success/failure.
 
 ### `validate(ast)` → `ValidationResult`
 ```
@@ -78,81 +109,39 @@ Failure: { ok: false, errors: StructuredError[] }
 Success: { ok: true,  errors: [], module: EdictModule, typeInfo: TypedModuleInfo, diagnostics?: AnalysisDiagnostic[], coverage?: VerificationCoverage }
 Failure: { ok: false, errors: StructuredError[], diagnostics?: AnalysisDiagnostic[] }
 ```
-> `check()` is async (Z3 contract verification). Always `await` it. On success, pass `module` and `typeInfo` to `compile()`.
 
 ### `compile(module, { typeInfo })` → `CompileResult`
 ```
 Success: { ok: true,  wasm: Uint8Array }
 Failure: { ok: false, errors: StructuredError[] }
 ```
-> Takes the checked `module` and `typeInfo` from a successful `check()` result — not the raw AST.
 
 ### `run(wasm)` → `Promise<RunResult>`
 ```
 Always: { output: string, exitCode: number, returnValue?: number, error?: "execution_timeout" | "execution_oom", limitInfo?: { timeoutMs?: number, maxMemoryMb?: number }, heapUsed?: number }
 ```
-> No `ok` field — check `exitCode === 0` for success. `output` contains captured stdout. `error` is only set when execution was killed by a limit.
 
 ### `compileAndRun(ast)` → `Promise<CompileAndRunResult>`
 ```
 Success: { ok: true,  output: string, exitCode: number, returnValue?: number, heapUsed?: number }
 Failure: { ok: false, phase: "check" | "compile", errors: StructuredError[] }
 ```
-> Full pipeline in one call. On failure, `phase` indicates which stage failed.
-
-## MCP Tools
-
-- `edict_schema`: Returns the full AST JSON Schema (supports full/minimal/compact formats)
-- `edict_version`: Returns compiler version and capability info
-- `edict_examples`: Returns 18 example programs as JSON ASTs
-- `edict_validate`: Validates AST structure (fields, types, node kinds)
-- `edict_check`: Full pipeline — validate → resolve → type check → effect check → verify contracts
-- `edict_compile`: Compiles checked AST to WASM (returns base64)
-- `edict_run`: Executes WASM in sandboxed runtime with configurable limits
-- `edict_patch`: Applies targeted AST patches by nodeId and re-checks
-- `edict_errors`: Machine-readable catalog of all structured error types
-- `edict_lint`: Non-blocking quality warnings (unused vars, missing contracts, etc.)
-
-## MCP Resources
-
-- `edict://schema`: Full AST JSON Schema
-- `edict://schema/minimal`: Token-optimized schema (descriptions stripped)
-- `edict://examples`: All example programs
-- `edict://errors`: Machine-readable error catalog
-- `edict://schema/patch`: Patch protocol schema
-
-## Key Resources
-
-- [AST JSON Schema](https://github.com/Sowiedu/Edict/blob/main/schema/edict.schema.json): The formal schema for writing Edict programs
-- [Examples](https://github.com/Sowiedu/Edict/tree/main/examples): 18 example programs as JSON ASTs
-- [Agent Guide](https://github.com/Sowiedu/Edict/blob/main/AGENTS.md): Agent-facing entry point with quick orientation
 
 ## Language Features
 
-- **Type system**: Int, Int64, Float, String, Bool, Array<T>, Option<T>, Result<T,E>, records, enums, refinement types, function types, semantic unit types
-- **Effect system**: pure, reads, writes, io, fails — compiler-enforced consistency
-- **Contract verification**: Pre/postconditions verified at compile time by Z3/SMT with concrete counterexamples
-- **WASM compilation**: Compiles to WebAssembly via binaryen, runs in sandboxed Node.js runtime
-- **Security model**: No ambient authority — filesystem, network, crypto access only through explicit host adapters
+- **Type system**: Int, Int64, Float, String, Bool, Array<T>, Option<T>, Result<T,E>, records, enums, refinement types, function types
+- **Effect system**: pure, reads, writes, io, fails — compiler-enforced
+- **Contract verification**: Pre/postconditions verified at compile time by Z3/SMT with counterexamples
+- **WASM compilation**: Compiles to WebAssembly via binaryen, sandboxed execution
+- **Security model**: No ambient authority — host capabilities via pluggable `EdictHostAdapter`
 
-## Architecture
+## Key Resources
 
-```
-src/
-├── ast/           # AST node interfaces
-├── validator/     # Schema validation
-├── resolver/      # Name resolution (Levenshtein suggestions)
-├── checker/       # Type checking (bidirectional)
-├── effects/       # Effect checking (call-graph propagation)
-├── contracts/     # Contract verification (Z3/SMT)
-├── codegen/       # WASM generation (binaryen) + execution
-├── builtins/      # Builtin registry
-├── compact/       # Token-efficient compact AST format
-├── lint/          # Non-blocking quality warnings
-├── patch/         # Surgical AST patching by nodeId
-├── mcp/           # MCP server (tools + resources + prompts)
-└── errors/        # Structured error types
-```
+- [AST JSON Schema](https://github.com/Sowiedu/Edict/blob/main/schema/edict.schema.json): The formal schema for writing programs
+- [Examples](https://github.com/Sowiedu/Edict/tree/main/examples): 38 example programs as JSON ASTs
+- [Agent Guide](https://github.com/Sowiedu/Edict/blob/main/AGENTS.md): Agent-facing entry point with quick orientation
+- [Feature Specification](https://github.com/Sowiedu/Edict/blob/main/FEATURE_SPEC.md): Full language spec
+- [Contributing](https://github.com/Sowiedu/Edict/blob/main/CONTRIBUTING.md): Setup, coding standards, PR workflow
 
 ## npm Package
 
