@@ -319,7 +319,7 @@ if (url.endsWith(".ts")) {
 ## Edict AST Format Pitfalls When Writing Programs From Scratch
 - **Problem**: Wrote AST from memory: used `{ name: "x", type: ... }` for params (missing `kind: "param"` + `id`), `kind: "identifier"` instead of `kind: "ident"`, `fn: "functionName"` string instead of `fn: { kind: "ident", ... }` expression, and single-expression `then`/`else` instead of arrays.
 - **Fix**: Always reference an existing example (`examples/*.edict.json`) to match the exact format before writing ASTs from scratch.
-- **Rule**: Params need `kind: "param"` + `id`. Identifiers are `kind: "ident"`. `call.fn` is an expression object. `if.then`/`if.else` are arrays of expressions.
+- **Rule**: Params need `kind: "param"` + `id`. Identifiers are `kind: "ident"`. `call.fn` is an expression object. `if.then`/`if.else` are arrays of expressions. Record fields need `kind: "field"` + `id`. Enum variants need `kind: "variant"` + `id`. Match arms need `kind: "arm"` + `id`. Record/enum construction fields need `kind: "field_init"`.
 
 ## Recursive Functions With Postconditions Trigger undecidable_predicate
 - **Problem**: Added `post: result >= 0` to recursive fibonacci — Z3 verifier returned `undecidable_predicate` because the `result` identifier in recursive functions isn't fully supported.

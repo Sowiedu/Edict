@@ -60,6 +60,11 @@ export type { TranslationContext, TranslationError } from "./contracts/translate
 export { computeVerificationHash } from "./contracts/hash.js";
 
 // ---------------------------------------------------------------------------
+// IR Lowering: AST + TypedModuleInfo → mid-level IR
+// ---------------------------------------------------------------------------
+export { lowerModule } from "./ir/lower.js";
+
+// ---------------------------------------------------------------------------
 // Full Pipeline: validate → resolve → typeCheck → effectCheck → contractVerify
 // ---------------------------------------------------------------------------
 export { check } from "./check.js";
