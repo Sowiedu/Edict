@@ -1,0 +1,10 @@
+#!/bin/sh
+# Run full local CI before pushing — mirrors the GitHub Actions CI pipeline.
+# This ensures nothing reaches GitHub that hasn't been fully validated locally.
+
+echo "🔍 Running full local CI before push..."
+npm run ci:local || {
+  echo "❌ Local CI failed. Push aborted."
+  exit 1
+}
+echo "✅ Local CI passed. Pushing..."
