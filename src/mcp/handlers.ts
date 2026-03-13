@@ -33,6 +33,8 @@ import type { GeneratedTest } from "../contracts/generate-tests.js";
 import { explainError } from "../errors/explain.js";
 import type { ExplainResult } from "../errors/explain.js";
 import { migrateToLatest, CURRENT_SCHEMA_VERSION } from "../migration/migrate.js";
+import { generateWorkerScaffold } from "../deploy/scaffold.js";
+import type { WorkerConfig } from "../deploy/scaffold.js";
 
 // =============================================================================
 // Support note — edit this to change the message agents see in edict_version
@@ -531,6 +533,7 @@ export function handleVersion(): VersionResult {
             monomorphicContainers: true,
             effectPolymorphism: true,
             skillPackages: true,
+            deploy: true,
         },
         limits: {
             z3TimeoutMs: 5000,
@@ -715,4 +718,137 @@ export async function handleGenerateTests(ast: unknown): Promise<GenerateTestsHa
         tests: result.tests,
         skipped: result.skipped,
     };
+}
+
+// =============================================================================
+// Deploy handler
+// =============================================================================
+
+export interface DeployConfig {
+    name?: string;
+    route?: string;
+    compatibilityDate?: string;
+    kvNamespaces?: { binding: string; id: string }[];
+}
+
+export interface DeployResult {
+    ok: boolean;
+    target: string;
+    // wasm_binary target fields
+    wasm?: string;
+    wasmSize?: number;
+    verified?: boolean;
+    effects?: string[];
+    contracts?: number;
+    // cloudflare target fields
+    bundle?: { path: string; content: string }[];
+    // common
+    url?: string;
+    status?: string;
+    errors?: StructuredError[];
+}
+
+export async function handleDeploy(
+    ast: unknown,
+    target: string,
+    config?: DeployConfig,
+): Promise<DeployResult> {
+    // Step 1: Full pipeline — expand → migrate → check → compile
+    const expanded = expandCompact(ast);
+    const migrated = migrateToLatest(expanded);
+    if (!migrated.ok) {
+        return { ok: false, target, errors: migrated.errors };
+    }
+
+    const checkResult = await check(migrated.ast);
+    if (!checkResult.ok || !checkResult.module) {
+        return { ok: false, target, errors: checkResult.errors };
+    }
+
+    const compileResult = compile(checkResult.module, { typeInfo: checkResult.typeInfo });
+    if (!compileResult.ok) {
+        return { ok: false, target, errors: compileResult.errors };
+    }
+
+    // Extract metadata from the checked module
+    const module = checkResult.module as EdictModule;
+    const allEffects = new Set<string>();
+    let contractCount = 0;
+    for (const def of module.definitions) {
+        if (def.kind === "fn") {
+            for (const eff of def.effects) {
+                const effStr = typeof eff === "string" ? eff : (eff as { name: string }).name;
+                allEffects.add(effStr);
+            }
+            contractCount += def.contracts.length;
+        }
+    }
+    const hasContracts = contractCount > 0;
+    const verified = hasContracts && checkResult.coverage?.contracts.proven === checkResult.coverage?.contracts.total;
+
+    // Step 2: Dispatch to target
+    switch (target) {
+        case "wasm_binary": {
+            const base64 = Buffer.from(compileResult.wasm).toString("base64");
+            return {
+                ok: true,
+                target: "wasm_binary",
+                wasm: base64,
+                wasmSize: compileResult.wasm.length,
+                verified,
+                effects: Array.from(allEffects),
+                contracts: contractCount,
+                status: "ready",
+            };
+        }
+
+        case "cloudflare": {
+            const workerName = config?.name || module.name || "edict-worker";
+            const workerConfig: WorkerConfig = {
+                name: workerName,
+                compatibilityDate: config?.compatibilityDate,
+                kvNamespaces: config?.kvNamespaces,
+            };
+
+            const scaffoldResult = generateWorkerScaffold(compileResult.wasm, workerConfig);
+            if (!scaffoldResult.ok) {
+                return {
+                    ok: false,
+                    target: "cloudflare",
+                    errors: [{ error: "scaffold_failed", reason: scaffoldResult.error } as unknown as StructuredError],
+                };
+            }
+
+            // Serialize bundle files: text stays as string, binary → base64
+            const bundle = scaffoldResult.bundle.files.map(f => ({
+                path: f.path,
+                content: f.content instanceof Uint8Array
+                    ? Buffer.from(f.content).toString("base64")
+                    : f.content,
+            }));
+
+            return {
+                ok: true,
+                target: "cloudflare",
+                bundle,
+                wasmSize: compileResult.wasm.length,
+                verified,
+                effects: Array.from(allEffects),
+                contracts: contractCount,
+                url: `https://${workerName}.workers.dev${config?.route || ""}`,
+                status: "bundled",
+            };
+        }
+
+        default:
+            return {
+                ok: false,
+                target,
+                errors: [{
+                    error: "unknown_deploy_target",
+                    target,
+                    validTargets: ["wasm_binary", "cloudflare"],
+                } as unknown as StructuredError],
+            };
+    }
 }

@@ -325,3 +325,8 @@ if (url.endsWith(".ts")) {
 - **Problem**: Added `post: result >= 0` to recursive fibonacci — Z3 verifier returned `undecidable_predicate` because the `result` identifier in recursive functions isn't fully supported.
 - **Fix**: Used only `pre` contracts for recursive functions (matching the pattern from `examples/fibonacci.edict.json`).
 - **Rule**: Avoid postconditions referencing `result` in recursive functions. The Z3 verifier may not be able to prove them.
+
+## VerificationCoverage Uses Nested Objects, Not Flat Fields
+- **Problem**: Wrote `checkResult.coverage?.contractsVerified` / `contractsTotal` — these flat fields don't exist on the actual type.
+- **Fix**: The correct structure is `coverage.contracts.proven` and `coverage.contracts.total` (and `coverage.effects.checked` / `.total`).
+- **Rule**: `VerificationCoverage` uses nested objects: `{ effects: { checked, skipped, total }, contracts: { proven, skipped, total } }`. Always check `structured-errors.ts` for exact field names.
