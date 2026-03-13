@@ -180,8 +180,9 @@ try {
     }
 
     const coverageInfo = compiled.coverage
-        ? `\n<span class="info">Contracts verified: ${compiled.coverage.contractsVerified ?? 0} proven, ` +
-          `${compiled.coverage.contractsFailed ?? 0} failed</span>`
+        ? `\n<span class="info">Contracts verified: ${compiled.coverage.contracts.proven} proven, ` +
+          `${compiled.coverage.contracts.total - compiled.coverage.contracts.proven} failed</span>` +
+          `\n<span class="info">Effects checked: ${compiled.coverage.effects.checked}/${compiled.coverage.effects.total}</span>`
         : '';
 
     compileResult.innerHTML =
