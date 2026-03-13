@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.13.0](https://github.com/Sowiedu/Edict/compare/v1.12.0...v1.13.0) (2026-03-13)
+
+
+### Features
+
+* **mcp:** add 'agent' format to edict_schema for one-call bootstrapping ([3eabf00](https://github.com/Sowiedu/Edict/commit/3eabf007c3d82bc8bec826693aed26378c47d7f5))
+
+
+### Bug Fixes
+
+* **codegen:** resolve WASM 'function body type must match' regression ([2a6bf03](https://github.com/Sowiedu/Edict/commit/2a6bf03fd2f2d3259eb3d3c51f809228ae55e93f))
+
 ## [1.12.0](https://github.com/Sowiedu/Edict/compare/v1.11.0...v1.12.0) (2026-03-13)
 
 
