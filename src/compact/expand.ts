@@ -161,14 +161,75 @@ export function isCompactAst(ast: unknown): boolean {
 }
 
 // =============================================================================
-// Expansion
+// Kind synonyms — common misspellings → canonical kinds
+// =============================================================================
+
+/** Maps common agent misspellings of kind values to their canonical form. */
+export const KIND_SYNONYMS: Record<string, string> = {
+    struct: "record",
+    record_def: "record",
+    function: "fn",
+    func: "fn",
+    constant: "const",
+    enumeration: "enum",
+};
+
+// =============================================================================
+// Context-aware auto-injection rules
 // =============================================================================
 
 /**
- * Recursively expand a compact-format AST to the canonical full format.
+ * Maps parent field names to the child `kind` that should be injected.
+ * For `fields`, the child kind depends on the parent node's kind —
+ * see FIELD_PARENT_KIND_MAP below.
+ */
+const FIELD_TO_KIND: Record<string, string> = {
+    variants: "variant",
+    params: "param",
+    arms: "arm",
+};
+
+/**
+ * For the `fields` array, the child kind depends on the parent node's kind.
+ * Record/variant-owned fields are `"field"` (with id).
+ * Expression-owned fields are `"field_init"` (no id).
+ */
+const FIELD_PARENT_KIND_MAP: Record<string, string> = {
+    record: "field",
+    variant: "field",
+    record_expr: "field_init",
+    enum_constructor: "field_init",
+};
+
+/** Kinds that require an `id` field per the schema. */
+const NEEDS_ID_KINDS = new Set([
+    // Top-level
+    "module", "fragment", "import",
+    // Definitions
+    "fn", "type", "record", "enum", "const", "tool",
+    // Function components
+    "param", "field", "variant", "pre", "post", "arm",
+    // Expressions
+    "literal", "ident", "binop", "unop", "call", "if", "let", "match",
+    "array", "tuple_expr", "record_expr", "enum_constructor", "access",
+    "lambda", "block", "string_interp", "forall", "exists", "tool_call",
+    // Type (only refined has id)
+    "refined",
+]);
+
+// =============================================================================
+// Expansion + Normalization
+// =============================================================================
+
+/**
+ * Recursively expand a compact-format AST to the canonical full format,
+ * and normalize bare child nodes by auto-injecting `kind` and `id`.
  *
  * - Expands abbreviated keys (e.g., `"k"` → `"kind"`, `"rt"` → `"returnType"`)
  * - Expands abbreviated kind values (e.g., `"lit"` → `"literal"`, `"bin"` → `"binop"`)
+ * - Maps kind synonyms (e.g., `"struct"` → `"record"`, `"function"` → `"fn"`)
+ * - Auto-injects `kind` on bare objects in known structural arrays (variants, fields, params, arms)
+ * - Auto-generates `id` when missing on nodes that require it
  * - Passes through full-format ASTs unchanged (idempotent)
  * - Unknown compact kinds pass through → validator will catch them
  *
@@ -176,47 +237,94 @@ export function isCompactAst(ast: unknown): boolean {
  * @returns The same AST with all compact abbreviations expanded to canonical form
  */
 export function expandCompact(ast: unknown): unknown {
-    if (ast === null || ast === undefined) {
-        return ast;
+    let autoIdCounter = 0;
+
+    function nextAutoId(kind: string): string {
+        return `auto-${kind}-${String(++autoIdCounter).padStart(3, "0")}`;
     }
 
-    if (Array.isArray(ast)) {
-        return ast.map(expandCompact);
-    }
-
-    if (typeof ast !== "object") {
-        return ast;
-    }
-
-    const obj = ast as Record<string, unknown>;
-
-    // If the object has "kind" (full format), still recurse into children
-    // but don't remap keys at this level
-    const hasCompactKind = "k" in obj && !("kind" in obj);
-
-    const expanded: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(obj)) {
-        // Expand the key (only remap if this object uses compact format)
-        const fullKey = hasCompactKind && Object.hasOwn(KEY_MAP, key)
-            ? KEY_MAP[key]!
-            : key;
-
-        // Expand the value
-        let expandedValue: unknown;
-
-        if (fullKey === "kind" && typeof value === "string" && Object.hasOwn(KIND_MAP, value)) {
-            // Expand compact kind value (only if explicitly in our map)
-            expandedValue = KIND_MAP[value];
-        } else {
-            // Recurse into child values
-            expandedValue = expandCompact(value);
+    function expand(
+        value: unknown,
+        parentFieldName?: string,
+        parentKind?: string,
+    ): unknown {
+        if (value === null || value === undefined) {
+            return value;
         }
 
-        expanded[fullKey] = expandedValue;
+        if (Array.isArray(value)) {
+            return value.map((item) => expand(item, parentFieldName, parentKind));
+        }
+
+        if (typeof value !== "object") {
+            return value;
+        }
+
+        const obj = value as Record<string, unknown>;
+
+        // --- Step 1: Expand compact keys ---
+        const hasCompactKind = "k" in obj && !("kind" in obj);
+
+        const expanded: Record<string, unknown> = {};
+
+        for (const [key, val] of Object.entries(obj)) {
+            const fullKey = hasCompactKind && Object.hasOwn(KEY_MAP, key)
+                ? KEY_MAP[key]!
+                : key;
+
+            let expandedValue: unknown;
+
+            if (fullKey === "kind" && typeof val === "string" && Object.hasOwn(KIND_MAP, val)) {
+                expandedValue = KIND_MAP[val];
+            } else {
+                // Don't recurse yet — we need the kind first
+                expandedValue = val;
+            }
+
+            expanded[fullKey] = expandedValue;
+        }
+
+        // --- Step 2: Apply kind synonyms ---
+        if (typeof expanded.kind === "string" && Object.hasOwn(KIND_SYNONYMS, expanded.kind)) {
+            expanded.kind = KIND_SYNONYMS[expanded.kind as string];
+        }
+
+        // --- Step 3: Auto-inject kind on bare child nodes ---
+        let autoInjectedKind = false;
+        if (!("kind" in expanded) && parentFieldName) {
+            let inferredKind: string | undefined;
+
+            if (parentFieldName === "fields" && parentKind) {
+                inferredKind = FIELD_PARENT_KIND_MAP[parentKind];
+            } else {
+                inferredKind = FIELD_TO_KIND[parentFieldName];
+            }
+
+            // Only inject if the object looks like a real node (has name or value)
+            if (inferredKind && ("name" in expanded || "value" in expanded)) {
+                expanded.kind = inferredKind;
+                autoInjectedKind = true;
+            }
+        }
+
+        // --- Step 4: Auto-inject id when auto-kind was injected ---
+        const kind = expanded.kind as string | undefined;
+        if (autoInjectedKind && kind && !("id" in expanded) && NEEDS_ID_KINDS.has(kind)) {
+            expanded.id = nextAutoId(kind);
+        }
+
+        // --- Step 5: Recurse into children with context ---
+        const currentKind = expanded.kind as string | undefined;
+
+        for (const [key, val] of Object.entries(expanded)) {
+            if (key === "kind" || key === "id") continue; // already handled
+            expanded[key] = expand(val, key, currentKind);
+        }
+
+        return expanded;
     }
 
-    return expanded;
+    return expand(ast);
 }
 
 // =============================================================================

@@ -5,7 +5,7 @@
 // Zero hand-written structural checks — the schema IS the source of truth.
 // Only semantic checks (effects conflicts, import types) remain manual.
 
-import type { StructuredError } from "../errors/structured-errors.js";
+import type { StructuredError, FixSuggestion } from "../errors/structured-errors.js";
 import {
     missingField,
     invalidFieldType,
@@ -16,6 +16,7 @@ import {
     conflictingEffects,
     invalidSemanticAssertion,
 } from "../errors/structured-errors.js";
+import { findCandidates } from "../resolver/levenshtein.js";
 import type { IdTracker } from "./id-tracker.js";
 
 import moduleSchema from "../../schema/edict.schema.json" with { type: "json" };
@@ -185,8 +186,13 @@ function validateObject(
         // Check presence
         if (value === undefined || value === null) {
             if (isRequired) {
+                // For required returnType, provide a concrete template suggestion
+                const suggestion: FixSuggestion | undefined =
+                    fieldName === "returnType"
+                        ? { nodeId: nodeId, field: "returnType", value: { kind: "basic", name: "Int" } }
+                        : undefined;
                 errors.push(
-                    missingField(path, nodeId, fieldName, formatExpectedType(resolved)),
+                    missingField(path, nodeId, fieldName, formatExpectedType(resolved), suggestion),
                 );
             }
             continue;
@@ -405,11 +411,13 @@ function validateValue(
                 return;
             }
             if (kindConst && kind !== kindConst) {
-                errors.push(unknownNodeKind(path, kind, [kindConst]));
+                const suggestion = kindSuggestion(kind, [kindConst]);
+                errors.push(unknownNodeKind(path, kind, [kindConst], suggestion));
                 return;
             }
             if (kindEnum && !kindEnum.includes(kind)) {
-                errors.push(unknownNodeKind(path, kind, kindEnum));
+                const suggestion = kindSuggestion(kind, kindEnum);
+                errors.push(unknownNodeKind(path, kind, kindEnum, suggestion));
                 return;
             }
         }
@@ -463,6 +471,16 @@ function validateValue(
 }
 
 /**
+ * Generate a FixSuggestion for an unknown kind if a close Levenshtein match exists.
+ */
+function kindSuggestion(received: string, validKinds: readonly string[]): FixSuggestion | undefined {
+    if (!received) return undefined;
+    const candidates = findCandidates(received, validKinds as string[]);
+    if (candidates.length === 0) return undefined;
+    return { nodeId: null, field: "kind", value: candidates[0] };
+}
+
+/**
  * Validate a node against an anyOf union by matching on the `kind` discriminator.
  */
 function validateUnion(
@@ -487,7 +505,8 @@ function validateUnion(
         if (kind === undefined || kind === null) {
             errors.push(missingField(path, null, "kind", "string"));
         } else {
-            errors.push(unknownNodeKind(path, String(kind), validKinds));
+            const suggestion = kindSuggestion(String(kind), validKinds);
+            errors.push(unknownNodeKind(path, String(kind), validKinds, suggestion));
         }
         return;
     }
@@ -519,7 +538,8 @@ function validateUnion(
     }
 
     // No branch matched
-    errors.push(unknownNodeKind(path, kind, validKinds));
+    const suggestion = kindSuggestion(kind, validKinds);
+    errors.push(unknownNodeKind(path, kind, validKinds, suggestion));
 }
 
 // =============================================================================

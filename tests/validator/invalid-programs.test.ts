@@ -880,34 +880,40 @@ describe("invalid programs", () => {
         );
     });
 
-    it("rejects record_expr field without field_init kind", () => {
-        expectErrors(
-            {
-                kind: "module",
-                id: "mod-fi-001",
+    it("auto-normalizes record_expr field without field_init kind", () => {
+        // After normalization, bare fields in record_expr get kind: "field_init" auto-injected
+        const result = validate({
+            kind: "module",
+            id: "mod-fi-001",
+            name: "test",
+            imports: [],
+            definitions: [{
+                kind: "fn",
+                id: "fn-fi-001",
                 name: "test",
-                imports: [],
-                definitions: [{
-                    kind: "fn",
-                    id: "fn-fi-001",
-                    name: "test",
-                    params: [],
-                    effects: ["pure"],
-                    returnType: { kind: "basic", name: "Int" },
-                    contracts: [],
-                    body: [{
-                        kind: "record_expr",
-                        id: "rec-fi-001",
-                        name: "Point",
-                        fields: [{
-                            name: "x",
-                            value: { kind: "literal", id: "lit-fi-001", value: 1 },
-                        }],
+                params: [],
+                effects: ["pure"],
+                returnType: { kind: "basic", name: "Int" },
+                contracts: [],
+                body: [{
+                    kind: "record_expr",
+                    id: "rec-fi-001",
+                    name: "Point",
+                    fields: [{
+                        name: "x",
+                        value: { kind: "literal", id: "lit-fi-001", value: 1 },
                     }],
                 }],
-            },
-            { error: "unknown_node_kind", validKinds: ["field_init"] },
-        );
+            }],
+        });
+        // Should pass validation now (no unknown_node_kind error)
+        // There may be downstream errors (e.g., record "Point" not defined), but no structural errors
+        if (!result.ok) {
+            const structuralErrors = result.errors.filter(
+                (e) => e.error === "unknown_node_kind" || e.error === "missing_field",
+            );
+            expect(structuralErrors).toHaveLength(0);
+        }
     });
 
     it("rejects non-object field_init", () => {

@@ -100,6 +100,7 @@ export interface UnknownNodeKindError {
     path: string;
     received: string;
     validKinds: readonly string[];
+    suggestion?: FixSuggestion;
 }
 
 export interface MissingFieldError {
@@ -108,6 +109,7 @@ export interface MissingFieldError {
     nodeId: string | null;
     field: string;
     expectedFormat: string;
+    suggestion?: FixSuggestion;
 }
 
 export interface InvalidFieldTypeError {
@@ -261,8 +263,11 @@ export function unknownNodeKind(
     path: string,
     received: string,
     validKinds: readonly string[],
+    suggestion?: FixSuggestion,
 ): UnknownNodeKindError {
-    return { error: "unknown_node_kind", path, received, validKinds };
+    const result: UnknownNodeKindError = { error: "unknown_node_kind", path, received, validKinds };
+    if (suggestion) result.suggestion = suggestion;
+    return result;
 }
 
 export function missingField(
@@ -270,8 +275,11 @@ export function missingField(
     nodeId: string | null,
     field: string,
     expectedFormat: string,
+    suggestion?: FixSuggestion,
 ): MissingFieldError {
-    return { error: "missing_field", path, nodeId, field, expectedFormat };
+    const result: MissingFieldError = { error: "missing_field", path, nodeId, field, expectedFormat };
+    if (suggestion) result.suggestion = suggestion;
+    return result;
 }
 
 export function invalidFieldType(

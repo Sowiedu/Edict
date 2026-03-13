@@ -695,3 +695,183 @@ describe("direct API — compact AST through checkMultiModule()", () => {
         expect(result.mergedModule).toBeDefined();
     });
 });
+
+// =============================================================================
+// Normalization tests — auto-inject kind/id and kind synonyms
+// =============================================================================
+
+describe("normalizeAst", () => {
+    it("auto-injects kind and id on bare variants", () => {
+        const input = {
+            kind: "enum", id: "e1", name: "Color",
+            variants: [
+                { name: "Red", fields: [] },
+                { name: "Green", fields: [] },
+            ],
+        };
+        const result = expandCompact(input) as Record<string, unknown>;
+        const variants = result.variants as Record<string, unknown>[];
+        expect(variants[0]).toMatchObject({ kind: "variant", name: "Red" });
+        expect(variants[0].id).toMatch(/^auto-variant-/);
+        expect(variants[1]).toMatchObject({ kind: "variant", name: "Green" });
+        expect(variants[1].id).toMatch(/^auto-variant-/);
+        // IDs should be unique
+        expect(variants[0].id).not.toBe(variants[1].id);
+    });
+
+    it("auto-injects kind and id on bare record fields", () => {
+        const input = {
+            kind: "record", id: "r1", name: "Point",
+            fields: [
+                { name: "x", type: { kind: "basic", name: "Int" } },
+                { name: "y", type: { kind: "basic", name: "Int" } },
+            ],
+        };
+        const result = expandCompact(input) as Record<string, unknown>;
+        const fields = result.fields as Record<string, unknown>[];
+        expect(fields[0]).toMatchObject({ kind: "field", name: "x" });
+        expect(fields[0].id).toMatch(/^auto-field-/);
+        expect(fields[1]).toMatchObject({ kind: "field", name: "y" });
+        expect(fields[1].id).toMatch(/^auto-field-/);
+    });
+
+    it("auto-injects kind on bare field_init (no id)", () => {
+        const input = {
+            kind: "record_expr", id: "re1", name: "Point",
+            fields: [
+                { name: "x", value: { kind: "literal", id: "l1", value: 1 } },
+            ],
+        };
+        const result = expandCompact(input) as Record<string, unknown>;
+        const fields = result.fields as Record<string, unknown>[];
+        expect(fields[0]).toMatchObject({ kind: "field_init", name: "x" });
+        // field_init should NOT get an auto-id
+        expect(fields[0].id).toBeUndefined();
+    });
+
+    it("auto-injects kind on bare variant fields (nested in enum)", () => {
+        const input = {
+            kind: "enum", id: "e1", name: "Shape",
+            variants: [
+                {
+                    kind: "variant", id: "v1", name: "Circle",
+                    fields: [
+                        { name: "radius", type: { kind: "basic", name: "Int" } },
+                    ],
+                },
+            ],
+        };
+        const result = expandCompact(input) as Record<string, unknown>;
+        const variants = result.variants as Record<string, unknown>[];
+        const fields = (variants[0] as Record<string, unknown>).fields as Record<string, unknown>[];
+        expect(fields[0]).toMatchObject({ kind: "field", name: "radius" });
+        expect(fields[0].id).toMatch(/^auto-field-/);
+    });
+
+    it("maps kind synonym struct → record", () => {
+        const input = {
+            kind: "struct", id: "r1", name: "Point",
+            fields: [],
+        };
+        const result = expandCompact(input) as Record<string, unknown>;
+        expect(result.kind).toBe("record");
+    });
+
+    it("maps kind synonym function → fn", () => {
+        const input = {
+            kind: "function", id: "fn1", name: "test",
+            params: [], effects: ["pure"],
+            returnType: { kind: "basic", name: "Int" },
+            contracts: [], body: [],
+        };
+        const result = expandCompact(input) as Record<string, unknown>;
+        expect(result.kind).toBe("fn");
+    });
+
+    it("maps kind synonym record_def → record", () => {
+        const input = { kind: "record_def", id: "r1", name: "Foo", fields: [] };
+        const result = expandCompact(input) as Record<string, unknown>;
+        expect(result.kind).toBe("record");
+    });
+
+    it("maps kind synonym constant → const", () => {
+        const input = {
+            kind: "constant", id: "c1", name: "MAX",
+            type: { kind: "basic", name: "Int" },
+            value: { kind: "literal", id: "l1", value: 100 },
+        };
+        const result = expandCompact(input) as Record<string, unknown>;
+        expect(result.kind).toBe("const");
+    });
+
+    it("passes already-correct ASTs through unchanged (idempotent)", () => {
+        const input = {
+            kind: "enum", id: "e1", name: "Color",
+            variants: [
+                { kind: "variant", id: "v1", name: "Red", fields: [] },
+                { kind: "variant", id: "v2", name: "Green", fields: [] },
+            ],
+        };
+        const result = expandCompact(input);
+        expect(result).toEqual(input);
+    });
+
+    it("leaves bare objects without name untouched for validator", () => {
+        const input = {
+            kind: "enum", id: "e1", name: "Color",
+            variants: [
+                { something: "else" },
+            ],
+        };
+        const result = expandCompact(input) as Record<string, unknown>;
+        const variants = result.variants as Record<string, unknown>[];
+        // No kind injected because there's no "name" field
+        expect(variants[0].kind).toBeUndefined();
+        expect(variants[0].id).toBeUndefined();
+    });
+
+    it("E2E: bare-variant enum through check() pipeline succeeds", async () => {
+        const { check } = await import("../../src/check.js");
+        const ast = {
+            kind: "module", id: "m1", name: "test",
+            imports: [],
+            definitions: [
+                {
+                    kind: "enum", id: "e1", name: "Color",
+                    variants: [
+                        { name: "Red", fields: [] },
+                        { name: "Green", fields: [] },
+                    ],
+                },
+                {
+                    kind: "fn", id: "fn1", name: "main",
+                    params: [], effects: ["pure"],
+                    returnType: { kind: "basic", name: "Int" },
+                    contracts: [],
+                    body: [{ kind: "literal", id: "l1", value: 42 }],
+                },
+            ],
+        };
+        const result = await check(ast);
+        expect(result.ok).toBe(true);
+    });
+
+    it("E2E: kind synonym struct through validate() pipeline", async () => {
+        const { validate } = await import("../../src/validator/validate.js");
+        const ast = {
+            kind: "module", id: "m1", name: "test",
+            imports: [],
+            definitions: [
+                {
+                    kind: "struct", id: "r1", name: "Point",
+                    fields: [
+                        { name: "x", type: { kind: "basic", name: "Int" } },
+                        { name: "y", type: { kind: "basic", name: "Int" } },
+                    ],
+                },
+            ],
+        };
+        const result = validate(ast);
+        expect(result.ok).toBe(true);
+    });
+});

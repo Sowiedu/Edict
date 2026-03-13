@@ -8,7 +8,7 @@ Edict is a programming language designed for AI agents — and contributions fro
 git clone https://github.com/Sowiedu/Edict.git
 cd Edict
 npm install
-npm test          # 2246 tests across 122 files
+npm test          # 2300 tests across 124 files
 ```
 
 **Requirements**: Node.js ≥ 20
@@ -34,7 +34,7 @@ src/
 ├── mcp/           # MCP server (tools + resources + prompts)
 └── errors/        # Structured error types
 
-tests/             # 2246 tests across 122 files
+tests/             # 2300 tests across 124 files
 examples/          # 40 example programs as JSON ASTs
 schema/            # Auto-generated JSON Schema
 ```

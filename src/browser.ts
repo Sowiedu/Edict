@@ -307,7 +307,7 @@ export type { ComposeResult } from "./compose/compose.js";
 // ---------------------------------------------------------------------------
 // Compact AST Format: token-efficient abbreviated AST representation
 // ---------------------------------------------------------------------------
-export { expandCompact, isCompactAst, compactSchemaReference } from "./compact/expand.js";
+export { expandCompact, isCompactAst, compactSchemaReference, KIND_SYNONYMS } from "./compact/expand.js";
 
 // ---------------------------------------------------------------------------
 // Schema Migration: auto-migrate ASTs from older schema versions

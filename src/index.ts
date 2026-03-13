@@ -323,7 +323,7 @@ export type { ExplainResult, ExplainResultFound, ExplainResultNotFound, RepairAc
 // ---------------------------------------------------------------------------
 // Compact AST Format: token-efficient abbreviated AST representation
 // ---------------------------------------------------------------------------
-export { expandCompact, isCompactAst, compactSchemaReference } from "./compact/expand.js";
+export { expandCompact, isCompactAst, compactSchemaReference, KIND_SYNONYMS } from "./compact/expand.js";
 
 // ---------------------------------------------------------------------------
 // Lint: non-blocking code quality warnings
