@@ -330,3 +330,9 @@ if (url.endsWith(".ts")) {
 - **Problem**: Wrote `checkResult.coverage?.contractsVerified` / `contractsTotal` — these flat fields don't exist on the actual type.
 - **Fix**: The correct structure is `coverage.contracts.proven` and `coverage.contracts.total` (and `coverage.effects.checked` / `.total`).
 - **Rule**: `VerificationCoverage` uses nested objects: `{ effects: { checked, skipped, total }, contracts: { proven, skipped, total } }`. Always check `structured-errors.ts` for exact field names.
+
+## Verify Builtin Names Against the Registry Before Hardcoding
+- **Problem**: DCE's `isTerminatingCall` checked for both `"exit"` and `"panic"` as terminating calls. `exit` exists in `src/builtins/domains/io.ts`, but `panic` is NOT a registered Edict builtin — it only exists as a raw WASM host import in some runners (`browser-runner.ts`, `scaffold.ts`).
+- **Root cause**: Assumed `panic` was a builtin because it appeared in host import objects. But host imports ≠ builtins. The builtins registry (`src/builtins/`) is the source of truth for what agents can call.
+- **Fix**: Only reference builtin names that exist in `src/builtins/domains/`. `exit` is legitimate; `panic` was removed.
+- **Rule**: Before hardcoding any builtin name in optimizer/codegen code, verify it exists in the builtins registry. Grep `src/builtins/domains/` for the name. Host imports in runners are implementation details, not language-level builtins.

@@ -1,6 +1,9 @@
 // =============================================================================
-// IR Constant Folding Optimization Pass
+// IR Optimization Passes — Constant Folding + Dead Code Elimination
 // =============================================================================
+// Walks the IR bottom-up and applies two optimization passes:
+//
+// Pass 1: Constant Folding (bottom-up)
 // Walks the IR bottom-up and replaces foldable expressions with IRLiteral nodes.
 //
 // What it folds:
@@ -8,6 +11,10 @@
 //   - IRUnop: negation and logical not with literal operands
 //   - IRIf: literal condition → replace with taken branch
 //   - Identity ops: x + 0 → x, x * 1 → x, x - 0 → x, x * 0 → 0
+//
+// Pass 2: Dead Code Elimination (top-down per block/function)
+//   - Unused let bindings: removed if the value expression is pure (no calls)
+//   - Unreachable code: expressions after exit() calls in a block
 //
 // Invariants:
 //   - Pure function — returns a new IRModule, no mutation
@@ -41,14 +48,210 @@ export function optimize(ir: IRModule): IRModule {
 }
 
 // =============================================================================
+// Dead Code Elimination (DCE)
+// =============================================================================
+
+/**
+ * Collect all variable names referenced in an expression tree.
+ * Used to determine which let-bound names are actually used.
+ */
+function collectUsedNames(exprs: IRExpr[]): Set<string> {
+    const names = new Set<string>();
+    for (const expr of exprs) {
+        collectUsedNamesExpr(expr, names);
+    }
+    return names;
+}
+
+function collectUsedNamesExpr(expr: IRExpr, names: Set<string>): void {
+    switch (expr.kind) {
+        case "ir_ident":
+            names.add(expr.name);
+            break;
+        case "ir_literal":
+        case "ir_lambda_ref":
+            break;
+        case "ir_binop":
+            collectUsedNamesExpr(expr.left, names);
+            collectUsedNamesExpr(expr.right, names);
+            break;
+        case "ir_unop":
+            collectUsedNamesExpr(expr.operand, names);
+            break;
+        case "ir_call":
+            collectUsedNamesExpr(expr.fn, names);
+            for (const arg of expr.args) collectUsedNamesExpr(arg, names);
+            break;
+        case "ir_if":
+            collectUsedNamesExpr(expr.condition, names);
+            for (const e of expr.then) collectUsedNamesExpr(e, names);
+            for (const e of expr.else) collectUsedNamesExpr(e, names);
+            break;
+        case "ir_let":
+            // The let itself doesn't "use" a name — it defines one.
+            // But its value expression may reference other names.
+            collectUsedNamesExpr(expr.value, names);
+            break;
+        case "ir_block":
+            for (const e of expr.body) collectUsedNamesExpr(e, names);
+            break;
+        case "ir_match":
+            collectUsedNamesExpr(expr.target, names);
+            for (const arm of expr.arms) {
+                for (const e of arm.body) collectUsedNamesExpr(e, names);
+            }
+            break;
+        case "ir_array":
+        case "ir_tuple":
+            for (const e of expr.elements) collectUsedNamesExpr(e, names);
+            break;
+        case "ir_record":
+            for (const f of expr.fields) collectUsedNamesExpr(f.value, names);
+            break;
+        case "ir_enum_constructor":
+            for (const f of expr.fields) collectUsedNamesExpr(f.value, names);
+            break;
+        case "ir_access":
+            collectUsedNamesExpr(expr.target, names);
+            break;
+        case "ir_string_interp":
+            for (const p of expr.parts) collectUsedNamesExpr(p.expr, names);
+            break;
+    }
+}
+
+/**
+ * Check if an expression may have side effects.
+ * Pure expressions can be safely removed if their result is unused.
+ *
+ * Conservative: returns true for anything that could possibly have effects.
+ * Only removes let bindings with values that are guaranteed pure.
+ */
+function mayHaveSideEffects(expr: IRExpr): boolean {
+    switch (expr.kind) {
+        case "ir_literal":
+        case "ir_ident":
+        case "ir_lambda_ref":
+            return false;
+        case "ir_binop":
+            return mayHaveSideEffects(expr.left) || mayHaveSideEffects(expr.right);
+        case "ir_unop":
+            return mayHaveSideEffects(expr.operand);
+        case "ir_call":
+            // All calls may have side effects (even builtins can print, etc.)
+            return true;
+        case "ir_if":
+            // Condition or branches may be effectful
+            return mayHaveSideEffects(expr.condition) ||
+                expr.then.some(mayHaveSideEffects) ||
+                expr.else.some(mayHaveSideEffects);
+        case "ir_let":
+            return mayHaveSideEffects(expr.value);
+        case "ir_block":
+            return expr.body.some(mayHaveSideEffects);
+        case "ir_match":
+            return mayHaveSideEffects(expr.target) ||
+                expr.arms.some(arm => arm.body.some(mayHaveSideEffects));
+        case "ir_array":
+        case "ir_tuple":
+            return expr.elements.some(mayHaveSideEffects);
+        case "ir_record":
+            return expr.fields.some(f => mayHaveSideEffects(f.value));
+        case "ir_enum_constructor":
+            return expr.fields.some(f => mayHaveSideEffects(f.value));
+        case "ir_access":
+            return mayHaveSideEffects(expr.target);
+        case "ir_string_interp":
+            // String interp may call coercion builtins (intToString, etc.)
+            // These are pure in practice, but treat as effectful to be safe
+            return true;
+    }
+}
+
+/**
+ * Check if an expression is an exit() call — anything after it
+ * in a block is unreachable.
+ *
+ * Only `exit` is recognized — it's the sole diverging builtin
+ * in the Edict builtins registry (src/builtins/domains/io.ts).
+ */
+function isTerminatingCall(expr: IRExpr): boolean {
+    if (expr.kind !== "ir_call") return false;
+    if (expr.fn.kind !== "ir_ident") return false;
+    return expr.fn.name === "exit";
+}
+
+/**
+ * Remove unused let bindings from a body (list of expressions).
+ *
+ * A let binding `let x = e` is dead if:
+ * 1. The name `x` is never referenced in any subsequent expression in the body
+ * 2. The value `e` is pure (no side effects)
+ *
+ * We scan backwards: collect used names from all expressions after the current one,
+ * then check if the let binding's name is in the set.
+ */
+function eliminateDeadLets(body: IRExpr[]): IRExpr[] {
+    if (body.length === 0) return body;
+
+    // Collect names used in ALL subsequent expressions for each position.
+    // usedAfter[i] = names used in body[i+1..end]
+    const usedAfter: Set<string>[] = new Array(body.length);
+    usedAfter[body.length - 1] = new Set();
+    for (let i = body.length - 2; i >= 0; i--) {
+        const next = new Set(usedAfter[i + 1]!);
+        const exprNames = collectUsedNames([body[i + 1]!]);
+        for (const n of exprNames) next.add(n);
+        usedAfter[i] = next;
+    }
+
+    const result: IRExpr[] = [];
+    let changed = false;
+
+    for (let i = 0; i < body.length; i++) {
+        const expr = body[i]!;
+        if (expr.kind === "ir_let") {
+            const nameUsed = usedAfter[i]!.has(expr.name);
+            if (!nameUsed && !mayHaveSideEffects(expr.value)) {
+                // Dead let binding — skip it
+                changed = true;
+                continue;
+            }
+        }
+        result.push(expr);
+    }
+
+    return changed ? result : body;
+}
+
+/**
+ * Remove unreachable code after exit() calls.
+ * In a block, any expressions after a terminating call are dead.
+ */
+function removeUnreachable(body: IRExpr[]): IRExpr[] {
+    for (let i = 0; i < body.length; i++) {
+        if (isTerminatingCall(body[i]!)) {
+            // Everything after this is unreachable
+            if (i + 1 < body.length) {
+                return body.slice(0, i + 1);
+            }
+            break;
+        }
+    }
+    return body;
+}
+
+// =============================================================================
 // Function & Constant Optimization
 // =============================================================================
 
 function optimizeFunction(fn: IRFunction): IRFunction {
-    return {
-        ...fn,
-        body: fn.body.map(foldExpr),
-    };
+    // Pass 1: constant folding (bottom-up)
+    let body = fn.body.map(foldExpr);
+    // Pass 2: dead code elimination
+    body = eliminateDeadLets(body);
+    body = removeUnreachable(body);
+    return { ...fn, body };
 }
 
 function optimizeConstant(c: IRConstant): IRConstant {
@@ -104,8 +307,12 @@ function foldExpr(expr: IRExpr): IRExpr {
 
         case "ir_if": {
             const condition = foldExpr(expr.condition);
-            const thenBody = expr.then.map(foldExpr);
-            const elseBody = expr.else.map(foldExpr);
+            let thenBody = expr.then.map(foldExpr);
+            let elseBody = expr.else.map(foldExpr);
+
+            // Apply DCE inside branches
+            thenBody = removeUnreachable(eliminateDeadLets(thenBody));
+            elseBody = removeUnreachable(eliminateDeadLets(elseBody));
 
             // If condition is a literal, replace with taken branch
             if (condition.kind === "ir_literal" && typeof condition.value === "boolean") {
@@ -124,15 +331,21 @@ function foldExpr(expr: IRExpr): IRExpr {
         case "ir_let":
             return { ...expr, value: foldExpr(expr.value) };
 
-        case "ir_block":
-            return { ...expr, body: expr.body.map(foldExpr) };
+        case "ir_block": {
+            let body = expr.body.map(foldExpr);
+            body = eliminateDeadLets(body);
+            body = removeUnreachable(body);
+            return { ...expr, body };
+        }
 
         case "ir_match": {
             const target = foldExpr(expr.target);
-            const arms: IRMatchArm[] = expr.arms.map(arm => ({
-                ...arm,
-                body: arm.body.map(foldExpr),
-            }));
+            const arms: IRMatchArm[] = expr.arms.map(arm => {
+                let body = arm.body.map(foldExpr);
+                body = eliminateDeadLets(body);
+                body = removeUnreachable(body);
+                return { ...arm, body };
+            });
             return { ...expr, target, arms };
         }
 
