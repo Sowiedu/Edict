@@ -144,6 +144,7 @@ export default {
             intToString: (n) => writeString(wasmExports, String(n)),
             floatToString: (n) => writeString(wasmExports, String(n)),
             boolToString: (n) => writeString(wasmExports, n ? "true" : "false"),
+            toString: (ptr) => ptr,
             floatToInt: (n) => Math.trunc(n) | 0,
             intToFloat: (n) => n,
             int64ToFloat: (n) => Number(n),

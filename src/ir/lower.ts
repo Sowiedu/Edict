@@ -546,9 +546,12 @@ function lowerCall(
     // Find string param indices
     const stringParamIndices = findStringParamIndices(expr, ctx);
 
-    // Arg coercions — currently not populated at the call level
-    // (string interp coercions are handled separately)
+    // Arg coercions from print/println/toString auto-coercion
     const argCoercions: Record<number, string> = {};
+    for (let i = 0; i < expr.args.length; i++) {
+        const coercion = ctx.typeInfo.callArgCoercions?.get(expr.args[i]!.id);
+        if (coercion) argCoercions[i] = coercion;
+    }
 
     return {
         kind: "ir_call",

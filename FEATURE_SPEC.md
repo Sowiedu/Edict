@@ -639,6 +639,12 @@ interface StringInterp {
   parts: Expression[]  // all parts must evaluate to String
 }
 
+// Auto-coercion note:
+// string_interp parts, print(), println(), and toString() accept
+// Int, Int64, Float, and Bool values — the compiler automatically
+// wraps them with the appropriate conversion builtin (e.g. intToString).
+// Non-primitive types (records, enums, arrays) still require explicit conversion.
+
 // Universal quantifier — contract-only.
 // forall variable in [from, to): body must hold.
 // Translates to Z3 ForAll.

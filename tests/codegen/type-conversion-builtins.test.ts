@@ -14,9 +14,9 @@ async function compileAndRun(ast: unknown) {
     if (!checkResult.ok) {
         throw new Error(`Check failed: ${JSON.stringify(checkResult.errors)}`);
     }
-    const compileResult = compile(checkResult.module!);
+    const compileResult = compile(checkResult.module!, { typeInfo: checkResult.typeInfo });
     if (!compileResult.ok) {
-        throw new Error(`Compile failed: ${compileResult.errors.join(", ")}`);
+        throw new Error(`Compile failed: ${JSON.stringify(compileResult.errors)}`);
     }
     return runDirect(compileResult.wasm);
 }
@@ -404,5 +404,162 @@ describe("type conversion composition", () => {
         ]);
         const result = await compileAndRun(ast);
         expect(result.output).toBe("10true");
+    });
+});
+
+// =============================================================================
+// print/println auto-coercion
+// =============================================================================
+
+describe("print auto-coercion", () => {
+    it("print(42) auto-coerces Int to String", async () => {
+        const ast = printProgram([
+            {
+                kind: "call",
+                id: "call-print-001",
+                fn: { kind: "ident", id: "id-print-001", name: "print" },
+                args: [{ kind: "literal", id: "lit-int-001", value: 42 }],
+            },
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.output).toBe("42");
+    });
+
+    it("print(3.14) auto-coerces Float to String", async () => {
+        const ast = printProgram([
+            {
+                kind: "call",
+                id: "call-print-002",
+                fn: { kind: "ident", id: "id-print-002", name: "print" },
+                args: [{ kind: "literal", id: "lit-float-001", value: 3.14, type: { kind: "basic", name: "Float" } }],
+            },
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.output).toBe("3.14");
+    });
+
+    it("print(true) auto-coerces Bool to String", async () => {
+        const ast = printProgram([
+            {
+                kind: "call",
+                id: "call-print-003",
+                fn: { kind: "ident", id: "id-print-003", name: "print" },
+                args: [{ kind: "literal", id: "lit-bool-001", value: true }],
+            },
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.output).toBe("true");
+    });
+
+    it("println(42) auto-coerces Int with newline", async () => {
+        const ast = printProgram([
+            {
+                kind: "call",
+                id: "call-println-001",
+                fn: { kind: "ident", id: "id-println-001", name: "println" },
+                args: [{ kind: "literal", id: "lit-int-002", value: 42 }],
+            },
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.output).toBe("42\n");
+    });
+
+    it("print(false) auto-coerces Bool false", async () => {
+        const ast = printProgram([
+            {
+                kind: "call",
+                id: "call-print-004",
+                fn: { kind: "ident", id: "id-print-004", name: "print" },
+                args: [{ kind: "literal", id: "lit-bool-002", value: false }],
+            },
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.output).toBe("false");
+    });
+});
+
+// =============================================================================
+// toString builtin
+// =============================================================================
+
+describe("toString builtin", () => {
+    it("toString(42) returns string '42'", async () => {
+        const ast = printProgram([
+            {
+                kind: "call",
+                id: "call-print-ts-001",
+                fn: { kind: "ident", id: "id-print-ts-001", name: "print" },
+                args: [
+                    {
+                        kind: "call",
+                        id: "call-ts-001",
+                        fn: { kind: "ident", id: "id-ts-001", name: "toString" },
+                        args: [{ kind: "literal", id: "lit-ts-int-001", value: 42 }],
+                    },
+                ],
+            },
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.output).toBe("42");
+    });
+
+    it("toString(3.14) returns string '3.14'", async () => {
+        const ast = printProgram([
+            {
+                kind: "call",
+                id: "call-print-ts-002",
+                fn: { kind: "ident", id: "id-print-ts-002", name: "print" },
+                args: [
+                    {
+                        kind: "call",
+                        id: "call-ts-002",
+                        fn: { kind: "ident", id: "id-ts-002", name: "toString" },
+                        args: [{ kind: "literal", id: "lit-ts-float-001", value: 3.14, type: { kind: "basic", name: "Float" } }],
+                    },
+                ],
+            },
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.output).toBe("3.14");
+    });
+
+    it("toString(true) returns string 'true'", async () => {
+        const ast = printProgram([
+            {
+                kind: "call",
+                id: "call-print-ts-003",
+                fn: { kind: "ident", id: "id-print-ts-003", name: "print" },
+                args: [
+                    {
+                        kind: "call",
+                        id: "call-ts-003",
+                        fn: { kind: "ident", id: "id-ts-003", name: "toString" },
+                        args: [{ kind: "literal", id: "lit-ts-bool-001", value: true }],
+                    },
+                ],
+            },
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.output).toBe("true");
+    });
+
+    it("toString(\"hello\") is identity for String", async () => {
+        const ast = printProgram([
+            {
+                kind: "call",
+                id: "call-print-ts-004",
+                fn: { kind: "ident", id: "id-print-ts-004", name: "print" },
+                args: [
+                    {
+                        kind: "call",
+                        id: "call-ts-004",
+                        fn: { kind: "ident", id: "id-ts-004", name: "toString" },
+                        args: [{ kind: "literal", id: "lit-ts-str-001", value: "hello" }],
+                    },
+                ],
+            },
+        ]);
+        const result = await compileAndRun(ast);
+        expect(result.output).toBe("hello");
     });
 });

@@ -13,6 +13,7 @@
 ### Features
 
 * **mcp:** add 'agent' format to edict_schema for one-call bootstrapping ([3eabf00](https://github.com/Sowiedu/Edict/commit/3eabf007c3d82bc8bec826693aed26378c47d7f5))
+* **builtins:** add toString builtin and auto-coercion for print/println — accepts Int, Float, Bool, Int64 without explicit conversion
 
 
 ### Bug Fixes

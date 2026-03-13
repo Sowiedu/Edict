@@ -63,4 +63,17 @@ export const CORE_BUILTINS: BuiltinDef[] = [
             },
         },
     },
+    {
+        name: "toString",
+        type: {
+            kind: "fn_type",
+            params: [STRING_TYPE],
+            effects: ["pure"],
+            returnType: STRING_TYPE,
+        },
+        impl: {
+            kind: "host",
+            factory: (_ctx: HostContext) => (ptr: number): number => ptr,
+        },
+    },
 ];

@@ -52,6 +52,8 @@ export interface TypedModuleInfo {
     inferredLambdaParamTypes: Map<string, TypeExpr>;
     /** string_interp part nodeId → coercion builtin name (e.g. "intToString") */
     stringInterpCoercions: Map<string, string>;
+    /** callArgNodeId → coercion builtin name for print/println/toString auto-coercion */
+    callArgCoercions: Map<string, string>;
     /** callSiteNodeId → resolved concrete effects from effect variable unification */
     resolvedCallSiteEffects: Map<string, ConcreteEffect[]>;
 }
@@ -78,6 +80,7 @@ export function typeCheck(module: EdictModule): TypeCheckResult {
         inferredLetTypes: new Map(),
         inferredLambdaParamTypes: new Map(),
         stringInterpCoercions: new Map(),
+        callArgCoercions: new Map(),
         resolvedCallSiteEffects: new Map(),
     };
     const rootEnv = new TypeEnv();
@@ -483,6 +486,10 @@ function inferCall(
         errors.push(arityMismatch(expr.id, resolved.params.length, expr.args.length));
     }
 
+    // Auto-coercion for print/println/toString: accept printable primitives
+    const isAutoCoerceTarget = expr.fn.kind === "ident"
+        && (expr.fn.name === "print" || expr.fn.name === "println" || expr.fn.name === "toString");
+
     // Check arg types (up to the minimum of args/params)
     const checkCount = Math.min(expr.args.length, resolved.params.length);
     const argTypes: TypeExpr[] = [];
@@ -495,6 +502,22 @@ function inferCall(
             ? inferLambdaWithContext(arg, resolvedExpected as FunctionType, env, errors, typeInfo)
             : inferExpr(arg, env, errors, typeInfo);
         argTypes.push(argType);
+
+        // Auto-coerce printable primitives for print/println/toString
+        if (isAutoCoerceTarget && !isUnknown(argType)) {
+            const resolvedArg = resolveType(argType, env);
+            if (resolvedArg.kind === "basic") {
+                const coercion = getStringCoercion(resolvedArg.name);
+                if (coercion !== undefined) {
+                    if (coercion !== null) {
+                        typeInfo.callArgCoercions.set(arg.id, coercion);
+                    }
+                    // Skip type_mismatch — coercion handles it
+                    continue;
+                }
+            }
+        }
+
         checkExpectedType(argType, expectedParamType, arg.id, env, errors);
     }
 
@@ -1189,6 +1212,22 @@ function checkExpectedType(
             ? { nodeId, field: "type", value: expected }
             : undefined;
         errors.push(typeMismatch(nodeId, expected, actual, suggestion));
+    }
+}
+
+/**
+ * Map a basic type name to its string coercion builtin.
+ * Returns null for String (no coercion needed), the builtin name for
+ * printable types, or undefined for non-printable types.
+ */
+function getStringCoercion(basicName: string): string | null | undefined {
+    switch (basicName) {
+        case "String": return null;      // no coercion needed
+        case "Int":    return "intToString";
+        case "Int64":  return "int64ToString";
+        case "Float":  return "floatToString";
+        case "Bool":   return "boolToString";
+        default:       return undefined; // non-printable type
     }
 }
 

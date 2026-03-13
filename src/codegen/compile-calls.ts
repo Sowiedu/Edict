@@ -35,7 +35,14 @@ export function compileCall(
         // Compile all arguments — no special String handling needed,
         // strings are just i32 pointers (length-prefixed)
         const args = expr.args.map((a, i) => {
-            const compiled = compileExpr(a, cc, ctx);
+            let compiled = compileExpr(a, cc, ctx);
+
+            // Auto-coercion: wrap arg with conversion builtin if checker recorded one
+            const coercionFn = cc.typeInfo?.callArgCoercions?.get(a.id);
+            if (coercionFn) {
+                compiled = mod.call(coercionFn, [compiled], binaryen.i32);
+            }
+
             // Coerce i32→f64 if function expects f64 but arg infers to i32
             const paramIdx = isUserFn ? i + 1 : i;
             if (sig?.paramTypes && sig.paramTypes[paramIdx] === binaryen.f64) {

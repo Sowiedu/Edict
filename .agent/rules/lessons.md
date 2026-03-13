@@ -342,3 +342,9 @@ if (url.endsWith(".ts")) {
 - **Root cause**: Two parallel type systems — the type checker's Edict type inference and codegen's `inferExprWasmType` — can disagree on expressions that are "value-like" in the language but "statement-like" in WASM.
 - **Fix**: Apply boundary fixups: (1) in `compileFunction` and `compileBlock`, if the last expression is `let`, append `local.get` to produce the value; (2) in `compileIf`, if no `else`, construct a heap-allocated `Option` (Some/None) instead of emitting a void `if`.
 - **Rule**: When adding new expression kinds, always verify that `inferExprWasmType`, the type checker's `inferExpr`, and the actual compiled expression all agree on the WASM type. Check both "value position" (last in body) and "statement position" (non-final).
+
+## Test Helpers Must Thread typeInfo to compile()
+- **Problem**: `compileAndRun()` helper in `type-conversion-builtins.test.ts` called `compile(checkResult.module!)` without passing `typeInfo`. New features using `TypedModuleInfo` side-tables (like `callArgCoercions`) silently had no effect during codegen because the coercion map was absent.
+- **Symptom**: Tests passed for existing features (which don't use `callArgCoercions`) but new auto-coercion tests either compiled wrong code or produced empty output.
+- **Fix**: Always call `compile(module, { typeInfo: checkResult.typeInfo })` in test helpers.
+- **Rule**: When adding features that store data in `TypedModuleInfo`, verify ALL test helpers that call `compile()` are passing `typeInfo`. Grep for `compile(checkResult.module` without `typeInfo` to find gaps.
