@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.12.0](https://github.com/Sowiedu/Edict/compare/v1.11.0...v1.12.0) (2026-03-13)
+
+
+### Features
+
+* add edict_package and edict_invoke_skill MCP tools ([#136](https://github.com/Sowiedu/Edict/issues/136)) ([49073eb](https://github.com/Sowiedu/Edict/commit/49073ebbdfad9eaea9cfebe85448b8aac3ecccda))
+* add println builtin (print with newline) ([#143](https://github.com/Sowiedu/Edict/issues/143)) ([61bf988](https://github.com/Sowiedu/Edict/commit/61bf988891dff03ebf0157727b208d1f8a85c0b6))
+* CloudflareHostAdapter for Workers edge runtime ([#138](https://github.com/Sowiedu/Edict/issues/138)) ([d610f0a](https://github.com/Sowiedu/Edict/commit/d610f0a9d0a5a05f371f46b0ff4b05e603513bb4))
+* crystallized intelligence lifecycle example and integration guide ([#137](https://github.com/Sowiedu/Edict/issues/137)) ([ab156e0](https://github.com/Sowiedu/Edict/commit/ab156e09c9c4cdf5ec642ca27df6c7da6fcdcd37))
+* edict_deploy MCP tool — deploy pipeline ([#140](https://github.com/Sowiedu/Edict/issues/140)) ([2d07f2a](https://github.com/Sowiedu/Edict/commit/2d07f2a48872f323b611b1521ae0be72d528cb1b))
+* effect polymorphism codegen, examples & docs ([#129](https://github.com/Sowiedu/Edict/issues/129)) ([606c5c1](https://github.com/Sowiedu/Edict/commit/606c5c11eab150f0fb889d4f7efa210a4775c005))
+* **effects:** effect polymorphism inference and propagation ([#128](https://github.com/Sowiedu/Edict/issues/128)) ([e4e6ad1](https://github.com/Sowiedu/Edict/commit/e4e6ad12210117f5f0bf3e1518f156e151297fc9))
+* implement IR lowering pass (lowerModule) ([e8f242b](https://github.com/Sowiedu/Edict/commit/e8f242b61dd507040c2de4073d83420d249f1055)), closes [#131](https://github.com/Sowiedu/Edict/issues/131)
+* IR dead code elimination pass — unused let removal + unreachable code after exit() ([fb847e5](https://github.com/Sowiedu/Edict/commit/fb847e5089db34ee8c7e32747572f63907b8e79f))
+* mid-level IR type definitions ([#130](https://github.com/Sowiedu/Edict/issues/130)) ([1cca706](https://github.com/Sowiedu/Edict/commit/1cca706e5bb49d149cd1400bc0d09a2e4890c2ec))
+* skill package format — packageSkill() and invokeSkill() ([#135](https://github.com/Sowiedu/Edict/issues/135)) ([0678984](https://github.com/Sowiedu/Edict/commit/0678984c9fe1a490e88e232ded72ac58a5186e0d))
+* Worker scaffold generator — WASM → deployable Cloudflare Worker bundle ([#139](https://github.com/Sowiedu/Edict/issues/139)) ([3626bbe](https://github.com/Sowiedu/Edict/commit/3626bbe00e4f9dcd09f0f32a8cf3d4cc96efabe1))
+
+
+### Bug Fixes
+
+* benchmark handles multi-module ASTs and skips tool_call examples ([dbe8531](https://github.com/Sowiedu/Edict/commit/dbe8531d8844109a53547703ca1863a7878488e9))
+* fail fast on unrecognized CLI arguments ([#149](https://github.com/Sowiedu/Edict/issues/149)) ([61145a5](https://github.com/Sowiedu/Edict/commit/61145a57209d6e66f0865b53c6b3895a246052c4))
+* make tsx dependency conditional for production workers ([#144](https://github.com/Sowiedu/Edict/issues/144)) ([a1bd567](https://github.com/Sowiedu/Edict/commit/a1bd567841dd8452990fb175bcf69fe69840fc4f))
+
 ## [1.11.0](https://github.com/Sowiedu/Edict/compare/v1.10.1...v1.11.0) (2026-03-12)
 
 
