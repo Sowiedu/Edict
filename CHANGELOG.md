@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.0](https://github.com/Sowiedu/Edict/compare/v1.15.0...v1.16.0) (2026-03-13)
+
+
+### Features
+
+* auto-normalize bare variants/fields and kind synonyms in expandCompact ([783f72b](https://github.com/Sowiedu/Edict/commit/783f72b54d9003b8c2fc1e6ad8d44713e66a65e9))
+* IR codegen — expression and scalar compilation from IR nodes ([#155](https://github.com/Sowiedu/Edict/issues/155)) ([bf94c9b](https://github.com/Sowiedu/Edict/commit/bf94c9bdaf4083c0ffea05a1e9c4c36c4f2e315d))
+
 ## [1.15.0](https://github.com/Sowiedu/Edict/compare/v1.14.0...v1.15.0) (2026-03-13)
 
 
