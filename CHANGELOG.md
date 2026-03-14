@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/Sowiedu/Edict/compare/v1.16.0...v1.16.1) (2026-03-14)
+
+
+### Bug Fixes
+
+* **coverage:** restore coverage thresholds with targeted tests and exclusions ([706ee87](https://github.com/Sowiedu/Edict/commit/706ee87392a2523d39ef75673896169dd3c11687))
+
 ## [1.16.0](https://github.com/Sowiedu/Edict/compare/v1.15.0...v1.16.0) (2026-03-13)
 
 

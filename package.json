@@ -1,6 +1,6 @@
 {
   "name": "edict-lang",
-  "version": "1.16.0",
+  "version": "1.16.1",
   "mcpName": "io.github.Sowiedu/edict",
   "description": "Edict — A programming language for AI agents. JSON AST in, WASM out. MCP server included. Statically typed, effect-tracked, contract-verified.",
   "type": "module",
