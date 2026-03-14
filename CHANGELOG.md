@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.0](https://github.com/Sowiedu/Edict/compare/v1.17.0...v1.18.0) (2026-03-14)
+
+
+### Features
+
+* **compact:** auto-inject default empty arrays for variant and fn nodes ([#176](https://github.com/Sowiedu/Edict/issues/176)) ([5503c9f](https://github.com/Sowiedu/Edict/commit/5503c9f5f07ea5ddccaaa9e661b4da00dcb97edb))
+* **schema:** add kind enum constraints to discriminated union definitions ([#177](https://github.com/Sowiedu/Edict/issues/177)) ([1daf28d](https://github.com/Sowiedu/Edict/commit/1daf28def519daa59624f2254b948d12fb3ea55f))
+
 ## [1.17.0](https://github.com/Sowiedu/Edict/compare/v1.16.1...v1.17.0) (2026-03-14)
 
 
