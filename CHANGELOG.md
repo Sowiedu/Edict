@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.0](https://github.com/Sowiedu/Edict/compare/v1.16.1...v1.17.0) (2026-03-14)
+
+
+### Features
+
+* **codegen:** complete IR pipeline switchover ([#162](https://github.com/Sowiedu/Edict/issues/162)) ([54eade3](https://github.com/Sowiedu/Edict/commit/54eade3b3df891c1e48ffad19d647b778ad992b1))
+
 ## [1.16.1](https://github.com/Sowiedu/Edict/compare/v1.16.0...v1.16.1) (2026-03-14)
 
 
