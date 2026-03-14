@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.0](https://github.com/Sowiedu/Edict/compare/v1.18.0...v1.19.0) (2026-03-14)
+
+
+### Features
+
+* **mcp:** bundle schema snippet with edict_examples response ([#175](https://github.com/Sowiedu/Edict/issues/175)) ([0bf02d8](https://github.com/Sowiedu/Edict/commit/0bf02d8476d090c11a90ef91d92842a1ce39baf4))
+
 ## [1.18.0](https://github.com/Sowiedu/Edict/compare/v1.17.0...v1.18.0) (2026-03-14)
 
 
