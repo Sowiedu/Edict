@@ -61,6 +61,7 @@ const packageJsonPath = resolve(projectRoot, "package.json");
 
 let cachedSchema: string | null = null;
 let cachedMinimalSchema: unknown | null = null;
+let cachedAgentSchema: unknown | null = null;
 let cachedPatchSchema: unknown | null = null;
 let cachedExamples: { name: string; ast: unknown; isMultiModule?: boolean }[] | null = null;
 let cachedVersion: string | null = null;
@@ -168,20 +169,22 @@ export interface SupportResult {
 
 export function handleSchema(format: "full" | "minimal" | "compact" | "agent" = "full"): SchemaResult {
     if (format === "agent") {
-        const compactRef = compactSchemaReference();
-        if (!cachedMinimalSchema) {
-            cachedMinimalSchema = stripDescriptions(JSON.parse(loadSchema()));
+        if (!cachedAgentSchema) {
+            const compactRef = compactSchemaReference();
+            if (!cachedMinimalSchema) {
+                cachedMinimalSchema = stripDescriptions(JSON.parse(loadSchema()));
+            }
+            cachedAgentSchema = {
+                schema: cachedMinimalSchema,
+                compactFormat: compactRef,
+                builtins: Array.from(BUILTIN_FUNCTIONS.keys()),
+                effects: [...VALID_EFFECTS],
+                schemaVersion: CURRENT_SCHEMA_VERSION,
+                guide: buildAgentGuide(),
+            };
         }
-        const combined = {
-            schema: cachedMinimalSchema,
-            compactFormat: compactRef,
-            builtins: Array.from(BUILTIN_FUNCTIONS.keys()),
-            effects: [...VALID_EFFECTS],
-            schemaVersion: CURRENT_SCHEMA_VERSION,
-            guide: buildAgentGuide(),
-        };
-        const text = JSON.stringify(combined);
-        return { schema: combined, format: "agent", tokenEstimate: Math.ceil(text.length / 4) };
+        const text = JSON.stringify(cachedAgentSchema);
+        return { schema: cachedAgentSchema, format: "agent", tokenEstimate: Math.ceil(text.length / 4) };
     }
     if (format === "compact") {
         const ref = compactSchemaReference();

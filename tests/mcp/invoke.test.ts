@@ -147,3 +147,30 @@ describe("edict_invoke registration", () => {
         expect(version.features.invoke).toBe(true);
     });
 });
+
+// =============================================================================
+// invokeTool.handler wrapper — MCP tool layer
+// =============================================================================
+
+describe("invokeTool.handler wrapper", () => {
+    it("success → content is valid JSON, isError is false", async () => {
+        const { invokeTool } = await import("../../src/mcp/tools/invoke.js");
+        const result = await invokeTool.handler({ url: `${baseUrl}/simple`, method: "GET" });
+        expect(result.isError).toBe(false);
+        expect(result.content).toHaveLength(1);
+        expect(result.content[0].type).toBe("text");
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed.ok).toBe(true);
+        expect(parsed.output).toBe("hello from edict");
+    });
+
+    it("error → content is valid JSON, isError is true", async () => {
+        const { invokeTool } = await import("../../src/mcp/tools/invoke.js");
+        const result = await invokeTool.handler({ url: `${baseUrl}/error500` });
+        expect(result.isError).toBe(true);
+        expect(result.content).toHaveLength(1);
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed.ok).toBe(false);
+        expect(parsed.errorCode).toBe("http_error");
+    });
+});

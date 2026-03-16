@@ -715,9 +715,11 @@ function lowerRecordExpr(
     // Lower fields — order by definition order if possible
     const fields: IRFieldInit[] = [];
     if (recordDef) {
+        // Build lookup map for O(1) field resolution (instead of O(n) .find per field)
+        const initMap = new Map(expr.fields.map(f => [f.name, f]));
         // Emit fields in definition order, matching record layout
         for (const fieldDef of recordDef.fields) {
-            const init = expr.fields.find(f => f.name === fieldDef.name);
+            const init = initMap.get(fieldDef.name);
             if (init) {
                 const value = lowerExpr(init.value, ctx, scope);
                 fields.push({
