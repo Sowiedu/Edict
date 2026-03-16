@@ -190,8 +190,9 @@ export async function contractVerify(
     for (const work of uncachedWork) {
         const fnName = work.fn.name;
         const fnErrors = freshResults.errors.filter(e => {
-            if ("functionName" in e && (e as any).functionName === fnName) return true;
-            if ("callerName" in e && (e as any).callerName === fnName) return true;
+            const rec = e as unknown as Record<string, unknown>;
+            if ("functionName" in rec && rec.functionName === fnName) return true;
+            if ("callerName" in rec && rec.callerName === fnName) return true;
             return false;
         });
         const fnDiags = freshResults.diagnostics.filter(d =>
@@ -543,7 +544,7 @@ export async function verifyFunction(
 
         // Assert negation of postcondition (must be Bool sort)
         try {
-            solver.add(ctx.Not(z3Post as any as ReturnType<Z3Context["Bool"]["val"]>));
+            solver.add(ctx.Not(z3Post as unknown as ReturnType<Z3Context["Bool"]["val"]>));
         } catch {
             // z3Post is not a Bool — postcondition is non-boolean → undecidable
             errors.push(undecidablePredicate(fn.id, post.id, fn.name, "non_boolean_postcondition"));
@@ -791,7 +792,7 @@ export async function verifyCallSitePreconditions(
                 tctx.errors = []; // Clear translation errors
                 if (z3PathCond !== null) {
                     try {
-                        solver.add(z3PathCond as any);
+                        solver.add(z3PathCond as unknown as ReturnType<Z3Context["Bool"]["val"]>);
                     } catch {
                         // Non-boolean path condition — skip
                     }
@@ -799,7 +800,7 @@ export async function verifyCallSitePreconditions(
             }
 
             try {
-                solver.add(ctx.Not(z3Pre as any as ReturnType<Z3Context["Bool"]["val"]>));
+                solver.add(ctx.Not(z3Pre as unknown as ReturnType<Z3Context["Bool"]["val"]>));
             } catch {
                 // z3Pre is not a Bool — can't verify this precondition
                 continue;

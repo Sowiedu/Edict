@@ -204,7 +204,7 @@ async function generateBoundaryTests(
 
     // Don't negate the postcondition — we want valid inputs
     try {
-        solver.add(z3Post as any);
+        solver.add(z3Post as unknown as ReturnType<Z3Context["Bool"]["val"]>);
     } catch {
         return tests;
     }
@@ -256,7 +256,7 @@ async function generateCounterexampleTests(
     if (resultBinding !== null) solver.add(resultBinding);
 
     try {
-        solver.add(ctx.Not(z3Post as any as ReturnType<Z3Context["Bool"]["val"]>));
+        solver.add(ctx.Not(z3Post as unknown as ReturnType<Z3Context["Bool"]["val"]>));
     } catch {
         return tests;
     }

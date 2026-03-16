@@ -55,7 +55,7 @@ export function compileIRMatch(
             case "literal_pattern": {
                 const val = pattern.value;
                 // Int64 literal pattern
-                if ((pattern as any).type?.kind === "basic" && (pattern as any).type.name === "Int64") {
+                if (targetType === binaryen.i64) {
                     const big = BigInt(val as string | number);
                     const low = Number(big & 0xFFFFFFFFn);
                     const high = Number((big >> 32n) & 0xFFFFFFFFn);
