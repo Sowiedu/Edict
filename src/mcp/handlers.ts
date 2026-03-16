@@ -18,6 +18,7 @@ import type { RunLimits } from "../codegen/runner.js";
 import type { ReplayToken } from "../codegen/replay-types.js";
 import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import type { StructuredError, AnalysisDiagnostic, VerificationCoverage } from "../errors/structured-errors.js";
+import { scaffoldFailed, deployFailed, unknownDeployTarget } from "../errors/structured-errors.js";
 import { applyPatches, type AstPatch } from "../patch/apply.js";
 import { buildErrorCatalog, type ErrorCatalog } from "../errors/error-catalog.js";
 import { stripDescriptions } from "./minimal-schema.js";
@@ -787,7 +788,7 @@ export async function handleDeploy(
                 return {
                     ok: false,
                     target: "cloudflare",
-                    errors: [{ error: "scaffold_failed", reason: scaffoldResult.error } as unknown as StructuredError],
+                    errors: [scaffoldFailed(scaffoldResult.error)],
                 };
             }
 
@@ -824,14 +825,7 @@ export async function handleDeploy(
                 return {
                     ok: false,
                     target: "cloudflare",
-                    errors: [{
-                        error: "deploy_failed",
-                        code: deployResult.code,
-                        reason: deployResult.error,
-                        ...(deployResult.responseBody !== undefined
-                            ? { responseBody: deployResult.responseBody }
-                            : {}),
-                    } as unknown as StructuredError],
+                    errors: [deployFailed(deployResult.code, deployResult.error, deployResult.responseBody)],
                 };
             }
 
@@ -858,11 +852,7 @@ export async function handleDeploy(
             return {
                 ok: false,
                 target,
-                errors: [{
-                    error: "unknown_deploy_target",
-                    target,
-                    validTargets: ["wasm_binary", "cloudflare"],
-                } as unknown as StructuredError],
+                errors: [unknownDeployTarget(target, ["wasm_binary", "cloudflare"])],
             };
     }
 }

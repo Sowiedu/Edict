@@ -82,7 +82,11 @@ export type StructuredError =
     | ApprovalPropagationMissingError
     // Tool errors
     | UnknownToolError
-    | ToolArgMismatchError;
+    | ToolArgMismatchError
+    // Deploy errors
+    | ScaffoldFailedError
+    | DeployFailedError
+    | UnknownDeployTargetError;
 
 // =============================================================================
 // Phase 1 — Validation errors
@@ -1018,4 +1022,55 @@ export function toolArgMismatch(
     typeMismatches: { arg: string; expected: TypeExpr; actual: TypeExpr }[],
 ): ToolArgMismatchError {
     return { error: "tool_arg_mismatch", nodeId, toolName, missingArgs, extraArgs, typeMismatches };
+}
+
+// =============================================================================
+// Deploy errors
+// =============================================================================
+
+export interface ScaffoldFailedError {
+    error: "scaffold_failed";
+    reason: string;
+}
+
+export interface DeployFailedError {
+    error: "deploy_failed";
+    code?: string;
+    reason?: string;
+    responseBody?: string;
+}
+
+export interface UnknownDeployTargetError {
+    error: "unknown_deploy_target";
+    target: string;
+    validTargets: string[];
+}
+
+// =============================================================================
+// Deploy error constructors
+// =============================================================================
+
+export function scaffoldFailed(
+    reason: string,
+): ScaffoldFailedError {
+    return { error: "scaffold_failed", reason };
+}
+
+export function deployFailed(
+    code?: string,
+    reason?: string,
+    responseBody?: string,
+): DeployFailedError {
+    const err: DeployFailedError = { error: "deploy_failed" };
+    if (code !== undefined) err.code = code;
+    if (reason !== undefined) err.reason = reason;
+    if (responseBody !== undefined) err.responseBody = responseBody;
+    return err;
+}
+
+export function unknownDeployTarget(
+    target: string,
+    validTargets: string[],
+): UnknownDeployTargetError {
+    return { error: "unknown_deploy_target", target, validTargets };
 }

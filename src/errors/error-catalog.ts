@@ -413,6 +413,22 @@ const ERROR_EXAMPLES: Record<string, ExamplePair> = {
             { kind: "fn", id: "fn-001", name: "main", params: [], effects: ["io", "fails"], returnType: { kind: "result", ok: { kind: "basic", name: "String" }, err: { kind: "basic", name: "String" } }, contracts: [], body: [{ kind: "tool_call", id: "tc-001", tool: "get_weather", args: [{ kind: "field_init", name: "city", value: { kind: "literal", id: "lit-001", value: "Berlin" } }] }] },
         ] },
     },
+
+    // =========================================================================
+    // Deploy errors
+    // =========================================================================
+    scaffold_failed: {
+        cause: { _note: "Worker scaffold generation failed (e.g. invalid config)" },
+        fix: { _note: "Check the DeployConfig options and retry" },
+    },
+    deploy_failed: {
+        cause: { _note: "Live deployment to the edge platform returned an error" },
+        fix: { _note: "Check credentials, account quotas, or scripts limits" },
+    },
+    unknown_deploy_target: {
+        cause: { target: "lambda", _note: "Unsupported deploy target" },
+        fix: { target: "cloudflare", _note: "Use a supported deploy target" },
+    },
 };
 
 // =============================================================================

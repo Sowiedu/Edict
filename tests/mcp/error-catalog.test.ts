@@ -73,6 +73,10 @@ const ALL_ERROR_TYPES = [
     // Tool errors
     "unknown_tool",
     "tool_arg_mismatch",
+    // Deploy errors
+    "scaffold_failed",
+    "deploy_failed",
+    "unknown_deploy_target",
 ];
 
 describe("handleErrorCatalog", () => {

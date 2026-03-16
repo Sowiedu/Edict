@@ -54,6 +54,9 @@ import {
     approvalPropagationMissing,
     unknownTool,
     toolArgMismatch,
+    scaffoldFailed,
+    deployFailed,
+    unknownDeployTarget,
 } from "./structured-errors.js";
 
 // =============================================================================
@@ -166,6 +169,11 @@ export const ERROR_REGISTRY: ErrorRegistryEntry[] = [
     { type: "unknown_tool",            stage: "resolver",           make: () => unknownTool("n", "bad_tool", ["good_tool"]),
                                                                    makeWithOptionals: () => unknownTool("n", "bad_tool", ["good_tool"], dummySuggestion) },
     { type: "tool_arg_mismatch",       stage: "type_checker",       make: () => toolArgMismatch("n", "tool", ["missing"], ["extra"], [{ arg: "a", expected: basicInt, actual: basicStr }]) },
+
+    // Deploy errors
+    { type: "scaffold_failed",         stage: "codegen",            make: () => scaffoldFailed("reason") },
+    { type: "deploy_failed",           stage: "codegen",            make: () => deployFailed("api_error", "reason", "body") },
+    { type: "unknown_deploy_target",   stage: "codegen",            make: () => unknownDeployTarget("bad", ["wasm_binary", "cloudflare"]) },
 ];
 
 // =============================================================================
