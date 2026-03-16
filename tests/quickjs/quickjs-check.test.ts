@@ -1,11 +1,13 @@
 // =============================================================================
-// QuickJS Self-Hosting PoC Tests — check pipeline inside QuickJS-WASM
+// QuickJS Self-Hosting Tests — check + compile pipeline inside QuickJS-WASM
 // =============================================================================
-// Verifies that the Edict check pipeline (phases 1–3) runs correctly inside
-// a QuickJS-WASM interpreter. Tests 3 example programs plus error handling.
+// Verifies that the Edict check pipeline (phases 1–3) and compile pipeline
+// (phases 1–5) run correctly inside a QuickJS-WASM interpreter.
 //
-// Prerequisites: dist/edict-quickjs-check.js must exist (run build first).
-// The bundle is built by: tsx scripts/build-quickjs-bundle.ts
+// Prerequisites:
+//   - dist/edict-quickjs-check.js (check-only tests)
+//   - dist/edict-quickjs-full.js  (compile tests)
+// Built by: tsx scripts/build-quickjs-bundle.ts
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
@@ -13,29 +15,35 @@ import { resolve } from "node:path";
 import { EdictQuickJS } from "../../src/quickjs/edict-quickjs.js";
 
 // ---------------------------------------------------------------------------
-// Setup — create a shared EdictQuickJS instance (expensive to init)
+// Setup — create shared EdictQuickJS instances (expensive to init)
 // ---------------------------------------------------------------------------
 
-const BUNDLE_PATH = resolve("dist/edict-quickjs-check.js");
-let edict: EdictQuickJS;
+const CHECK_BUNDLE_PATH = resolve("dist/edict-quickjs-check.js");
+const FULL_BUNDLE_PATH = resolve("dist/edict-quickjs-full.js");
 
-// Skip all tests if the QuickJS bundle hasn't been built
-const bundleExists = existsSync(BUNDLE_PATH);
+const checkBundleExists = existsSync(CHECK_BUNDLE_PATH);
+const fullBundleExists = existsSync(FULL_BUNDLE_PATH);
 
-describe.skipIf(!bundleExists)("QuickJS self-hosting PoC", () => {
+// ===========================================================================
+// Check-only tests (phases 1-3)
+// ===========================================================================
+
+let checkEdict: EdictQuickJS;
+
+describe.skipIf(!checkBundleExists)("QuickJS self-hosting PoC", () => {
     beforeAll(async () => {
-        edict = await EdictQuickJS.create();
-    }, 30_000); // QuickJS init + bundle load can take a few seconds
+        checkEdict = await EdictQuickJS.create();
+    }, 30_000);
 
     afterAll(() => {
-        edict?.dispose();
+        checkEdict?.dispose();
     });
 
     // ── Criterion: PoC validates + type-checks at least 3 example programs ──
 
     it("checks fibonacci.edict.json (recursive fn with contracts)", () => {
         const ast = loadExample("fibonacci.edict.json");
-        const result = edict.check(ast);
+        const result = checkEdict.check(ast);
         expect(result.ok).toBe(true);
         expect(result.errors).toHaveLength(0);
         expect(result.module).toBeDefined();
@@ -45,7 +53,7 @@ describe.skipIf(!bundleExists)("QuickJS self-hosting PoC", () => {
 
     it("checks hello.edict.json (basic IO)", () => {
         const ast = loadExample("hello.edict.json");
-        const result = edict.check(ast);
+        const result = checkEdict.check(ast);
         expect(result.ok).toBe(true);
         expect(result.errors).toHaveLength(0);
         expect(result.module).toBeDefined();
@@ -53,7 +61,7 @@ describe.skipIf(!bundleExists)("QuickJS self-hosting PoC", () => {
 
     it("checks arithmetic.edict.json (binops and let bindings)", () => {
         const ast = loadExample("arithmetic.edict.json");
-        const result = edict.check(ast);
+        const result = checkEdict.check(ast);
         expect(result.ok).toBe(true);
         expect(result.errors).toHaveLength(0);
         expect(result.module).toBeDefined();
@@ -67,7 +75,7 @@ describe.skipIf(!bundleExists)("QuickJS self-hosting PoC", () => {
             name: "test",
             definitions: [{ kind: "function", id: "fn-001", name: "main" }],
         };
-        const result = edict.check(invalidAst);
+        const result = checkEdict.check(invalidAst);
         expect(result.ok).toBe(false);
         expect(result.errors.length).toBeGreaterThan(0);
     });
@@ -89,7 +97,7 @@ describe.skipIf(!bundleExists)("QuickJS self-hosting PoC", () => {
                 body: [{ kind: "literal", id: "lit-err", value: "hello" }],
             }],
         };
-        const result = edict.check(ast);
+        const result = checkEdict.check(ast);
         expect(result.ok).toBe(false);
         expect(result.errors.some(e => e.error === "type_mismatch")).toBe(true);
     });
@@ -100,6 +108,95 @@ describe.skipIf(!bundleExists)("QuickJS self-hosting PoC", () => {
         const temp = await EdictQuickJS.create();
         temp.dispose();
         expect(() => temp.check({ kind: "module" })).toThrow("disposed");
+    }, 30_000);
+});
+
+// ===========================================================================
+// Full compile tests (phases 1-5)
+// ===========================================================================
+
+let fullEdict: EdictQuickJS;
+
+describe.skipIf(!fullBundleExists)("QuickJS full compile (phases 1-5)", () => {
+    beforeAll(async () => {
+        fullEdict = await EdictQuickJS.createFull();
+    }, 30_000);
+
+    afterAll(() => {
+        fullEdict?.dispose();
+    });
+
+    it("compiles arithmetic.edict.json to valid WASM", () => {
+        const ast = loadExample("arithmetic.edict.json");
+        const result = fullEdict.compile(ast);
+        expect(result.ok).toBe(true);
+        expect(result.errors).toHaveLength(0);
+        expect(result.wasm).toBeInstanceOf(Uint8Array);
+        // WASM magic bytes: \0asm
+        expect(result.wasm![0]).toBe(0x00);
+        expect(result.wasm![1]).toBe(0x61);
+        expect(result.wasm![2]).toBe(0x73);
+        expect(result.wasm![3]).toBe(0x6D);
+    });
+
+    it("compiles hello.edict.json to valid WASM", () => {
+        const ast = loadExample("hello.edict.json");
+        const result = fullEdict.compile(ast);
+        expect(result.ok).toBe(true);
+        expect(result.wasm).toBeInstanceOf(Uint8Array);
+        expect(result.wasm!.length).toBeGreaterThan(8);
+    });
+
+    it("compiles fibonacci.edict.json to valid WASM", () => {
+        const ast = loadExample("fibonacci.edict.json");
+        const result = fullEdict.compile(ast);
+        expect(result.ok).toBe(true);
+        expect(result.wasm).toBeInstanceOf(Uint8Array);
+    });
+
+    it("compiled WASM validates via WebAssembly.compile", async () => {
+        const ast = loadExample("arithmetic.edict.json");
+        const result = fullEdict.compile(ast);
+        expect(result.ok).toBe(true);
+
+        // Verify the bytes are valid WASM by passing to the engine
+        const wasmModule = await WebAssembly.compile(result.wasm!);
+        expect(wasmModule).toBeInstanceOf(WebAssembly.Module);
+    });
+
+    it("returns structured errors for invalid AST", () => {
+        const invalidAst = {
+            kind: "module",
+            name: "test",
+            definitions: [{ kind: "function", id: "fn-001", name: "main" }],
+        };
+        const result = fullEdict.compile(invalidAst);
+        expect(result.ok).toBe(false);
+        expect(result.errors.length).toBeGreaterThan(0);
+    });
+
+    it("check() still works with full bundle", () => {
+        const ast = loadExample("arithmetic.edict.json");
+        const result = fullEdict.check(ast);
+        expect(result.ok).toBe(true);
+        expect(result.errors).toHaveLength(0);
+    });
+
+    it("compile() returns error when used with check-only bundle", async () => {
+        const checkOnly = await EdictQuickJS.create();
+        try {
+            const result = checkOnly.compile({ kind: "module", name: "test", definitions: [] });
+            expect(result.ok).toBe(false);
+            expect(result.errors[0]).toHaveProperty("error", "quickjs_runtime_error");
+        } finally {
+            checkOnly.dispose();
+        }
+    }, 30_000);
+
+    it("throws after dispose", async () => {
+        const temp = await EdictQuickJS.createFull();
+        temp.dispose();
+        expect(() => temp.compile({ kind: "module" })).toThrow("disposed");
     }, 30_000);
 });
 
@@ -133,9 +230,6 @@ describe("QuickJS error paths", () => {
 
     // ── Polyfill failure (lines 118-124) ────────────────────────────────
     it("throws on polyfill failure with tiny memory limit", async () => {
-        // Memory limit large enough for QuickJS context creation but too small
-        // for polyfill evaluation. The exact behavior depends on QuickJS internals,
-        // so we accept any error during creation with a tiny memory limit.
         await expect(
             EdictQuickJS.create({ memoryLimit: 1024, bundleSource: "var x = 1;" }),
         ).rejects.toThrow();

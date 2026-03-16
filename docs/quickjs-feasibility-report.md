@@ -2,18 +2,23 @@
 
 > Self-hosting the Edict compiler: can the full compiler pipeline run inside QuickJS WASM?
 
-**Date**: 2026-03-13  
+**Date**: 2026-03-13 (original study) — **Updated**: 2026-03-16  
 **Issue**: [#134](https://github.com/Sowiedu/Edict/issues/134)  
 **Platform**: darwin-arm64 (Apple Silicon), Node v22.14.0  
 **QuickJS**: `quickjs-emscripten` (WASM build of QuickJS 2025-09-13)
+
+> [!NOTE]
+> This report was the original feasibility study. For the definitive current status of self-hosting, see [self-hosting-status.md](self-hosting-status.md). For contract verification research, see [self-hosting-contracts-research.md](self-hosting-contracts-research.md).
 
 ---
 
 ## Executive Summary
 
-The Edict compiler's **check pipeline (phases 1–3)** runs successfully inside QuickJS WASM with a **3.7x slowdown** vs native Node.js. This is an excellent result — viable for real-time agent use in sandboxed environments.
+The Edict compiler's **check + compile pipeline (phases 1–5)** runs successfully inside QuickJS WASM. The check pipeline (phases 1–3) achieves a **3.7x slowdown** vs native Node.js — viable for real-time agent use in sandboxed environments.
 
-The **WASM codegen pipeline** (binaryen) cannot currently run inside QuickJS due to two compounding blockers: binaryen's use of top-level `await` (incompatible with IIFE module format) and QuickJS's lack of the `WebAssembly` API.
+The original study identified binaryen (WASM codegen) as a critical blocker. **This blocker has been resolved**: binaryen was replaced with a pure-JS WASM binary encoder ([#198](https://github.com/Sowiedu/Edict/issues/198)), enabling WASM codegen inside QuickJS.
+
+The **remaining blockers** are contract verification (phase 4, Z3 — requires `WebAssembly` API + worker threads) and WASM _execution_ (phase 6, requires `WebAssembly` API). See the [Z3 research document](self-hosting-contracts-research.md) for detailed analysis of contract verification paths.
 
 ---
 
@@ -21,12 +26,12 @@ The **WASM codegen pipeline** (binaryen) cannot currently run inside QuickJS due
 
 | Bundle | Entry Point | Size | Contents |
 |--------|-------------|------|----------|
-| Check-only | `dist/browser.js` | **357 KB** | Phases 1–3: validate, resolve, typeCheck, effectCheck, lint, patch, compose |
-| Full (shimmed) | `dist/browser-full.js` | **784 KB** | Phases 1–5 (binaryen shimmed to no-op). Not functional for codegen. |
+| Check-only | `dist/edict-quickjs-check.js` | **365.7 KB** | Phases 1–3: validate, resolve, typeCheck, effectCheck, lint, patch, compose |
+| Full (compile) | `dist/edict-quickjs-full.js` | **860.5 KB** | Phases 1–5: check + WASM codegen via pure-JS encoder |
 
-Both bundles use IIFE format (QuickJS doesn't support ESM `import`). Node.js modules and binaryen are shimmed to empty stubs via esbuild. Z3 is excluded.
+Both bundles use IIFE format (QuickJS doesn't support ESM `import`). Node.js modules are shimmed to empty stubs via esbuild. Z3 is excluded.
 
-For comparison: the browser ESM bundle is 330.9 KB (phases 1–3) and 13.6 MB (full with binaryen).
+For comparison: the browser ESM bundles are 340.5 KB (phases 1–3) and 811.4 KB (full with WASM encoder).
 
 ---
 
@@ -72,25 +77,37 @@ Total memory footprint: **~684 KB** — very lightweight.
 
 ---
 
-## Blockers
+## Resolved Blockers
 
-### 1. Binaryen Incompatible with QuickJS (Critical)
+### ~~Binaryen Incompatible with QuickJS~~ → ✅ Resolved
 
-**Two independent issues prevent WASM codegen:**
+**Original blocker**: Binaryen's npm package used top-level `await` (incompatible with IIFE format) and required the `WebAssembly` API to load its own WASM binary.
 
-1. **Top-level `await`**: Binaryen's npm package uses `export default await init()` at module level. IIFE format (required for QuickJS) doesn't support top-level `await`. The esbuild bundler rejects this at build time.
+**Resolution**: Binaryen was replaced with a pure-JS WASM binary encoder ([#198](https://github.com/Sowiedu/Edict/issues/198)). The encoder implements the ~75 binaryen API methods Edict actually uses (~730 call sites), producing valid WASM MVP binaries without any native dependencies. See [binaryen-api-audit.md](binaryen-api-audit.md) for the audit that guided this replacement.
 
-2. **No `WebAssembly` API**: Even if binaryen could be bundled, QuickJS is a pure JavaScript interpreter — it doesn't implement the `WebAssembly` global. Binaryen needs `WebAssembly.instantiate()` to load its own WASM binary.
+### Missing Web APIs → ✅ Mitigated
 
-**Result**: The full pipeline bundle builds (784 KB) with binaryen shimmed to a no-op, but `compileBrowser()` fails at runtime with `is not a constructor` (expected — the binaryen stub returns empty objects).
+QuickJS lacks `TextEncoder` and `TextDecoder`. These are polyfilled with minimal UTF-8 implementations (~40 lines). Solved.
 
-### 2. Missing Web APIs (Mitigated)
-
-QuickJS lacks `TextEncoder` and `TextDecoder`. These were polyfilled with minimal UTF-8 implementations in the harness (~40 lines). This is a minor issue — the polyfills work correctly.
-
-### 3. No ESM Support in QuickJS (Mitigated)
+### No ESM Support in QuickJS → ✅ Mitigated
 
 QuickJS doesn't support `import`/`export` in `evalCode`. Solved by using IIFE format bundles.
+
+---
+
+## Remaining Blockers
+
+### 1. Contract Verification — Z3 (Critical)
+
+Z3's npm package requires `WebAssembly.instantiate()` (QuickJS lacks) and worker threads for timeout handling.
+
+**Impact**: Contract verification (phase 4) cannot run in QuickJS.
+
+**Research**: Five paths were evaluated in the [Z3 research document](self-hosting-contracts-research.md). Recommended strategy: ship without contracts first, evaluate a custom QF-LIA solver medium-term.
+
+### 2. WASM Execution — No `WebAssembly` API (Critical)
+
+QuickJS is a pure JavaScript interpreter — it does not implement the `WebAssembly` global. The compiler can _produce_ WASM binaries inside QuickJS, but _executing_ them requires a runtime with `WebAssembly` support (e.g., Node.js, browser, Deno).
 
 ---
 
@@ -102,43 +119,44 @@ QuickJS doesn't support `import`/`export` in `evalCode`. Solved by using IIFE fo
 | Name resolution (phase 2a) | ✅ Works |
 | Type checking (phase 2b) | ✅ Works |
 | Effect checking (phase 3) | ✅ Works |
-| Lint | ✅ Works (included in check bundle) |
-| Patch engine | ✅ Works (included in check bundle) |
-| Fragment composition | ✅ Works (included in check bundle) |
+| **WASM codegen (phase 5)** | ✅ **Works** (pure-JS encoder) |
+| Lint | ✅ Works |
+| Patch engine | ✅ Works |
+| Fragment composition | ✅ Works |
 | Compact AST expansion | ✅ Works |
 | Schema migration | ✅ Works |
-| WASM codegen (phase 5) | ❌ Blocked (binaryen) |
-| Contract verification (phase 4) | ❌ Blocked (Z3 + worker threads) |
+| Contract verification (phase 4) | ❌ Blocked (Z3) |
 | WASM execution (phase 6) | ❌ Blocked (WebAssembly API) |
 
 ---
 
 ## Recommendations
 
-### Near-Term (High Value)
+### Immediate (Done ✅)
 
-1. **Deploy check-only self-hosting**: The 357 KB check bundle running at 3.7x slowdown is immediately useful for:
-   - Schema validation in sandboxed/edge environments
-   - Type checking in WASM-based agent runtimes
-   - Embedding the compiler in other WASM applications (e.g., browser extensions, Cloudflare Workers)
+1. **Check + codegen self-hosting**: The 860.5 KB full bundle runs phases 1–5 inside QuickJS. The compiler validates, type-checks, effect-checks, and compiles to WASM — all self-hosted. WASM output can be executed in any runtime with `WebAssembly` support.
 
-2. **Ship as `edict-lang/quickjs` package**: Bundle the IIFE + polyfills as a distributable package for QuickJS-based environments.
+### Medium-Term
 
-### Medium-Term (Codegen Path)
+2. **Contract verification**: Evaluate a custom quantifier-free linear integer arithmetic (QF-LIA) solver to cover ~70% of contract patterns. See [analysis](self-hosting-contracts-research.md).
 
-3. **JS-only WASM encoder**: Replace binaryen with a pure-JS WASM binary encoder (e.g., `@aspect/wasm-encoder` or a custom minimal encoder). This eliminates both blockers (no WASM dependency, no top-level await).
+3. **WASM execution inside QuickJS**: Monitor `quickjs-emscripten` for WebAssembly API support. When available, programs compiled inside QuickJS could also be executed there.
 
-4. **WebAssembly polyfill for QuickJS**: The `quickjs-emscripten` project is working on WebAssembly support. When available, binaryen might work out of the box.
+### Long-Term
 
-### Long-Term (Full Self-Hosting)
-
-5. **Compile-to-QuickJS bytecode**: Instead of WASM output, add a QuickJS bytecode backend. The compiler itself runs in QuickJS, and programs compile to QuickJS bytecode for execution in the same runtime.
-
-6. **Alternative runtime**: Consider using V8 isolates (via `isolated-vm`) instead of QuickJS for better performance and full API compatibility, at the cost of larger binary size.
+4. **QuickJS bytecode backend**: Instead of WASM output, add a QuickJS bytecode backend for full compile-and-execute self-hosting without `WebAssembly` dependency.
 
 ---
 
-## Files Created
+## Related Documents
+
+| Document | Purpose |
+|----------|---------|
+| [self-hosting-status.md](self-hosting-status.md) | Definitive current status of self-hosting |
+| [self-hosting-contracts-research.md](self-hosting-contracts-research.md) | Z3/contract verification research (#199) |
+| [binaryen-api-audit.md](binaryen-api-audit.md) | API audit that informed the binaryen replacement |
+
+## Files Created (Original Study)
 
 | File | Purpose |
 |------|---------|
@@ -151,6 +169,6 @@ QuickJS doesn't support `import`/`export` in `evalCode`. Solved by using IIFE fo
 
 ## Conclusion
 
-**The Edict compiler is feasible to self-host in QuickJS for the check pipeline** (phases 1–3). The 3.7x performance overhead is excellent for an interpretation-based runtime running inside WASM. A 357 KB bundle with 684 KB memory footprint is lightweight enough for edge deployment.
+**The Edict compiler is self-hostable in QuickJS for the check + compile pipeline** (phases 1–5). The binaryen blocker has been fully resolved by replacing it with a pure-JS WASM encoder. An 860.5 KB bundle with 684 KB memory footprint is lightweight enough for edge deployment.
 
-The WASM codegen path requires either replacing binaryen with a pure-JS encoder or waiting for QuickJS to gain WebAssembly API support. The check-only path should be shipped first — it covers the highest-value use case (schema validation and type checking for agents in sandboxed environments).
+The remaining gaps are contract verification (Z3, requires a custom solver or QuickJS WebAssembly API) and WASM execution (requires `WebAssembly` API). The check + compile self-hosted compiler is immediately useful — agents can validate, type-check, and compile Edict programs in sandboxed WASM environments, with the output WASM executed in any standard runtime.

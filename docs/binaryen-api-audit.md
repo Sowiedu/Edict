@@ -1,5 +1,7 @@
 # Binaryen API Surface Audit — Edict Codegen
 
+> **Status**: ✅ **Completed** — This audit informed the binaryen replacement ([#198](https://github.com/Sowiedu/Edict/issues/198)), which has landed. Binaryen is no longer a dependency. This document is retained as historical context.
+
 > Precise inventory of every binaryen API call site in Edict's WASM codegen.
 > Gates #198 (pure-JS WASM encoder replacement) for #81 (self-hosting).
 

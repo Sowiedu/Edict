@@ -1,17 +1,20 @@
 // =============================================================================
-// EdictQuickJS — Self-hosted check-only compiler in QuickJS-WASM
+// EdictQuickJS — Self-hosted compiler in QuickJS-WASM
 // =============================================================================
-// Packages the check pipeline (phases 1–3) inside a QuickJS-WASM interpreter,
+// Packages the Edict compiler pipeline inside a QuickJS-WASM interpreter,
 // providing a reusable API for running schema validation, name resolution,
-// type checking, and effect checking in sandboxed/edge environments.
+// type checking, effect checking, and WASM compilation in sandboxed/edge
+// environments.
 //
-// This is the self-hosting PoC for issue #156. The compiler's IIFE bundle
-// (dist/edict-quickjs-check.js) runs inside QuickJS-WASM with ~3.7x slowdown
-// vs native Node.js.
+// Two bundles are available:
+//   - dist/edict-quickjs-check.js  — phases 1-3 (check only, 365 KB)
+//   - dist/edict-quickjs-full.js   — phases 1-5 (check + compile, 860 KB)
 //
 // Usage:
-//   const edict = await EdictQuickJS.create();
-//   const result = edict.check(ast);  // CheckBrowserResult
+//   const edict = await EdictQuickJS.create();          // check-only
+//   const edict = await EdictQuickJS.createFull();       // check + compile
+//   const checkResult = edict.check(ast);
+//   const compileResult = edict.compile(ast);            // requires full bundle
 //   edict.dispose();
 
 import type { QuickJSWASMModule, QuickJSRuntime, QuickJSContext } from "quickjs-emscripten";
@@ -19,12 +22,18 @@ import { getQuickJS } from "quickjs-emscripten";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { CheckBrowserResult } from "../browser.js";
+import type { StructuredError } from "../errors/structured-errors.js";
 import { quickjsRuntimeError } from "../errors/structured-errors.js";
 
-// Path to the IIFE bundle — built by scripts/build-quickjs-bundle.ts
-const DEFAULT_BUNDLE_PATH = resolve(
+// Path to the IIFE bundles — built by scripts/build-quickjs-bundle.ts
+const DEFAULT_CHECK_BUNDLE_PATH = resolve(
     import.meta.dirname ?? new URL(".", import.meta.url).pathname,
     "../../dist/edict-quickjs-check.js",
+);
+
+const DEFAULT_FULL_BUNDLE_PATH = resolve(
+    import.meta.dirname ?? new URL(".", import.meta.url).pathname,
+    "../../dist/edict-quickjs-full.js",
 );
 
 // Minimal polyfills for Web APIs missing in QuickJS
@@ -75,35 +84,63 @@ export interface EdictQuickJSOptions {
     maxStackSize?: number;
 }
 
+/** Result of compiling via QuickJS. */
+export interface QuickJSCompileResult {
+    ok: boolean;
+    /** WASM bytes (only when ok === true) */
+    wasm?: Uint8Array;
+    errors: StructuredError[];
+}
+
 /**
- * Self-hosted Edict check-only compiler running inside QuickJS-WASM.
+ * Self-hosted Edict compiler running inside QuickJS-WASM.
  *
- * Supports phases 1–3: schema validation, name resolution, type checking,
- * and effect checking. WASM codegen (binaryen) and contract verification (Z3)
- * are not available in this environment.
+ * Supports two modes:
+ * - **Check-only** (default): phases 1–3 — schema validation, name resolution,
+ *   type checking, effect checking. Uses the lightweight check bundle (~365 KB).
+ * - **Full compile**: phases 1–5 — check + WASM codegen via the pure-JS WASM
+ *   encoder. Uses the full bundle (~860 KB). Create with `EdictQuickJS.createFull()`.
  *
  * Usage:
- *   const edict = await EdictQuickJS.create();
- *   const result = edict.check({ kind: "module", ... });
- *   console.log(result.ok, result.errors);
+ *   const edict = await EdictQuickJS.createFull();
+ *   const result = edict.compile({ kind: "module", ... });
+ *   console.log(result.ok, result.wasm);
  *   edict.dispose();
  */
 export class EdictQuickJS {
     private readonly rt: QuickJSRuntime;
     private readonly vm: QuickJSContext;
+    private readonly hasCompile: boolean;
     private disposed = false;
 
-    private constructor(rt: QuickJSRuntime, vm: QuickJSContext) {
+    private constructor(rt: QuickJSRuntime, vm: QuickJSContext, hasCompile: boolean) {
         this.rt = rt;
         this.vm = vm;
+        this.hasCompile = hasCompile;
     }
 
     /**
-     * Create a new EdictQuickJS instance.
-     * Initializes QuickJS-WASM, loads polyfills and the compiler bundle.
+     * Create a new EdictQuickJS instance with check-only capability (phases 1-3).
+     * Uses the lightweight check bundle.
      */
     static async create(options?: EdictQuickJSOptions): Promise<EdictQuickJS> {
-        const bundlePath = options?.bundlePath ?? DEFAULT_BUNDLE_PATH;
+        return EdictQuickJS._create(options, false);
+    }
+
+    /**
+     * Create a new EdictQuickJS instance with full compile capability (phases 1-5).
+     * Uses the full bundle with WASM codegen.
+     */
+    static async createFull(options?: EdictQuickJSOptions): Promise<EdictQuickJS> {
+        const fullOptions = { ...options };
+        if (!fullOptions.bundlePath && !fullOptions.bundleSource) {
+            fullOptions.bundlePath = DEFAULT_FULL_BUNDLE_PATH;
+        }
+        return EdictQuickJS._create(fullOptions, true);
+    }
+
+    private static async _create(options: EdictQuickJSOptions | undefined, hasCompile: boolean): Promise<EdictQuickJS> {
+        const bundlePath = options?.bundlePath ?? DEFAULT_CHECK_BUNDLE_PATH;
         const memoryLimit = options?.memoryLimit ?? 256 * 1024 * 1024;
         const maxStackSize = options?.maxStackSize ?? 1024 * 1024;
 
@@ -137,7 +174,7 @@ export class EdictQuickJS {
         }
         loadResult.value.dispose();
 
-        return new EdictQuickJS(rt, vm);
+        return new EdictQuickJS(rt, vm, hasCompile);
     }
 
     /**
@@ -171,6 +208,59 @@ export class EdictQuickJS {
         const json = this.vm.getString(result.value);
         result.value.dispose();
         return JSON.parse(json) as CheckBrowserResult;
+    }
+
+    /**
+     * Run the full compile pipeline (phases 1–5) on an Edict AST.
+     * Returns WASM bytes on success, structured errors on failure.
+     * Requires the full bundle — create with `EdictQuickJS.createFull()`.
+     */
+    compile(ast: unknown): QuickJSCompileResult {
+        if (this.disposed) {
+            throw new Error("EdictQuickJS instance has been disposed");
+        }
+
+        if (!this.hasCompile) {
+            return {
+                ok: false,
+                errors: [quickjsRuntimeError(
+                    "compile() requires the full bundle. Use EdictQuickJS.createFull() instead of EdictQuickJS.create().",
+                )],
+            };
+        }
+
+        const astJson = JSON.stringify(ast);
+        // compileBrowser() returns { ok, wasm?: Uint8Array, errors, ... }.
+        // Uint8Array doesn't serialize cleanly via JSON.stringify (becomes {"0":0,"1":97,...}).
+        // Convert wasm to a regular Array inside QuickJS for clean serialization.
+        const code = `(function() {
+            var r = Edict.compileBrowser(${astJson});
+            if (r.wasm) r.wasm = Array.from(r.wasm);
+            return JSON.stringify({ ok: r.ok, wasm: r.wasm || null, errors: r.errors });
+        })()`;
+        const result = this.vm.evalCode(code, "compile.js");
+
+        if (result.error) {
+            const err = this.vm.dump(result.error);
+            result.error.dispose();
+            const message = typeof err === "object" && err !== null && "message" in err
+                ? (err as { message: string }).message
+                : JSON.stringify(err);
+            return {
+                ok: false,
+                errors: [quickjsRuntimeError(message)],
+            };
+        }
+
+        const json = this.vm.getString(result.value);
+        result.value.dispose();
+        const parsed = JSON.parse(json) as { ok: boolean; wasm: number[] | null; errors: StructuredError[] };
+
+        return {
+            ok: parsed.ok,
+            wasm: parsed.wasm ? new Uint8Array(parsed.wasm) : undefined,
+            errors: parsed.errors,
+        };
     }
 
     /**

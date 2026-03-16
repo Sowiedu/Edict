@@ -3,7 +3,10 @@
 // =============================================================================
 // Produces two bundles:
 //   1. dist/edict-quickjs-check.js  — lightweight (phases 1-3, pure JS)
-//   2. dist/edict-quickjs-full.js   — full pipeline (+ binaryen codegen)
+//   2. dist/edict-quickjs-full.js   — full pipeline (phases 1-5, check + compile)
+//
+// Both bundles use pure-JS dependencies only (no binaryen, no Z3).
+// The full bundle includes WASM codegen via the pure-JS WASM encoder.
 //
 // QuickJS doesn't support ESM import, so we use IIFE format wrapping
 // all exports in globalThis.Edict.
@@ -28,7 +31,6 @@ const nodeModuleShim: Plugin = {
             "node:path",
             "node:worker_threads",
             "module",
-            "binaryen",
         ];
         const filter = new RegExp(
             `^(${nodeModules.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})$`,
@@ -67,7 +69,6 @@ const checkResult = await build({
     treeShaking: true,
     metafile: true,
     plugins: [nodeModuleShim],
-    // binaryen is shimmed via nodeModuleShim, not externalized
     banner: {
         js: `// edict-lang v${pkg.version} — QuickJS check bundle (phases 1-3)\n`,
     },
@@ -77,36 +78,30 @@ for (const [file, info] of Object.entries(checkResult.metafile!.outputs)) {
 }
 
 // ---------------------------------------------------------------------------
-// Bundle 2: Full pipeline (includes binaryen)
+// Bundle 2: Full pipeline (phases 1-5, check + WASM compile)
 // ---------------------------------------------------------------------------
-// NOTE: binaryen uses top-level await which is incompatible with IIFE format.
-// We attempt the build and gracefully report the failure as a feasibility finding.
+// The pure-JS WASM encoder replaced binaryen, so the full pipeline
+// is now fully compatible with QuickJS (no WebAssembly API needed,
+// no top-level await).
 console.log("\n--- Building QuickJS full bundle (IIFE) ---");
-try {
-    const fullResult = await build({
-        entryPoints: ["dist/browser-full.js"],
-        bundle: true,
-        format: "iife",
-        globalName: "Edict",
-        target: "es2020",
-        outfile: "dist/edict-quickjs-full.js",
-        minify: false,
-        treeShaking: true,
-        metafile: true,
-        plugins: [nodeModuleShim],
-        define: { global: "globalThis" },
-        banner: {
-            js: `// edict-lang v${pkg.version} — QuickJS full bundle (phases 1-5, compile)\n`,
-        },
-    });
-    for (const [file, info] of Object.entries(fullResult.metafile!.outputs)) {
-        if (file.endsWith(".js")) reportSize(file, info.bytes);
-    }
-} catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.log(`✗ Full bundle FAILED (expected — binaryen uses top-level await, incompatible with IIFE)`);
-    console.log(`  Error: ${msg.split("\n")[0]}`);
-    console.log(`  → This confirms the WASM codegen pipeline cannot be bundled for QuickJS without binaryen changes.`);
+const fullResult = await build({
+    entryPoints: ["dist/browser-full.js"],
+    bundle: true,
+    format: "iife",
+    globalName: "Edict",
+    target: "es2020",
+    outfile: "dist/edict-quickjs-full.js",
+    minify: false,
+    treeShaking: true,
+    metafile: true,
+    plugins: [nodeModuleShim],
+    define: { global: "globalThis" },
+    banner: {
+        js: `// edict-lang v${pkg.version} — QuickJS full bundle (phases 1-5, check + compile)\n`,
+    },
+});
+for (const [file, info] of Object.entries(fullResult.metafile!.outputs)) {
+    if (file.endsWith(".js")) reportSize(file, info.bytes);
 }
 
 console.log("\n✓ QuickJS bundle script complete\n");
