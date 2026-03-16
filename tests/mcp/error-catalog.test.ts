@@ -77,6 +77,8 @@ const ALL_ERROR_TYPES = [
     "scaffold_failed",
     "deploy_failed",
     "unknown_deploy_target",
+    // QuickJS runtime errors
+    "quickjs_runtime_error",
 ];
 
 describe("handleErrorCatalog", () => {
@@ -115,7 +117,7 @@ describe("handleErrorCatalog", () => {
     });
 
     it("every entry has a valid pipeline_stage", () => {
-        const validStages = ["validator", "resolver", "type_checker", "complexity_checker", "effect_checker", "contract_verifier", "codegen", "patch", "lint", "migration"];
+        const validStages = ["validator", "resolver", "type_checker", "complexity_checker", "effect_checker", "contract_verifier", "codegen", "runtime", "patch", "lint", "migration"];
         for (const entry of catalog.errors) {
             expect(validStages, `invalid pipeline_stage: ${entry.pipeline_stage} for ${entry.type}`).toContain(entry.pipeline_stage);
         }

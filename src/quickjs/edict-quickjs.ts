@@ -19,6 +19,7 @@ import { getQuickJS } from "quickjs-emscripten";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { CheckBrowserResult } from "../browser.js";
+import { quickjsRuntimeError } from "../errors/structured-errors.js";
 
 // Path to the IIFE bundle — built by scripts/build-quickjs-bundle.ts
 const DEFAULT_BUNDLE_PATH = resolve(
@@ -160,9 +161,9 @@ export class EdictQuickJS {
                 : JSON.stringify(err);
             return {
                 ok: false,
-                errors: [{ error: "quickjs_runtime_error", message } as never],
-                module: null as never,
-                typeInfo: null as never,
+                errors: [quickjsRuntimeError(message)],
+                module: null,
+                typeInfo: null,
                 diagnostics: [],
             };
         }

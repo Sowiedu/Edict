@@ -86,7 +86,9 @@ export type StructuredError =
     // Deploy errors
     | ScaffoldFailedError
     | DeployFailedError
-    | UnknownDeployTargetError;
+    | UnknownDeployTargetError
+    // QuickJS runtime errors
+    | QuickJSRuntimeError;
 
 // =============================================================================
 // Phase 1 — Validation errors
@@ -1073,4 +1075,19 @@ export function unknownDeployTarget(
     validTargets: string[],
 ): UnknownDeployTargetError {
     return { error: "unknown_deploy_target", target, validTargets };
+}
+
+// =============================================================================
+// QuickJS runtime errors
+// =============================================================================
+
+export interface QuickJSRuntimeError {
+    error: "quickjs_runtime_error";
+    message: string;
+}
+
+export function quickjsRuntimeError(
+    message: string,
+): QuickJSRuntimeError {
+    return { error: "quickjs_runtime_error", message };
 }

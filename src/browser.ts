@@ -59,7 +59,7 @@ export type { CallEdge, CallGraph, EffectSource } from "./effects/call-graph.js"
 // Browser Pipeline — validate → resolve → typeCheck → effectCheck (no contracts)
 // ---------------------------------------------------------------------------
 export { checkBrowser } from "./check-browser.js";
-export type { CheckBrowserResult } from "./check-browser.js";
+export type { CheckBrowserResult, CheckBrowserSuccess, CheckBrowserFailure } from "./check-browser.js";
 
 // ---------------------------------------------------------------------------
 // AST Node Types: all expression, definition, and pattern types
@@ -191,6 +191,8 @@ export type {
     // Tool errors
     UnknownToolError,
     ToolArgMismatchError,
+    // QuickJS runtime errors
+    QuickJSRuntimeError,
 } from "./errors/structured-errors.js";
 
 // ---------------------------------------------------------------------------
@@ -248,6 +250,8 @@ export {
     // Tool errors
     unknownTool,
     toolArgMismatch,
+    // QuickJS runtime errors
+    quickjsRuntimeError,
 } from "./errors/structured-errors.js";
 
 // ---------------------------------------------------------------------------

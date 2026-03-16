@@ -57,6 +57,7 @@ import {
     scaffoldFailed,
     deployFailed,
     unknownDeployTarget,
+    quickjsRuntimeError,
 } from "./structured-errors.js";
 
 // =============================================================================
@@ -159,7 +160,7 @@ export const ERROR_REGISTRY: ErrorRegistryEntry[] = [
     { type: "duplicate_module_name",  stage: "resolver",           make: () => duplicateModuleName("mod", ["m1", "m2"]) },
 
     // Runtime errors
-    { type: "missing_external_module", stage: "codegen",           make: () => missingExternalModule("mod", ["a"]) },
+    { type: "missing_external_module", stage: "runtime",           make: () => missingExternalModule("mod", ["a"]) },
 
     // Migration errors
     { type: "migration_failed",        stage: "migration",          make: () => migrationFailed("1.0", "1.1", "Op failed") },
@@ -174,6 +175,9 @@ export const ERROR_REGISTRY: ErrorRegistryEntry[] = [
     { type: "scaffold_failed",         stage: "codegen",            make: () => scaffoldFailed("reason") },
     { type: "deploy_failed",           stage: "codegen",            make: () => deployFailed("api_error", "reason", "body") },
     { type: "unknown_deploy_target",   stage: "codegen",            make: () => unknownDeployTarget("bad", ["wasm_binary", "cloudflare"]) },
+
+    // QuickJS runtime errors
+    { type: "quickjs_runtime_error",    stage: "runtime",            make: () => quickjsRuntimeError("QuickJS execution failed") },
 ];
 
 // =============================================================================

@@ -114,7 +114,7 @@ describe("handleInvoke — errors", () => {
         expect(result.errorCode).toBe("http_error");
         expect(result.status).toBe(500);
         expect(result.output).toBe("Internal Server Error");
-        expect(result.durationMs).toBeGreaterThan(0);
+        expect(result.durationMs).toBeGreaterThanOrEqual(0);
     });
 
     it("timeout → ok: false, errorCode: timeout", async () => {

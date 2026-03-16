@@ -24,7 +24,7 @@ export interface ErrorCatalogEntry {
     /** Discriminator string (e.g., "type_mismatch") */
     type: string;
     /** Pipeline stage that produces this error */
-    pipeline_stage: "validator" | "resolver" | "type_checker" | "complexity_checker" | "effect_checker" | "contract_verifier" | "codegen" | "patch" | "lint" | "migration";
+    pipeline_stage: "validator" | "resolver" | "type_checker" | "complexity_checker" | "effect_checker" | "contract_verifier" | "codegen" | "runtime" | "patch" | "lint" | "migration";
     /** All fields present on this error (excluding the `error` discriminator) */
     fields: { name: string; type: string }[];
     /** Minimal AST that triggers this error */
@@ -428,6 +428,14 @@ const ERROR_EXAMPLES: Record<string, ExamplePair> = {
     unknown_deploy_target: {
         cause: { target: "lambda", _note: "Unsupported deploy target" },
         fix: { target: "cloudflare", _note: "Use a supported deploy target" },
+    },
+
+    // =========================================================================
+    // QuickJS runtime errors
+    // =========================================================================
+    quickjs_runtime_error: {
+        cause: { _note: "QuickJS WASM evaluation failed (e.g. missing Edict global)" },
+        fix: { _note: "Ensure the QuickJS bundle is built correctly via build-quickjs-bundle.ts" },
     },
 };
 

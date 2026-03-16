@@ -195,7 +195,7 @@ export function compileBrowser(ast: unknown): CompileBrowserResult {
     }
 
     // Phase 5 — Compile
-    const compileResult: CompileResult = compile(checkResult.module!, { typeInfo: checkResult.typeInfo });
+    const compileResult: CompileResult = compile(checkResult.module, { typeInfo: checkResult.typeInfo });
     if (!compileResult.ok) {
         return { ok: false, errors: compileResult.errors };
     }
