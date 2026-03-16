@@ -13,7 +13,7 @@
 // - compileIRStringInterp: reads coercionBuiltin from IRStringInterpPart
 //   instead of looking up stringInterpCoercions Map at runtime.
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 import type {
     IRRecordExpr,
     IRTuple,

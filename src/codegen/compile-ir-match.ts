@@ -7,7 +7,7 @@
 // 12-line type inference chain that probes ident locals, AST type annotations,
 // and type kinds to discover the matched enum name.
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 import type { IRMatch, IRExpr } from "../ir/types.js";
 import type { Pattern } from "../ast/nodes.js";
 import { wasmValidationError } from "../errors/structured-errors.js";

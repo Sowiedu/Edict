@@ -8,7 +8,7 @@
 // The returned offset points to the length header.
 // To read the string data, add 4 to the offset.
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 
 export interface InternedString {
     /** Byte offset in linear memory (points to the 4-byte length header) */

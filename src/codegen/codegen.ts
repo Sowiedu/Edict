@@ -7,7 +7,7 @@
 // The IR carries pre-resolved types on every expression node, eliminating
 // heuristic type inference (inferExprWasmType, isStringExpr, edictTypeName).
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 import type { EdictModule } from "../ast/nodes.js";
 
 import { StringTable } from "./string-table.js";

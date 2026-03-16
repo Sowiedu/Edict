@@ -11,7 +11,7 @@
 import type { EdictHostAdapter } from "../codegen/host-adapter.js";
 import { NodeHostAdapter } from "../codegen/node-host-adapter.js";
 import type { RuntimeState, HostContext } from "./host-helpers.js";
-import type binaryen from "binaryen";
+import type * as binaryen from "../codegen/wasm-encoder.js";
 
 import type { ReplayEntry } from "../codegen/replay-types.js";
 

@@ -7,7 +7,7 @@
 // heap allocation and string ABI ([len:i32][data:bytes]).
 
 import { describe, it, expect } from "vitest";
-import binaryen from "binaryen";
+import * as binaryen from "../../src/codegen/wasm-encoder.js";
 import { compile } from "../../src/codegen/codegen.js";
 import { runDirect } from "../../src/codegen/runner.js";
 import type { EdictModule, Import, FunctionDef, Expression } from "../../src/ast/nodes.js";

@@ -7,7 +7,7 @@
 // Key difference: inferExprWasmType (130 lines of heuristic probing) is
 // replaced by irExprWasmType (one-liner: edictTypeToWasm(expr.resolvedType)).
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 import type { IRExpr } from "../ir/types.js";
 import { wasmValidationError } from "../errors/structured-errors.js";
 import {

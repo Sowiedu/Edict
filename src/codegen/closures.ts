@@ -3,7 +3,7 @@
 // =============================================================================
 // Extracted from codegen.ts for modularity.
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 import type { Expression } from "../ast/nodes.js";
 import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import { type FunctionSig, FunctionContext } from "./types.js";

@@ -6,7 +6,7 @@
 // and that the heuristic-free IR path matches the AST path's behavior.
 
 import { describe, it, expect, afterEach } from "vitest";
-import binaryen from "binaryen";
+import * as binaryen from "../../src/codegen/wasm-encoder.js";
 import { validate, resolve, typeCheck, lowerModule } from "../../src/index.js";
 import { compileIRExpr, irExprWasmType } from "../../src/codegen/compile-ir-expr.js";
 import {

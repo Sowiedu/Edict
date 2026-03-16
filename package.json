@@ -48,8 +48,7 @@
     "z3",
     "smt",
     "contract-verification",
-    "ast",
-    "binaryen"
+    "ast"
   ],
   "repository": {
     "type": "git",
@@ -113,7 +112,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "binaryen": "^125.0.0",
     "z3-solver": "^4.15.8",
     "zod": "^4.3.6"
   }

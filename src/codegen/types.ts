@@ -3,7 +3,7 @@
 // =============================================================================
 // Extracted from codegen.ts for modularity.
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 import type { StructuredError } from "../errors/structured-errors.js";
 import type { StringTable } from "./string-table.js";
 import type { TypeExpr } from "../ast/types.js";

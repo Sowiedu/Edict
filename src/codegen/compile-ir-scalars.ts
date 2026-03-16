@@ -8,7 +8,7 @@
 // - compileBinop: uses expr.resolvedOperandType (eliminates isStringExpr)
 // - compileIdent: uses expr.scope (eliminates probe chain)
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 import type {
     IRLiteral,
     IRIdent,

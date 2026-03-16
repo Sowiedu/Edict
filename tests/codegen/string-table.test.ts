@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { StringTable } from "../../src/codegen/string-table.js";
-import binaryen from "binaryen";
+import * as binaryen from "../../src/codegen/wasm-encoder.js";
 
 describe("StringTable", () => {
     it("interns a string with correct offset and length", () => {

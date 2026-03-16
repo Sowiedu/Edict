@@ -8,7 +8,7 @@
 // Closure pair: [table_index:i32][env_ptr:i32]
 // Closure calling convention: call_indirect(table, idx, [env_ptr, ...args])
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 
 /**
  * Generate array_map(arrPtr: i32, closurePtr: i32) → i32

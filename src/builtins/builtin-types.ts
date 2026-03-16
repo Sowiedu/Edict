@@ -5,7 +5,7 @@
 
 import type { FunctionType } from "../ast/types.js";
 import type { HostContext } from "./host-helpers.js";
-import type binaryen from "binaryen";
+import type * as binaryen from "../codegen/wasm-encoder.js";
 
 /** Co-located builtin definition — type signature + implementation together. */
 export interface BuiltinDef {

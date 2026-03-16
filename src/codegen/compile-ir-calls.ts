@@ -11,7 +11,7 @@
 //   function was already registered in IRModule.functions by the lowering pass.
 //   Eliminates collectFreeVariables() AST walk (73 lines) at codegen time.
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 import type { IRCall, IRLambdaRef } from "../ir/types.js";
 import {
     type CompilationContext,

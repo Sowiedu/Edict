@@ -3,7 +3,7 @@
 // =============================================================================
 // Extracted from codegen.ts for modularity.
 
-import binaryen from "binaryen";
+import * as binaryen from "./wasm-encoder.js";
 import type { EdictModule, Expression, FunctionDef } from "../ast/nodes.js";
 import { edictTypeToWasm } from "./types.js";
 
