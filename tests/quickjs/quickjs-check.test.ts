@@ -103,6 +103,53 @@ describe.skipIf(!bundleExists)("QuickJS self-hosting PoC", () => {
     }, 30_000);
 });
 
+// ===========================================================================
+// Error path tests (issue #190)
+// ===========================================================================
+
+describe("QuickJS error paths", () => {
+    // ── Bundle load failure (lines 130-135) ─────────────────────────────
+    it("throws on invalid bundleSource", async () => {
+        await expect(
+            EdictQuickJS.create({ bundleSource: "invalid javascript {{{" }),
+        ).rejects.toThrow("Failed to load compiler bundle");
+    }, 30_000);
+
+    // ── Runtime error during check() (lines 155-167) ────────────────────
+    it("returns quickjs_runtime_error when Edict global is missing", async () => {
+        // Load a valid-JS bundle that does NOT define globalThis.Edict
+        const instance = await EdictQuickJS.create({
+            bundleSource: "var x = 1;",
+        });
+        try {
+            const result = instance.check({ kind: "module", name: "test", definitions: [] });
+            expect(result.ok).toBe(false);
+            expect(result.errors).toHaveLength(1);
+            expect((result.errors[0] as { error: string }).error).toBe("quickjs_runtime_error");
+        } finally {
+            instance.dispose();
+        }
+    }, 30_000);
+
+    // ── Polyfill failure (lines 118-124) ────────────────────────────────
+    it("throws on polyfill failure with tiny memory limit", async () => {
+        // Memory limit large enough for QuickJS context creation but too small
+        // for polyfill evaluation. The exact behavior depends on QuickJS internals,
+        // so we accept any error during creation with a tiny memory limit.
+        await expect(
+            EdictQuickJS.create({ memoryLimit: 1024, bundleSource: "var x = 1;" }),
+        ).rejects.toThrow();
+    }, 30_000);
+
+    // ── Dispose idempotency ─────────────────────────────────────────────
+    it("dispose() is idempotent (no double-free)", async () => {
+        const instance = await EdictQuickJS.create({ bundleSource: "var x = 1;" });
+        instance.dispose();
+        // Second dispose does nothing
+        expect(() => instance.dispose()).not.toThrow();
+    }, 30_000);
+});
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
