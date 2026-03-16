@@ -286,7 +286,7 @@ With the full pipeline operational, these are the open areas for further develop
 |---|---|---|
 | **Edge deployment** | #77 | Deploy compiled WASM to Cloudflare Workers, Deno Deploy, etc. Scaffold generator and Cloudflare adapter implemented; remaining cloud targets open. |
 | **Deploy pipeline** | #78 | One-step `edict_deploy` MCP tool: AST → WASM → live service. Tool and `edict_invoke` implemented; additional deploy targets open. |
-| **Self-hosting** | #81, #134 ✅ | QuickJS feasibility proven: check pipeline (phases 1–3) runs at 3.7x slowdown, 357 KB bundle. Codegen blocked by binaryen. See [report](docs/quickjs-feasibility-report.md). |
+| **Self-hosting** | #81, #134 ✅, #200 | QuickJS feasibility proven: full pipeline (phases 1–5) runs inside QuickJS-WASM. Pure-JS WASM encoder replaced binaryen (#198). Available as `edict-lang/quickjs` sub-export. 365 KB check / 860 KB full bundle. See [report](docs/quickjs-feasibility-report.md). |
 
 ### Recently Completed
 

@@ -3,4 +3,4 @@
 // =============================================================================
 
 export { EdictQuickJS } from "./edict-quickjs.js";
-export type { EdictQuickJSOptions } from "./edict-quickjs.js";
+export type { EdictQuickJSOptions, QuickJSCompileResult } from "./edict-quickjs.js";

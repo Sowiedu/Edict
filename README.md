@@ -120,14 +120,21 @@ The Edict compiler also runs inside [QuickJS](https://bellard.org/quickjs/) WASM
 
 | Bundle | Size | Phases | Slowdown vs Node.js |
 |---|---|---|---|
-| `dist/edict-quickjs-check.js` | 357 KB | 1–3 (validate, resolve, typecheck, effects) | ~3.7x |
+| `dist/edict-quickjs-check.js` | 365 KB | 1–3 (validate, resolve, typecheck, effects) | ~3.7x |
+| `dist/edict-quickjs-full.js` | 860 KB | 1–5 (check + WASM compile) | ~3.7x |
 
-```bash
-npm run build:quickjs    # build IIFE bundles
-npm run quickjs:test     # run feasibility benchmark
+```typescript
+import { EdictQuickJS } from "edict-lang/quickjs";
+
+const edict = await EdictQuickJS.createFull();  // phases 1-5
+const result = edict.compile(ast);
+if (result.ok) {
+    console.log(result.wasm);  // Uint8Array of valid WASM
+}
+edict.dispose();
 ```
 
-> **Limitation**: WASM codegen (binaryen) cannot run inside QuickJS — binaryen requires the `WebAssembly` API which QuickJS lacks. The check pipeline (phases 1–3) works fully.
+> **Note**: `quickjs-emscripten` is an optional peer dependency — install it alongside `edict-lang` to use `EdictQuickJS`. For fs-free environments, pass `bundleSource` directly instead of loading from disk.
 
 See [docs/quickjs-feasibility-report.md](docs/quickjs-feasibility-report.md) for full benchmarks and recommendations.
 

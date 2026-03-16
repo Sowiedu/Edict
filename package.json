@@ -28,6 +28,11 @@
       "import": "./dist/browser-full.js",
       "types": "./dist/browser-full.d.ts",
       "require": "./cjs-error.cjs"
+    },
+    "./quickjs": {
+      "import": "./dist/quickjs/index.js",
+      "types": "./dist/quickjs/index.d.ts",
+      "require": "./cjs-error.cjs"
     }
   },
   "main": "dist/index.js",
@@ -66,7 +71,7 @@
   },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
-    "build": "npm run generate-schema && npm run sync-server-json && tsc && npm run build:browser",
+    "build": "npm run generate-schema && npm run sync-server-json && tsc && npm run build:browser && npm run build:quickjs",
     "build:browser": "tsx scripts/build-browser.ts",
     "sync-server-json": "tsx scripts/sync-server-json.ts",
     "test": "vitest run",
@@ -93,7 +98,7 @@
     "esbuild": "^0.27.4",
     "fast-check": "^4.5.3",
     "miniflare": "^4.20260312.0",
-    "quickjs-emscripten": "^0.32.0",
+
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "typescript-json-schema": "^0.67.1",
@@ -103,10 +108,14 @@
     "node": ">=20.0.0"
   },
   "peerDependencies": {
-    "tsx": ">=4.0.0"
+    "tsx": ">=4.0.0",
+    "quickjs-emscripten": ">=0.32.0"
   },
   "peerDependenciesMeta": {
     "tsx": {
+      "optional": true
+    },
+    "quickjs-emscripten": {
       "optional": true
     }
   },
