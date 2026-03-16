@@ -198,6 +198,46 @@ describe.skipIf(!fullBundleExists)("QuickJS full compile (phases 1-5)", () => {
         temp.dispose();
         expect(() => temp.compile({ kind: "module" })).toThrow("disposed");
     }, 30_000);
+
+    // ── End-to-end execution: compile in QuickJS, execute in Node.js ──
+
+    describe("end-to-end execution", () => {
+        async function compileAndRun(ast: unknown) {
+            const result = fullEdict.compile(ast);
+            expect(result.ok).toBe(true);
+            expect(result.wasm).toBeInstanceOf(Uint8Array);
+
+            const { createHostImports } = await import("../../src/builtins/registry.js");
+            const state = { outputParts: [] as string[], instance: null as any };
+            const importObject = createHostImports(state);
+            const { instance } = await WebAssembly.instantiate(result.wasm!, importObject);
+            state.instance = instance;
+            return { instance, state };
+        }
+
+        it("arithmetic: main() returns 7 (add(3, 4))", async () => {
+            const ast = loadExample("arithmetic.edict.json");
+            const { instance } = await compileAndRun(ast);
+            const main = instance.exports.main as () => number;
+            expect(main()).toBe(7);
+        });
+
+        it("fibonacci: main() returns 55 (fib(10))", async () => {
+            const ast = loadExample("fibonacci.edict.json");
+            const { instance } = await compileAndRun(ast);
+            const main = instance.exports.main as () => number;
+            expect(main()).toBe(55);
+        });
+
+        it("hello: main() prints 'Hello, World!' and returns 0", async () => {
+            const ast = loadExample("hello.edict.json");
+            const { instance, state } = await compileAndRun(ast);
+            const main = instance.exports.main as () => number;
+            const returnVal = main();
+            expect(returnVal).toBe(0);
+            expect(state.outputParts.join("")).toContain("Hello, World!");
+        });
+    });
 });
 
 // ===========================================================================
