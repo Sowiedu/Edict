@@ -240,4 +240,57 @@ describe("Skill Package — standalone library", () => {
             expect(typeToString({ kind: "something_else" } as any)).toBe("unknown");
         });
     });
+
+    describe("metadata fallback paths", () => {
+        it("should fall back to 'unknown_skill' when metadata.name and module.name are both empty", async () => {
+            const { module, wasm, coverage } = await compileModule(addAst);
+            // Override module name to empty string, pass no metadata name
+            const emptyNameModule = { ...module, name: "" } as EdictModule;
+
+            const result = packageSkill({ module: emptyNameModule, wasm, coverage, metadata: { name: "" } });
+
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.skill.metadata.name).toBe("unknown_skill");
+        });
+
+        it("should fall back to module.name when metadata.name is undefined", async () => {
+            const { module, wasm, coverage } = await compileModule(addAst);
+
+            const result = packageSkill({ module, wasm, coverage, metadata: {} });
+
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.skill.metadata.name).toBe("AddSkill");
+        });
+
+        it("should use default version/description/author when not provided", async () => {
+            const { module, wasm, coverage } = await compileModule(addAst);
+
+            const result = packageSkill({ module, wasm, coverage });
+
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.skill.metadata.version).toBe("1.0.0");
+            expect(result.skill.metadata.description).toBe("");
+            expect(result.skill.metadata.author).toBe("unknown");
+        });
+
+        it("should handle param without explicit type annotation", async () => {
+            const { module, wasm, coverage } = await compileModule(addAst);
+            // Mutate the module to simulate a param without type
+            const mutatedModule = JSON.parse(JSON.stringify(module)) as EdictModule;
+            const mainFn = mutatedModule.definitions.find(d => d.kind === "fn" && d.name === "main");
+            if (mainFn && mainFn.kind === "fn") {
+                // Add a fake param without type to exercise the `"unknown"` fallback
+                mainFn.params = [{ kind: "param", id: "p-no-type", name: "x" } as any];
+            }
+
+            const result = packageSkill({ module: mutatedModule, wasm, coverage });
+
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.skill.interface.params[0].type).toBe("unknown");
+        });
+    });
 });

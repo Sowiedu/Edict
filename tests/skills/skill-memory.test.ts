@@ -387,6 +387,63 @@ describe("SkillMemory", () => {
         }, 60_000);
     });
 
+    describe("toSearchResult fallback paths", () => {
+        it("should handle skills with missing interface/verification/binary", () => {
+            const memory = new SkillMemory();
+            // Create a minimal skill package with missing optional nested fields
+            const partialSkill = {
+                metadata: { name: "PartialSkill", description: "partial", version: "1.0", author: "test" },
+                // interface, verification, binary are undefined/missing
+            } as unknown as SkillPackage;
+            memory.store(partialSkill);
+
+            const results = memory.search("partial");
+            expect(results).toHaveLength(1);
+            // Should use ?? fallback defaults
+            expect(results[0].signature.params).toEqual([]);
+            expect(results[0].signature.returns).toEqual({ type: "unknown" });
+            expect(results[0].signature.effects).toEqual([]);
+            expect(results[0].verified).toBe(false);
+            expect(results[0].wasmSize).toBe(0);
+        });
+
+        it("should handle skills with null interface/verification/binary", () => {
+            const memory = new SkillMemory();
+            const nullFieldsSkill = {
+                metadata: { name: "NullSkill", description: "null fields", version: "1.0", author: "test" },
+                interface: null,
+                verification: null,
+                binary: null,
+            } as unknown as SkillPackage;
+            memory.store(nullFieldsSkill);
+
+            const listed = memory.list();
+            expect(listed).toHaveLength(1);
+            expect(listed[0].signature.params).toEqual([]);
+            expect(listed[0].signature.returns).toEqual({ type: "unknown" });
+            expect(listed[0].verified).toBe(false);
+            expect(listed[0].wasmSize).toBe(0);
+        });
+    });
+
+    describe("search with tags", () => {
+        it("should match keywords in tags", () => {
+            const memory = new SkillMemory();
+            const taggedSkill = {
+                metadata: { name: "TaggedSkill", description: "no keywords here", version: "1.0", author: "test", tags: ["math", "algebra"] },
+                interface: { entryPoint: "main", params: [], returns: { type: "Int" }, effects: [] },
+                verification: { verified: true, contracts: [] },
+                binary: { wasm: "", wasmSize: 100, checksum: "sha256:abc" },
+            } as unknown as SkillPackage;
+            memory.store(taggedSkill);
+
+            // Search by tag keyword — should match via buildSearchableText
+            const results = memory.search("algebra");
+            expect(results).toHaveLength(1);
+            expect(results[0].name).toBe("TaggedSkill");
+        });
+    });
+
     describe("performance measurement", () => {
         it("should execute skills in sub-second time (vs ~500ms-2s LLM inference)", async () => {
             const memory = new SkillMemory();
