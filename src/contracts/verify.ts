@@ -844,6 +844,314 @@ export async function verifyCallSitePreconditions(
 }
 
 // ---------------------------------------------------------------------------
+// Synchronous Contract Verification (built-in solver only)
+// ---------------------------------------------------------------------------
+// Used by the QuickJS self-hosted bundle where async/await is unavailable.
+// Calls solver.checkSync!() instead of await solver.check(). No caching
+// or worker threads — QuickJS runs single-shot evaluations.
+
+/**
+ * Synchronous contract verification using a solver with checkSync() support.
+ *
+ * Same semantics as contractVerify() but fully synchronous — designed for
+ * environments like QuickJS where async/await is unavailable.
+ *
+ * @param module - A validated, resolved, type-checked, and effect-checked Edict module
+ * @param ctx - A SolverContext whose Solver implements checkSync()
+ * @returns `{ errors, diagnostics }` — contract violations and skipped-check diagnostics
+ */
+export function contractVerifySync(
+    module: EdictModule,
+    ctx: SolverContext,
+): ContractVerifyResult {
+    const functionDefs = new Map<string, FunctionDef>();
+    const allFunctions: FunctionDef[] = [];
+    for (const def of module.definitions) {
+        if (def.kind === "fn") {
+            functionDefs.set(def.name, def);
+            allFunctions.push(def);
+        }
+    }
+
+    const fnsWithContracts = allFunctions.filter(fn => fn.contracts.length > 0);
+    const hasPreconditions = fnsWithContracts.some(fn =>
+        fn.contracts.some(c => c.kind === "pre"),
+    );
+
+    if (fnsWithContracts.length === 0 && !hasPreconditions) {
+        return { errors: [], diagnostics: [] };
+    }
+
+    const errors: StructuredError[] = [];
+    const diagnostics: AnalysisDiagnostic[] = [];
+
+    // Verify postconditions
+    for (const fn of fnsWithContracts) {
+        const result = verifyFunctionSync(ctx, fn, module);
+        errors.push(...result.errors);
+        diagnostics.push(...result.diagnostics);
+    }
+
+    // Verify callsite preconditions
+    if (hasPreconditions) {
+        for (const fn of allFunctions) {
+            const result = verifyCallSitePreconditionsSync(ctx, fn, functionDefs, module);
+            errors.push(...result.errors);
+            diagnostics.push(...result.diagnostics);
+        }
+    }
+
+    return { errors, diagnostics };
+}
+
+/**
+ * Synchronous version of verifyFunction — uses solver.checkSync!().
+ */
+function verifyFunctionSync(
+    ctx: SolverContext,
+    fn: FunctionDef,
+    module: EdictModule,
+): VerifyFunctionResult {
+    const errors: StructuredError[] = [];
+    const diagnostics: AnalysisDiagnostic[] = [];
+
+    const tctx: TranslationContext = {
+        ctx, variables: new Map(), errors: [], module,
+    };
+
+    const allParamsSupported = createParamVariables(tctx, fn.params);
+    if (!allParamsSupported) {
+        diagnostics.push(analysisDiagnostic(
+            "contract_skipped_unsupported_params", fn.name, fn.id, "contracts",
+            fn.params.map(p => p.name).join(", "),
+        ));
+        return { errors, diagnostics };
+    }
+
+    const firstContract = fn.contracts[0]!;
+    const cachedBodyExpr = translateExprList(tctx, fn.body, firstContract.id, fn.name);
+    if (cachedBodyExpr !== null) {
+        const sortName = cachedBodyExpr.sort.name();
+        const resultVar = sortName === "Int"
+            ? ctx.Int.const("result")
+            : sortName === "Real"
+                ? ctx.Real.const("result")
+                : sortName === "Bool"
+                    ? ctx.Bool.const("result")
+                    : null;
+        if (resultVar !== null) tctx.variables.set("result", resultVar);
+    }
+    tctx.errors = [];
+
+    const preconds: Contract[] = [];
+    const postconds: Contract[] = [];
+    for (const c of fn.contracts) {
+        if (c.kind === "pre") preconds.push(c);
+        else postconds.push(c);
+    }
+
+    if (postconds.length === 0) return { errors, diagnostics };
+
+    const translatedPres: any[] = [];
+    for (const pre of preconds) {
+        if (!pre.condition) continue;
+        const z3Pre = translateExpr(tctx, pre.condition, pre.id, fn.name);
+        if (z3Pre === null) {
+            for (const post of postconds) {
+                errors.push(undecidablePredicate(fn.id, post.id, fn.name, "untranslatable_precondition"));
+            }
+            flushTranslationErrors(tctx, fn.id, errors);
+            return { errors, diagnostics };
+        }
+        translatedPres.push(z3Pre);
+    }
+
+    let resultBinding: any | null = null;
+    if (cachedBodyExpr !== null && tctx.variables.has("result")) {
+        resultBinding = tctx.variables.get("result")!.eq(cachedBodyExpr);
+    }
+
+    for (const post of postconds) {
+        let z3Post: any | null = null;
+        if (post.semantic) {
+            z3Post = translateSemanticAssertion(tctx, post.semantic);
+        } else if (post.condition) {
+            z3Post = translateExpr(tctx, post.condition, post.id, fn.name);
+        }
+        if (z3Post === null) {
+            const relevantErrors = tctx.errors.filter(e => e.contractId === post.id);
+            for (const te of relevantErrors) {
+                errors.push(undecidablePredicate(fn.id, te.contractId, fn.name, te.unsupportedNodeKind));
+            }
+            tctx.errors = tctx.errors.filter(e => e.contractId !== post.id);
+            continue;
+        }
+
+        const solver = new ctx.Solver();
+        solver.set("timeout", TIMEOUT_MS);
+
+        for (const pre of translatedPres) solver.add(pre);
+        if (resultBinding !== null) solver.add(resultBinding);
+
+        try {
+            solver.add(ctx.Not(z3Post as unknown as ReturnType<SolverContext["Bool"]["val"]>));
+        } catch {
+            errors.push(undecidablePredicate(fn.id, post.id, fn.name, "non_boolean_postcondition"));
+            continue;
+        }
+
+        const result = solver.checkSync!();
+
+        if (result === "sat") {
+            const model = solver.model();
+            const counterexample: Record<string, unknown> = {};
+            for (const p of fn.params) {
+                const v = tctx.variables.get(p.name);
+                if (v) {
+                    try {
+                        const val = model.eval(v, true);
+                        counterexample[p.name] = val.toString();
+                    } catch {
+                        counterexample[p.name] = "?";
+                    }
+                }
+            }
+            errors.push(contractFailure(fn.id, post.id, fn.name, "post", counterexample, post.semantic?.assertion));
+        } else if (result === "unknown") {
+            errors.push(verificationTimeout(fn.id, post.id, fn.name, TIMEOUT_MS));
+        }
+    }
+
+    flushTranslationErrors(tctx, fn.id, errors);
+    return { errors, diagnostics };
+}
+
+/**
+ * Synchronous version of verifyCallSitePreconditions — uses solver.checkSync!().
+ */
+function verifyCallSitePreconditionsSync(
+    ctx: SolverContext,
+    callerFn: FunctionDef,
+    functionDefs: Map<string, FunctionDef>,
+    module: EdictModule,
+): VerifyFunctionResult {
+    const errors: StructuredError[] = [];
+    const diagnostics: AnalysisDiagnostic[] = [];
+
+    const callSites = collectCallSites(callerFn.body);
+    if (callSites.length === 0) return { errors, diagnostics };
+
+    const relevantSites = callSites.filter(site => {
+        const callee = functionDefs.get(site.calleeName);
+        return callee && callee.contracts.some(c => c.kind === "pre");
+    });
+    if (relevantSites.length === 0) return { errors, diagnostics };
+
+    const tctx: TranslationContext = {
+        ctx, variables: new Map(), errors: [], module,
+    };
+
+    const allParamsSupported = createParamVariables(tctx, callerFn.params);
+    if (!allParamsSupported) {
+        diagnostics.push(analysisDiagnostic(
+            "contract_skipped_unsupported_params", callerFn.name, callerFn.id, "contracts",
+            callerFn.params.map(p => p.name).join(", "),
+        ));
+        return { errors, diagnostics };
+    }
+
+    const callerPres: any[] = [];
+    for (const c of callerFn.contracts) {
+        if (c.kind === "pre" && c.condition) {
+            const z3Pre = translateExpr(tctx, c.condition, c.id, callerFn.name);
+            if (z3Pre !== null) callerPres.push(z3Pre);
+        }
+    }
+    tctx.errors = [];
+
+    for (const site of relevantSites) {
+        const callee = functionDefs.get(site.calleeName)!;
+        const calleePres = callee.contracts.filter(c => c.kind === "pre");
+
+        const translatedArgs: any[] = [];
+        let argsOk = true;
+        for (const arg of site.args) {
+            const z3Arg = translateExpr(tctx, arg, "callsite", callerFn.name);
+            if (z3Arg === null) { argsOk = false; break; }
+            translatedArgs.push(z3Arg);
+        }
+        tctx.errors = [];
+        if (!argsOk) continue;
+
+        if (translatedArgs.length !== callee.params.length) continue;
+
+        for (const pre of calleePres) {
+            const savedVars = new Map(tctx.variables);
+
+            for (let i = 0; i < callee.params.length; i++) {
+                tctx.variables.set(callee.params[i]!.name, translatedArgs[i]);
+            }
+
+            if (!pre.condition) continue;
+            const z3Pre = translateExpr(tctx, pre.condition, pre.id, callerFn.name);
+            tctx.variables = savedVars;
+            tctx.errors = [];
+
+            if (z3Pre === null) continue;
+
+            const solver = new ctx.Solver();
+            solver.set("timeout", TIMEOUT_MS);
+
+            for (const cp of callerPres) solver.add(cp);
+
+            for (const pathCond of site.pathConditions) {
+                const z3PathCond = translateExpr(tctx, pathCond, "callsite", callerFn.name);
+                tctx.errors = [];
+                if (z3PathCond !== null) {
+                    try {
+                        solver.add(z3PathCond as unknown as ReturnType<SolverContext["Bool"]["val"]>);
+                    } catch { /* Non-boolean path condition — skip */ }
+                }
+            }
+
+            try {
+                solver.add(ctx.Not(z3Pre as unknown as ReturnType<SolverContext["Bool"]["val"]>));
+            } catch {
+                continue;
+            }
+
+            const result = solver.checkSync!();
+
+            if (result === "sat") {
+                const model = solver.model();
+                const counterexample: Record<string, unknown> = {};
+                for (const p of callerFn.params) {
+                    const v = tctx.variables.get(p.name);
+                    if (v) {
+                        try {
+                            const val = model.eval(v, true);
+                            counterexample[p.name] = val.toString();
+                        } catch {
+                            counterexample[p.name] = "?";
+                        }
+                    }
+                }
+                errors.push(preconditionNotMet(
+                    callerFn.id, site.callSiteId, callerFn.name,
+                    site.calleeName, pre.id, counterexample,
+                ));
+            } else if (result === "unknown") {
+                errors.push(verificationTimeout(
+                    callerFn.id, pre.id, callerFn.name, TIMEOUT_MS,
+                ));
+            }
+        }
+    }
+
+    return { errors, diagnostics };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

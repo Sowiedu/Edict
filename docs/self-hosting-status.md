@@ -14,11 +14,11 @@ The Edict compiler's **check + compile pipeline (phases 1–5)** is self-hostabl
 
 The `EdictQuickJS` class provides two modes:
 - **Check-only** (phases 1–3): schema validation, name resolution, type checking, effect checking at **3.7x slowdown** vs native Node.js, in a **365.7 KB** bundle.
-- **Full compile** (phases 1–5): check + WASM codegen in an **860.5 KB** bundle. Produces valid WASM binaries verified via `WebAssembly.compile()` and end-to-end execution tests.
+- **Full compile** (phases 1–5): check + WASM codegen + **contract verification (QF-LIA)** in an **889.6 KB** bundle. Produces valid WASM binaries verified via `WebAssembly.compile()` and end-to-end execution tests.
 
-Available as `edict-lang/quickjs` sub-export (#200). 2540 tests across 134 files.
+Available as `edict-lang/quickjs` sub-export (#200). 2635 tests across 135 files.
 
-**Remaining blocker**: Contract verification (phase 4, Z3) and WASM _execution_ (phase 6) inside QuickJS. Both require the `WebAssembly` API which QuickJS lacks.
+**Remaining blocker**: WASM _execution_ (phase 6) inside QuickJS requires the `WebAssembly` API which QuickJS lacks.
 
 ---
 
@@ -36,7 +36,7 @@ Available as `edict-lang/quickjs` sub-export (#200). 2540 tests across 134 files
 | Fragment composition | ✅ Works | Composable program fragments |
 | Compact AST expansion | ✅ Works | Token-efficient format support |
 | Schema migration | ✅ Works | Auto-upgrade older ASTs |
-| Contract verification (phase 4) | ❌ Blocked | Z3 requires worker threads + WebAssembly API |
+| **Contract verification (phase 4)** | ⚡ **Partial** | **QF-LIA contracts via built-in solver (#208)** — quantified/array contracts degrade to `undecidable_predicate` |
 | WASM execution (phase 6) | ❌ Blocked | QuickJS lacks WebAssembly API |
 
 ---
@@ -46,7 +46,7 @@ Available as `edict-lang/quickjs` sub-export (#200). 2540 tests across 134 files
 | Bundle | Format | Size | Contents |
 |--------|--------|------|----------|
 | **Check-only** | IIFE | **365.7 KB** | Phases 1–3: validate, resolve, typeCheck, effectCheck, lint, patch, compose |
-| **Full (compile)** | IIFE | **860.5 KB** | Phases 1–5: check + WASM codegen via pure-JS encoder |
+| **Full (compile)** | IIFE | **889.6 KB** | Phases 1–5: check + WASM codegen + QF-LIA contract verification |
 | Browser check-only | ESM | 340.5 KB | Same scope as IIFE check bundle |
 | Browser full | ESM | 811.4 KB | Full pipeline with WASM encoder |
 
@@ -57,9 +57,9 @@ The IIFE bundles are built by `scripts/build-quickjs-bundle.ts`. Node.js modules
 | Dependency | Size | Self-hostable? |
 |------------|------|----------------|
 | QuickJS engine (WASM) | ~1 MB | ✅ Host runtime |
-| Edict compiler JS (full) | 860.5 KB | ✅ IIFE bundle |
+| Edict compiler JS (full) | 889.6 KB | ✅ IIFE bundle (includes built-in QF-LIA solver) |
 | Edict compiler JS (check-only) | 365.7 KB | ✅ IIFE bundle |
-| Z3 solver (WASM) | ~5 MB | ❌ Requires WebAssembly API + worker threads |
+| Z3 solver (WASM) | ~5 MB | ❌ Not needed for QF-LIA; required only for quantified/array contracts |
 
 ---
 
@@ -90,11 +90,11 @@ The IIFE bundles are built by `scripts/build-quickjs-bundle.ts`. Node.js modules
 
 ## Remaining Blockers
 
-### 1. Z3 — WebAssembly + Worker Threads (Critical)
+### 1. ~~Z3 — WebAssembly + Worker Threads~~ ✅ Resolved (#208)
 
-The Z3 solver WASM package requires the `WebAssembly` API (QuickJS doesn't implement it) and worker threads for timeout handling.
+Contract verification for QF-LIA (quantifier-free linear integer/boolean/real arithmetic) now runs via the built-in pure-JS solver. Full Z3 is only needed for quantified contracts (`forall`/`exists`) and array theory — these degrade gracefully to `undecidable_predicate` diagnostics.
 
-**Impact**: Contract verification (phase 4) cannot run in QuickJS.
+**Impact**: Most contracts verify successfully inside QuickJS. Only exotic contracts need Z3.
 
 ### 2. WASM Execution — No `WebAssembly` API (Critical)
 
@@ -142,9 +142,9 @@ Use V8 isolates (`isolated-vm`) instead of QuickJS. Full JavaScript and WebAssem
 
 ## Recommended Strategy
 
-1. **Shipped** ✅: Check + compile self-hosting via `EdictQuickJS` (`src/quickjs/edict-quickjs.ts`), packaged as `edict-lang/quickjs` sub-export (#200). Phases 1–5 in 860.5 KB. End-to-end execution proof: programs compiled inside QuickJS produce correct results when executed in Node.js.
+1. **Shipped** ✅: Check + compile + contract verification (QF-LIA) self-hosting via `EdictQuickJS` (`src/quickjs/edict-quickjs.ts`), packaged as `edict-lang/quickjs` sub-export (#200). Phases 1–5 in 889.6 KB. End-to-end execution proof: programs compiled inside QuickJS produce correct results when executed in Node.js. Contract verification with counterexample extraction works for QF-LIA programs.
 
-2. **Watch**: Monitor QuickJS WebAssembly API progress (Path A). If it ships, WASM execution and Z3 contract verification become available with zero code changes.
+2. **Watch**: Monitor QuickJS WebAssembly API progress (Path A). If it ships, WASM execution becomes available with zero code changes.
 
 ---
 
@@ -154,7 +154,7 @@ Use V8 isolates (`isolated-vm`) instead of QuickJS. Full JavaScript and WebAssem
 |------|---------|
 | [`src/quickjs/edict-quickjs.ts`](../src/quickjs/edict-quickjs.ts) | `EdictQuickJS` class — check-only and full compile self-hosting |
 | [`scripts/build-quickjs-bundle.ts`](../scripts/build-quickjs-bundle.ts) | esbuild script for IIFE bundles |
-| [`tests/quickjs/quickjs-check.test.ts`](../tests/quickjs/quickjs-check.test.ts) | Integration tests (check + compile, 18 tests) |
+| [`tests/quickjs/quickjs-check.test.ts`](../tests/quickjs/quickjs-check.test.ts) | Integration tests (check + compile + contracts, 28 tests) |
 | [`docs/quickjs-feasibility-report.md`](quickjs-feasibility-report.md) | Original feasibility study results |
 | [`dist/edict-quickjs-check.js`](../dist/edict-quickjs-check.js) | Pre-built check-only IIFE bundle (365.7 KB) |
-| [`dist/edict-quickjs-full.js`](../dist/edict-quickjs-full.js) | Pre-built full compile IIFE bundle (860.5 KB) |
+| [`dist/edict-quickjs-full.js`](../dist/edict-quickjs-full.js) | Pre-built full compile IIFE bundle (889.6 KB) |

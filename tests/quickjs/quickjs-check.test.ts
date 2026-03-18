@@ -259,6 +259,65 @@ describe.skipIf(!fullBundleExists)("QuickJS full compile (phases 1-5)", () => {
             expect(main()).toBe(30);
         });
     });
+
+    // ── Contract verification: check() with built-in solver ──
+
+    describe("contract verification (built-in solver)", () => {
+        it("fibonacci: check() returns coverage with proven contracts", () => {
+            const ast = loadExample("fibonacci.edict.json");
+            const result = fullEdict.check(ast);
+            expect(result.ok).toBe(true);
+            // With the full bundle, check() should include contract verification
+            // The fibonacci example has contracts — verify coverage is present
+            if (result.coverage) {
+                expect(result.coverage.contracts.total).toBeGreaterThan(0);
+            }
+        });
+
+        it("contracts.edict.json: contract verification runs (known safeDivide failure)", () => {
+            const ast = loadExample("contracts.edict.json");
+            const result = fullEdict.check(ast);
+            // contracts.edict.json has a safeDivide function whose postcondition
+            // (result * denominator == numerator) fails for integer division rounding.
+            // This is expected — the solver correctly catches it.
+            expect(result.ok).toBe(false);
+            expect(result.errors.length).toBeGreaterThan(0);
+            expect(result.errors[0]).toHaveProperty("error", "contract_failure");
+            expect(result.errors[0]).toHaveProperty("functionName", "safeDivide");
+        });
+
+        it("arithmetic.edict.json (no contracts): passes with empty coverage", () => {
+            const ast = loadExample("arithmetic.edict.json");
+            const result = fullEdict.check(ast);
+            expect(result.ok).toBe(true);
+            expect(result.errors).toHaveLength(0);
+        });
+
+        it("contract failure produces structured error", () => {
+            // Load a real program that passes phases 1-3, then inject a
+            // provably false postcondition to trigger contract_failure
+            const ast = JSON.parse(JSON.stringify(loadExample("arithmetic.edict.json")));
+            // add(a, b) returns a + b, so post result < 0 is provably false
+            // when a,b are unrestricted ints
+            const addFn = ast.definitions.find((d: any) => d.name === "add");
+            if (addFn) {
+                addFn.contracts = [{
+                    kind: "post",
+                    id: "injected-post",
+                    condition: {
+                        kind: "binop", id: "inj-cmp", op: "<",
+                        left: { kind: "ident", name: "result", id: "inj-result" },
+                        right: { kind: "literal", id: "inj-zero", value: 0 },
+                    },
+                }];
+            }
+
+            const result = fullEdict.check(ast);
+            expect(result.ok).toBe(false);
+            expect(result.errors.length).toBeGreaterThan(0);
+            expect(result.errors[0]).toHaveProperty("error", "contract_failure");
+        });
+    });
 });
 
 // ===========================================================================

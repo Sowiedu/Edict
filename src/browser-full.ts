@@ -26,9 +26,17 @@ export * from "./browser.js";
 // ---------------------------------------------------------------------------
 // Phase 4 — Contract Verification: Z3 SMT proving
 // ---------------------------------------------------------------------------
-export { contractVerify, clearVerificationCache } from "./contracts/verify.js";
+export { contractVerify, contractVerifySync, clearVerificationCache } from "./contracts/verify.js";
 export type { ContractVerifyResult, ContractVerifyOptions } from "./contracts/verify.js";
 export { getZ3, getSolver, resetZ3 } from "./contracts/z3-context.js";
+
+// ---------------------------------------------------------------------------
+// Phase 4 (browser) — Contract Verification: built-in QF-LIA solver (no Z3)
+// ---------------------------------------------------------------------------
+export { checkBrowserFull } from "./check-browser-full.js";
+export type { CheckBrowserFullResult, CheckBrowserFullSuccess, CheckBrowserFullFailure } from "./check-browser-full.js";
+export { createBuiltinSolver } from "./contracts/solver/index.js";
+export type { SolverContext } from "./contracts/solver-context.js";
 
 // ---------------------------------------------------------------------------
 // Phase 5 — Code Generation: WASM compilation via pure-JS encoder

@@ -51,6 +51,9 @@ export interface SmtSolver {
     /** Check satisfiability. */
     check(): Promise<"sat" | "unsat" | "unknown">;
 
+    /** Synchronous check — only available on the built-in solver. */
+    checkSync?(): "sat" | "unsat" | "unknown";
+
     /** Get model (only valid after check() returns "sat"). */
     model(): SmtModel;
 }

@@ -187,7 +187,13 @@ export class EdictQuickJS {
         }
 
         const astJson = JSON.stringify(ast);
-        const code = `JSON.stringify(Edict.checkBrowser(${astJson}))`;
+        // Use checkBrowserFull (phases 1-4 with built-in solver) when available
+        // in the full bundle, otherwise fall back to checkBrowser (phases 1-3).
+        const code = `JSON.stringify(
+            typeof Edict.checkBrowserFull === 'function'
+                ? Edict.checkBrowserFull(${astJson})
+                : Edict.checkBrowser(${astJson})
+        )`;
         const result = this.vm.evalCode(code, "check.js");
 
         if (result.error) {

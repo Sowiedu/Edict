@@ -58,6 +58,10 @@ export class BuiltinSolver {
         return result.status;
     }
 
+    checkSync(): "sat" | "unsat" | "unknown" {
+        return this.solve().status;
+    }
+
     model(): BuiltinModel {
         const result = this.solve();
         return new BuiltinModel(result.model ?? new Map());
