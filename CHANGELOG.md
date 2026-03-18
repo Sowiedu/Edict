@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.21.0](https://github.com/Sowiedu/Edict/compare/v1.20.0...v1.21.0) (2026-03-18)
+
+
+### Features
+
+* batch Priority 1 quick wins ([#186](https://github.com/Sowiedu/Edict/issues/186), [#187](https://github.com/Sowiedu/Edict/issues/187), [#188](https://github.com/Sowiedu/Edict/issues/188), [#189](https://github.com/Sowiedu/Edict/issues/189)) ([623b6d2](https://github.com/Sowiedu/Edict/commit/623b6d2debf42d03a4b80ebfa9193009bbe1c7b2))
+* **compact:** default returnType to Int and arm pattern to wildcard ([91616a8](https://github.com/Sowiedu/Edict/commit/91616a8563c1f3c8098d9be74334689a937cb5bf))
+* **errors:** add proper StructuredError variants for deploy errors ([#193](https://github.com/Sowiedu/Edict/issues/193)) ([526a002](https://github.com/Sowiedu/Edict/commit/526a002a7c7067a7ac492328d4d01092d8756582))
+* **quickjs:** add bundleSource option for fs-free environments ([c056b4d](https://github.com/Sowiedu/Edict/commit/c056b4d35d8f07427ab88156a5c53bad1df00721))
+* **quickjs:** add EdictQuickJS self-hosting PoC with integration tests ([#156](https://github.com/Sowiedu/Edict/issues/156)) ([75c4443](https://github.com/Sowiedu/Edict/commit/75c44431574c6d0e009c5848d5332256e18cdd99))
+* **quickjs:** package EdictQuickJS as distributable sub-export ([#200](https://github.com/Sowiedu/Edict/issues/200)) ([51aecad](https://github.com/Sowiedu/Edict/commit/51aecad200b5b2fea506167fb8f124a7391614f4))
+* replace binaryen with pure-JS WASM binary encoder ([#198](https://github.com/Sowiedu/Edict/issues/198)) ([132f331](https://github.com/Sowiedu/Edict/commit/132f3310ab5a485a22e464458e901da031b5f629))
+
+
+### Bug Fixes
+
+* remove as-any casts in codegen, contracts — fix Int64 match dead code ([d1e2a1b](https://github.com/Sowiedu/Edict/commit/d1e2a1bed4efcabbed9d4c6c6196cf4e4d400d8b))
+* **test:** add missing returnType to if-without-else pipeline test ([c341c51](https://github.com/Sowiedu/Edict/commit/c341c517d499ce8a9083f17194b19c5f790e776a))
+
 ## [1.20.0](https://github.com/Sowiedu/Edict/compare/v1.19.0...v1.20.0) (2026-03-16)
 
 
