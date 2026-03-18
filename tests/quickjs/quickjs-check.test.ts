@@ -237,6 +237,27 @@ describe.skipIf(!fullBundleExists)("QuickJS full compile (phases 1-5)", () => {
             expect(returnVal).toBe(0);
             expect(state.outputParts.join("")).toContain("Hello, World!");
         });
+
+        it("closures: main() returns 11 (makeAdder(10)(1))", async () => {
+            const ast = loadExample("closures.edict.json");
+            const { instance } = await compileAndRun(ast);
+            const main = instance.exports.main as () => number;
+            expect(main()).toBe(11);
+        });
+
+        it("constants: main() returns 85", async () => {
+            const ast = loadExample("constants.edict.json");
+            const { instance } = await compileAndRun(ast);
+            const main = instance.exports.main as () => number;
+            expect(main()).toBe(85);
+        });
+
+        it("higher-order-functions: main() returns 30", async () => {
+            const ast = loadExample("higher-order-functions.edict.json");
+            const { instance } = await compileAndRun(ast);
+            const main = instance.exports.main as () => number;
+            expect(main()).toBe(30);
+        });
     });
 });
 

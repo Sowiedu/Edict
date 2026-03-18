@@ -2,9 +2,9 @@
 
 > Definitive status of WASM self-hosting: what works, what's blocked, and conditions for full self-hosting.
 
-**Date**: 2026-03-16
+**Date**: 2026-03-18
 **Parent issue**: [#81](https://github.com/Sowiedu/Edict/issues/81)
-**Related**: [#134](https://github.com/Sowiedu/Edict/issues/134) (feasibility study), [#156](https://github.com/Sowiedu/Edict/issues/156) (check-only PoC), [#198](https://github.com/Sowiedu/Edict/issues/198) (binaryen replacement)
+**Related**: [#134](https://github.com/Sowiedu/Edict/issues/134) (feasibility study), [#156](https://github.com/Sowiedu/Edict/issues/156) (check-only PoC), [#198](https://github.com/Sowiedu/Edict/issues/198) (binaryen replacement), [#200](https://github.com/Sowiedu/Edict/issues/200) (packaging)
 
 ---
 
@@ -14,7 +14,9 @@ The Edict compiler's **check + compile pipeline (phases 1–5)** is self-hostabl
 
 The `EdictQuickJS` class provides two modes:
 - **Check-only** (phases 1–3): schema validation, name resolution, type checking, effect checking at **3.7x slowdown** vs native Node.js, in a **365.7 KB** bundle.
-- **Full compile** (phases 1–5): check + WASM codegen in an **860.5 KB** bundle. Produces valid WASM binaries verified via `WebAssembly.compile()`.
+- **Full compile** (phases 1–5): check + WASM codegen in an **860.5 KB** bundle. Produces valid WASM binaries verified via `WebAssembly.compile()` and end-to-end execution tests.
+
+Available as `edict-lang/quickjs` sub-export (#200). 2540 tests across 134 files.
 
 **Remaining blocker**: Contract verification (phase 4, Z3) and WASM _execution_ (phase 6) inside QuickJS. Both require the `WebAssembly` API which QuickJS lacks.
 
@@ -140,7 +142,7 @@ Use V8 isolates (`isolated-vm`) instead of QuickJS. Full JavaScript and WebAssem
 
 ## Recommended Strategy
 
-1. **Now**: Ship check + compile self-hosting via `EdictQuickJS` (`src/quickjs/edict-quickjs.ts`). Phases 1–5 in 860.5 KB is immediately useful for compiling Edict programs in sandboxed/edge environments. The WASM output can be executed in any runtime with `WebAssembly` support.
+1. **Shipped** ✅: Check + compile self-hosting via `EdictQuickJS` (`src/quickjs/edict-quickjs.ts`), packaged as `edict-lang/quickjs` sub-export (#200). Phases 1–5 in 860.5 KB. End-to-end execution proof: programs compiled inside QuickJS produce correct results when executed in Node.js.
 
 2. **Watch**: Monitor QuickJS WebAssembly API progress (Path A). If it ships, WASM execution and Z3 contract verification become available with zero code changes.
 
