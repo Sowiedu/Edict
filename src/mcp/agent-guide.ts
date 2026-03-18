@@ -10,8 +10,16 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(__dirname, "..", "..");
+/** Compute __dirname safely — falls back to cwd in CJS bundles where import.meta.url is empty. */
+function getDirname(): string {
+    try {
+        return dirname(fileURLToPath(import.meta.url));
+    } catch {
+        return process.cwd();
+    }
+}
+
+const projectRoot = resolve(getDirname(), "..", "..");
 
 // =============================================================================
 // MCP Server Instructions — short bootstrap hint (~200 tokens)

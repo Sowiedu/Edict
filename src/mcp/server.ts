@@ -12,6 +12,14 @@ import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js
 import express from "express";
 import crypto from "node:crypto";
 
+// =============================================================================
+// Smithery sandbox — allows Smithery to scan tools/resources for registry listing
+// See: https://github.com/smithery-ai/cli/blob/main/src/lib/bundle/scan.ts
+// =============================================================================
+export function createSandboxServer(_opts?: { session?: unknown }) {
+    return createEdictServer().server;
+}
+
 
 
 // =============================================================================
@@ -159,7 +167,15 @@ async function main(): Promise<void> {
     }
 }
 
-main().catch((e) => {
-    console.error("Edict MCP server failed to start:", e);
-    process.exit(1);
-});
+// Only start the server when this file is the process entry point (not when
+// dynamically imported by Smithery's scanner or other tooling).
+const isEntryPoint = process.argv[1]?.endsWith("server.js") ||
+                     process.argv[1]?.endsWith("server.ts") ||
+                     process.argv[1]?.endsWith("edict-lang");
+
+if (isEntryPoint) {
+    main().catch((e) => {
+        console.error("Edict MCP server failed to start:", e);
+        process.exit(1);
+    });
+}

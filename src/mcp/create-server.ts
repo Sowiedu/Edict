@@ -14,8 +14,16 @@ import { ALL_RESOURCES } from "./resources/index.js";
 import { ALL_PROMPTS } from "./prompt-defs/index.js";
 import { EDICT_INSTRUCTIONS } from "./agent-guide.js";
 
-const require = createRequire(import.meta.url);
-const { version } = require("../../package.json") as { version: string };
+/** Read version from package.json. Falls back gracefully in CJS bundles
+ *  (e.g. Smithery scanner) where `import.meta.url` is unavailable. */
+function getVersion(): string {
+    try {
+        const req = createRequire(import.meta.url);
+        return (req("../../package.json") as { version: string }).version;
+    } catch {
+        return "0.0.0";
+    }
+}
 
 // =============================================================================
 // Server setup
@@ -24,7 +32,7 @@ const { version } = require("../../package.json") as { version: string };
 export function createEdictServer(): McpServer {
     const server = new McpServer({
         name: "edict-compiler",
-        version,
+        version: getVersion(),
     }, {
         instructions: EDICT_INSTRUCTIONS,
     });

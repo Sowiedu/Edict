@@ -26,8 +26,16 @@ const SUPPORT_NOTE =
 // Path resolution (relative to this file, works regardless of cwd)
 // =============================================================================
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(__dirname, "..", "..", "..");
+/** Compute __dirname safely — falls back to cwd in CJS bundles where import.meta.url is empty. */
+function getDirname(): string {
+    try {
+        return dirname(fileURLToPath(import.meta.url));
+    } catch {
+        return process.cwd();
+    }
+}
+
+const projectRoot = resolve(getDirname(), "..", "..", "..");
 const schemaPath = resolve(projectRoot, "schema", "edict.schema.json");
 const patchSchemaPath = resolve(projectRoot, "schema", "edict-patch.schema.json");
 const examplesDir = resolve(projectRoot, "examples");
