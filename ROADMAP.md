@@ -260,7 +260,7 @@ Multi-file programs use a simple module system:
 | **5** | WASM Code Gen | ✅ Complete |
 | **6** | MCP Toolchain | ✅ Complete |
 
-All 6 phases are implemented and shipping (v1.19.0+). 2357 tests across 126 test files. 40 example programs.
+All 6 phases are implemented and shipping (v1.20.0+). 2480 tests across 133 test files. 41 example programs.
 
 ---
 
