@@ -25,7 +25,7 @@ Effect Checker ───── violation? → StructuredError + propagation chai
   ↓
 Contract Verifier ── unproven? → StructuredError + counterexample → Agent retries
   (Z3/SMT)            ↓
-                  Code Generator (binaryen) → WASM → Execute
+                  Code Generator (pure-JS WASM encoder) → WASM → Execute
 ```
 
 ## Features
@@ -35,7 +35,7 @@ Contract Verifier ── unproven? → StructuredError + counterexample → Agen
 - **Type system** — `Int`, `Float`, `String`, `Bool`, `Array<T>`, `Option<T>`, `Result<T,E>`, records, enums, refinement types.
 - **Effect tracking** — Functions declare `pure`, `reads`, `writes`, `io`, `fails`. The compiler verifies consistency.
 - **Contract verification** — Pre/post conditions verified at compile time by Z3 (via SMT). Failing contracts return concrete counterexamples.
-- **WASM compilation** — Verified programs compile to WebAssembly via binaryen and run in Node.js.
+- **WASM compilation** — Verified programs compile to WebAssembly via a pure-JS encoder and run in Node.js.
 - **MCP interface** — All tools exposed via [Model Context Protocol](https://modelcontextprotocol.io/) for direct agent integration.
 - **Schema migration** — ASTs from older schema versions are auto-migrated. No breakage when the language evolves.
 
@@ -98,7 +98,7 @@ Run the Edict compiler entirely in the browser — no server required:
 | Bundle | Size | Phases | Use case |
 |---|---|---|---|
 | `edict-lang/browser` | 318 KB | 1–3 (validate, resolve, typecheck, effects, lint, patch) | Lightweight checking |
-| `edict-lang/browser-full` | ~14 MB | 1–5 (+ binaryen codegen, Z3 contracts, WASM execution) | Full compile & run |
+| `edict-lang/browser-full` | ~14 MB | 1–5 (+ WASM codegen, Z3 contracts, WASM execution) | Full compile & run |
 
 ```javascript
 import { compileBrowser, runBrowserDirect } from 'edict-lang/browser-full';
@@ -248,7 +248,7 @@ src/
 ├── checker/       # Type checking (bidirectional, with unit types)
 ├── effects/       # Effect checking (call-graph propagation)
 ├── contracts/     # Contract verification (Z3/SMT integration)
-├── codegen/       # WASM code generation (binaryen)
+├── codegen/       # WASM code generation (pure-JS encoder)
 │   ├── codegen.ts       # IR → WASM module orchestration
 │   ├── compile-ir-expr.ts  # IR expression compilation
 │   ├── compile-ir-*.ts  # Specialized IR compilers (calls, data, match, scalars)

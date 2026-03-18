@@ -23,7 +23,7 @@ Effect Checker ───── violation? → StructuredError + propagation chai
   ↓ passes
 Contract Verifier ── unproven? → StructuredError + counterexample → Agent retries
   (Z3/SMT)            ↓ proven
-                  Code Generator (binaryen)
+                  Code Generator (pure-JS WASM encoder)
                        ↓
                   WASM binary → Execute (Node WASM runtime)
 ```
@@ -171,7 +171,7 @@ interface Contract {
 ---
 
 ## Phase 5: WASM Code Generator ✅
-**What**: Translate verified AST → WASM bytecode via `binaryen` (npm).
+**What**: Translate verified AST → WASM bytecode via a pure-JS WASM binary encoder (replaced `binaryen` in #198).
 
 **Memory model**: Edict targets the **WASM GC proposal** (reference types + garbage collection). No manual memory management. If WASM GC support is insufficient, fall back to linear memory with a simple bump allocator + arena pattern.
 
@@ -295,4 +295,4 @@ With the full pipeline operational, these are the open areas for further develop
 | **Mid-level IR** | #89 ✅ | Full IR pipeline: AST → IR lowering → optimization → WASM codegen. All codegen routes through IR. |
 | **Effect polymorphism** | #94 ✅ | Effect variables in fn_type, inference at call sites, codegen (erased). |
 | **Type system reconciliation** | #87 ✅ | Resolved via honest monomorphism: `unsupported_container` lint warning derived from builtin registry. |
-| **Browser compilation** | #75 ✅ | Full pipeline in browser: phases 1-5, binaryen codegen, Z3 contract verification, WASM execution. |
+| **Browser compilation** | #75 ✅ | Full pipeline in browser: phases 1-5, WASM codegen, Z3 contract verification, WASM execution. |

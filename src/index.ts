@@ -9,7 +9,7 @@
  * 3. **Type Checking** — bidirectional type inference (`typeCheck`)
  * 4. **Effect Checking** — call-graph-based effect propagation (`effectCheck`)
  * 5. **Contract Verification** — Z3 SMT proving of pre/post contracts (`contractVerify`)
- * 6. **Code Generation** — WASM compilation via binaryen (`compile`)
+ * 6. **Code Generation** — WASM compilation via pure-JS encoder (`compile`)
  * 7. **Execution** — WASM instantiation and execution (`run`, `runDirect`)
  *
  * Convenience wrappers: `check` (phases 1–5), `compileAndRun` (phases 1–7).
@@ -281,7 +281,7 @@ export {
 } from "./errors/structured-errors.js";
 
 // ---------------------------------------------------------------------------
-// Phase 5 — Code Generation: WASM compilation via binaryen
+// Phase 5 — Code Generation: WASM compilation via pure-JS encoder
 // ---------------------------------------------------------------------------
 export { compile } from "./codegen/codegen.js";
 export type {

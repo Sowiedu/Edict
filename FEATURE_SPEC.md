@@ -47,7 +47,7 @@ Effect Checker ───── violation? → StructuredError + propagation chai
   ↓ passes
 Contract Verifier ── unproven? → StructuredError + counterexample → Agent retries
   (Z3/SMT)            ↓ proven
-                  Code Generator (binaryen)
+                  Code Generator (pure-JS WASM encoder)
                        ↓
                   WASM binary → Execute (Node WASM runtime)
 ```
@@ -828,7 +828,7 @@ Edict: { output: "42", exitCode: 0 }
 
 ## 7. WASM Code Generation
 
-- **Target**: WASM bytecode via `binaryen` (npm)
+- **Target**: WASM bytecode via a pure-JS WASM binary encoder (replaced `binaryen` in #198)
 - **Memory model**: Linear memory with bump allocator + arena pattern. Heap size configurable via `RunLimits.maxMemoryMb`.
 - **Execution**: Node.js built-in `WebAssembly` API, with worker thread isolation for timeout enforcement
 
@@ -970,7 +970,7 @@ All pipeline phases are complete and verified:
 - [x] Type checking (Phase 2b) — bidirectional type inference, unit types, refinement types
 - [x] Effect checking (Phase 3) — call-graph propagation, fixed-point analysis
 - [x] Contract verification (Phase 4) — Z3/SMT with counterexamples, caching, worker offloading
-- [x] WASM code generation (Phase 5) — binaryen codegen, closures, HOFs, records, enums, strings
+- [x] WASM code generation (Phase 5) — pure-JS WASM encoder, closures, HOFs, records, enums, strings
 - [x] MCP toolchain (Phase 6) — 17 MCP tools, 5 resources, schema/examples/errors access
 - [x] 38 example programs covering all language features (beginner → advanced)
 - [x] 1800+ tests across 105 test files

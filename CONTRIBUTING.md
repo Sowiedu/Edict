@@ -23,7 +23,7 @@ src/
 ├── checker/       # Type checking (bidirectional, unit types)
 ├── effects/       # Effect checking (call-graph propagation)
 ├── contracts/     # Contract verification (Z3/SMT integration)
-├── codegen/       # WASM code generation (binaryen)
+├── codegen/       # WASM code generation (pure-JS encoder)
 ├── ir/            # Mid-level IR (lowering, optimization)
 ├── builtins/      # Builtin registry and domain-specific builtins
 ├── compact/       # Compact AST format (token-efficient for agents)

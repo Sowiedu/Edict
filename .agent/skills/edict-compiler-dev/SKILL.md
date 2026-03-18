@@ -36,7 +36,7 @@ src/
 ├── checker/       # Phase 2b: Type checking (bidirectional, unit types)
 ├── effects/       # Phase 3: Effect checking (call-graph propagation)
 ├── contracts/     # Phase 4: Contract verification (Z3/SMT integration)
-├── codegen/       # Phase 5: WASM code generation (binaryen)
+├── codegen/       # Phase 5: WASM code generation (pure-JS encoder)
 │   ├── codegen.ts    # AST → WASM compilation
 │   ├── runner.ts     # WASM execution (Node.js WebAssembly API)
 │   ├── builtins.ts   # Built-in functions (print, string ops)
@@ -61,7 +61,7 @@ Each stage runs in order. Errors from any stage halt the pipeline and return str
 3. **Type Checker** — type consistency (bidirectional, supports unit types, refinement types)
 4. **Effect Checker** — effect annotation consistency (propagation through call graph)
 5. **Contract Verifier** — pre/postconditions proven via Z3 (returns counterexamples on failure)
-6. **Code Generator** — AST → WASM via binaryen
+6. **Code Generator** — AST → WASM via pure-JS encoder
 
 The `check()` function in `src/check.ts` runs phases 1-5. The `compile()` function in `src/codegen/codegen.ts` runs phase 6.
 

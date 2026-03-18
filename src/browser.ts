@@ -9,7 +9,7 @@
  *
  * Excluded (require Node.js):
  * - Phase 4: Contract verification (Z3, worker threads)
- * - Phase 5–6: WASM compilation and execution (binaryen, worker threads)
+ * - Phase 5–6: WASM compilation and execution (worker threads)
  * - MCP server (filesystem, crypto)
  * - Incremental checking (crypto for hashing)
  *

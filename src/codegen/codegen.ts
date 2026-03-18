@@ -1,7 +1,7 @@
 // =============================================================================
 // WASM Code Generator — compile(module) → CompileResult
 // =============================================================================
-// Transforms a validated Edict module AST into WASM bytecode via binaryen.
+// Transforms a validated Edict module AST into WASM bytecode via a pure-JS WASM encoder.
 // Uses the IR pipeline: AST → lower → optimize → codegen.
 //
 // The IR carries pre-resolved types on every expression node, eliminating
@@ -50,7 +50,7 @@ export type { FieldLayout, EnumVariantLayout, EnumLayout, RecordLayout };
 // =============================================================================
 
 /**
- * Compile a validated Edict module AST into WASM bytecode via binaryen.
+ * Compile a validated Edict module AST into WASM bytecode.
  *
  * Handles: Int/Float/Bool/String literals, binary/unary ops, function calls,
  * if/else, let bindings, blocks, match expressions, records, enums, lambdas,
@@ -380,7 +380,7 @@ export function compile(module: EdictModule, options?: CompileOptions): CompileR
 // =============================================================================
 
 /**
- * Compile an IR function to binaryen.
+ * Compile an IR function to WASM.
  *
  * Reads pre-resolved types from the IR — no heuristic type inference:
  * - Return type: `irFn.resolvedReturnType` (replaces 3-way fallback)

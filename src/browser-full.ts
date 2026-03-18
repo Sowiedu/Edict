@@ -6,7 +6,7 @@
  * Re-exports everything from `edict-lang/browser` (phases 1–3, lint, patch, compose)
  * and adds:
  * - Phase 4: Contract verification via Z3 (requires `initEdictBrowser()` first)
- * - Phase 5: WASM compilation via binaryen
+ * - Phase 5: WASM compilation via pure-JS encoder
  * - Phase 6: WASM execution via the browser WebAssembly API
  *
  * Quick start:
@@ -31,7 +31,7 @@ export type { ContractVerifyResult, ContractVerifyOptions } from "./contracts/ve
 export { getZ3, resetZ3 } from "./contracts/z3-context.js";
 
 // ---------------------------------------------------------------------------
-// Phase 5 — Code Generation: WASM compilation via binaryen
+// Phase 5 — Code Generation: WASM compilation via pure-JS encoder
 // ---------------------------------------------------------------------------
 export { compile } from "./codegen/codegen.js";
 export type {

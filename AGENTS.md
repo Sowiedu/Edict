@@ -60,7 +60,7 @@ src/
 ├── checker/       # Phase 2b: Type checking (bidirectional)
 ├── effects/       # Phase 3: Effect checking (call-graph propagation)
 ├── contracts/     # Phase 4: Contract verification (Z3/SMT)
-├── codegen/       # Phase 5: WASM generation (binaryen) + execution
+├── codegen/       # Phase 5: WASM generation (pure-JS encoder) + execution
 ├── ir/            # Mid-level IR (lowering, optimization)
 ├── builtins/      # Builtin registry
 ├── compact/       # Token-efficient compact AST format
