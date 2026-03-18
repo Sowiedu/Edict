@@ -6,7 +6,7 @@
 //   - Failing contracts → counterexample tests (shouldFail: true)
 // Output is pure structured data — no WASM compilation needed.
 
-import type { Context } from "z3-solver";
+import type { SolverContext } from "./solver-context.js";
 import type { EdictModule, FunctionDef, Contract, Param } from "../ast/nodes.js";
 import { getZ3 } from "./z3-context.js";
 import {
@@ -15,8 +15,6 @@ import {
     translateExprList,
     type TranslationContext,
 } from "./translate.js";
-
-type Z3Context = Context<"main">;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -88,7 +86,7 @@ interface FunctionTestResult {
 }
 
 async function generateTestsForFunction(
-    ctx: Z3Context,
+    ctx: SolverContext,
     fn: FunctionDef,
     module: EdictModule,
 ): Promise<FunctionTestResult> {
@@ -182,7 +180,7 @@ async function generateTestsForFunction(
 // ---------------------------------------------------------------------------
 
 async function generateBoundaryTests(
-    ctx: Z3Context,
+    ctx: SolverContext,
     tctx: TranslationContext,
     fn: FunctionDef,
     translatedPres: any[],
@@ -204,7 +202,7 @@ async function generateBoundaryTests(
 
     // Don't negate the postcondition — we want valid inputs
     try {
-        solver.add(z3Post as unknown as ReturnType<Z3Context["Bool"]["val"]>);
+        solver.add(z3Post as unknown as ReturnType<SolverContext["Bool"]["val"]>);
     } catch {
         return tests;
     }
@@ -235,7 +233,7 @@ async function generateBoundaryTests(
 // ---------------------------------------------------------------------------
 
 async function generateCounterexampleTests(
-    ctx: Z3Context,
+    ctx: SolverContext,
     tctx: TranslationContext,
     fn: FunctionDef,
     translatedPres: any[],
@@ -256,7 +254,7 @@ async function generateCounterexampleTests(
     if (resultBinding !== null) solver.add(resultBinding);
 
     try {
-        solver.add(ctx.Not(z3Post as unknown as ReturnType<Z3Context["Bool"]["val"]>));
+        solver.add(ctx.Not(z3Post as unknown as ReturnType<SolverContext["Bool"]["val"]>));
     } catch {
         return tests;
     }
@@ -286,7 +284,7 @@ async function generateCounterexampleTests(
 // ---------------------------------------------------------------------------
 
 async function generatePreconditionBoundaryTests(
-    ctx: Z3Context,
+    ctx: SolverContext,
     tctx: TranslationContext,
     fn: FunctionDef,
     translatedPres: any[],

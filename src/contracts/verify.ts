@@ -11,8 +11,7 @@
 // Cache lookup happens on the main thread. Uncached verifications are
 // dispatched to a worker thread so the MCP server stays responsive.
 
-import { Worker } from "node:worker_threads";
-import type { Context } from "z3-solver";
+
 import type { EdictModule, FunctionDef, Contract, Expression } from "../ast/nodes.js";
 import type { StructuredError } from "../errors/structured-errors.js";
 import {
@@ -33,11 +32,11 @@ import {
 } from "./translate.js";
 import { translateSemanticAssertion } from "./translate-semantic.js";
 import { computeVerificationHash } from "./hash.js";
+import type { SolverContext } from "./solver-context.js";
+import { Worker } from "node:worker_threads";
 
 const TIMEOUT_MS = 5000;
 const WORKER_TIMEOUT_MS = 30_000;
-
-type Z3Context = Context<"main">;
 
 /**
  * Result of contract verification: errors (violations) + diagnostics (skipped checks).
@@ -425,7 +424,7 @@ interface VerifyFunctionResult {
  * @returns `{ errors, diagnostics }` — contract violation errors and skipped-check diagnostics
  */
 export async function verifyFunction(
-    ctx: Z3Context,
+    ctx: SolverContext,
     fn: FunctionDef,
     module: EdictModule,
 ): Promise<VerifyFunctionResult> {
@@ -544,7 +543,7 @@ export async function verifyFunction(
 
         // Assert negation of postcondition (must be Bool sort)
         try {
-            solver.add(ctx.Not(z3Post as unknown as ReturnType<Z3Context["Bool"]["val"]>));
+            solver.add(ctx.Not(z3Post as unknown as ReturnType<SolverContext["Bool"]["val"]>));
         } catch {
             // z3Post is not a Bool — postcondition is non-boolean → undecidable
             errors.push(undecidablePredicate(fn.id, post.id, fn.name, "non_boolean_postcondition"));
@@ -688,7 +687,7 @@ function collectCallSites(exprs: Expression[]): CallSiteInfo[] {
  * callee precondition with args substituted for params.
  */
 export async function verifyCallSitePreconditions(
-    ctx: Z3Context,
+    ctx: SolverContext,
     callerFn: FunctionDef,
     functionDefs: Map<string, FunctionDef>,
     module: EdictModule,
@@ -792,7 +791,7 @@ export async function verifyCallSitePreconditions(
                 tctx.errors = []; // Clear translation errors
                 if (z3PathCond !== null) {
                     try {
-                        solver.add(z3PathCond as unknown as ReturnType<Z3Context["Bool"]["val"]>);
+                        solver.add(z3PathCond as unknown as ReturnType<SolverContext["Bool"]["val"]>);
                     } catch {
                         // Non-boolean path condition — skip
                     }
@@ -800,7 +799,7 @@ export async function verifyCallSitePreconditions(
             }
 
             try {
-                solver.add(ctx.Not(z3Pre as unknown as ReturnType<Z3Context["Bool"]["val"]>));
+                solver.add(ctx.Not(z3Pre as unknown as ReturnType<SolverContext["Bool"]["val"]>));
             } catch {
                 // z3Pre is not a Bool — can't verify this precondition
                 continue;

@@ -5,11 +5,9 @@
 // Each assertion maps to a proven-correct Z3 encoding using symbolic
 // integer arrays (ArraySort(IntSort, IntSort)) with symbolic length variables.
 
-import type { Context } from "z3-solver";
+import type { SolverContext } from "./solver-context.js";
 import type { TranslationContext } from "./translate.js";
 import type { SemanticAssertion } from "../ast/nodes.js";
-
-type Z3Context = Context<"main">;
 
 /**
  * Translate a SemanticAssertion into a Z3 boolean expression.
@@ -25,6 +23,11 @@ export function translateSemanticAssertion(
     semantic: SemanticAssertion,
 ): any | null {
     const { ctx } = tctx;
+
+    // Semantic assertions require quantifiers + array theory (Z3-only features).
+    // When the built-in solver is in use, these are absent → return null.
+    // The caller (verify.ts) handles null via the undecidablePredicate error path.
+    if (!ctx.ForAll || !ctx.Array || !ctx.Function) return null;
 
     // Get or create symbolic array + length for target
     const targetArr = getOrCreateArray(tctx, semantic.target);
@@ -70,7 +73,7 @@ function getOrCreateArray(tctx: TranslationContext, name: string): any {
     let arr = tctx.variables.get(key);
     if (!arr) {
         const { ctx } = tctx;
-        arr = ctx.Array.const(key, ctx.Int.sort(), ctx.Int.sort());
+        arr = ctx.Array!.const(key, ctx.Int.sort(), ctx.Int.sort());
         tctx.variables.set(key, arr);
     }
     return arr;
@@ -97,7 +100,7 @@ function getOrCreateLength(tctx: TranslationContext, name: string): any {
  * sorted: ∀i ∈ [0, len-1): arr[i] ≤ arr[i+1]
  * args[0] can be "ascending" (default) or "descending"
  */
-function translateSorted(ctx: Z3Context, arr: any, len: any, args?: string[]): any {
+function translateSorted(ctx: SolverContext, arr: any, len: any, args?: string[]): any {
     const direction = args?.[0] ?? "ascending";
     const i = ctx.Int.const("__sorted_i");
 
@@ -112,13 +115,13 @@ function translateSorted(ctx: Z3Context, arr: any, len: any, args?: string[]): a
     // Also require len >= 0
     const lenNonNeg = len.ge(ctx.Int.val(0));
 
-    return ctx.And(lenNonNeg, ctx.ForAll([i], ctx.Implies(inRange, ordered)));
+    return ctx.And(lenNonNeg, ctx.ForAll!([i], ctx.Implies(inRange, ordered)));
 }
 
 /**
  * no_duplicates: ∀i,j ∈ [0, len): i ≠ j ⇒ arr[i] ≠ arr[j]
  */
-function translateNoDuplicates(ctx: Z3Context, arr: any, len: any): any {
+function translateNoDuplicates(ctx: SolverContext, arr: any, len: any): any {
     const i = ctx.Int.const("__nodup_i");
     const j = ctx.Int.const("__nodup_j");
 
@@ -131,14 +134,14 @@ function translateNoDuplicates(ctx: Z3Context, arr: any, len: any): any {
     );
 
     const lenNonNeg = len.ge(ctx.Int.val(0));
-    return ctx.And(lenNonNeg, ctx.ForAll([i, j], distinct));
+    return ctx.And(lenNonNeg, ctx.ForAll!([i, j], distinct));
 }
 
 /**
  * bounded: ∀i ∈ [0, len): lo ≤ arr[i] ≤ hi
  * args = [lo, hi] as string-encoded integers
  */
-function translateBounded(ctx: Z3Context, arr: any, len: any, args?: string[]): any {
+function translateBounded(ctx: SolverContext, arr: any, len: any, args?: string[]): any {
     if (!args || args.length < 2) return null;
 
     const lo = ctx.Int.val(parseInt(args[0]!, 10));
@@ -151,7 +154,7 @@ function translateBounded(ctx: Z3Context, arr: any, len: any, args?: string[]): 
     const bounded = ctx.And(arr.select(i).ge(lo), arr.select(i).le(hi));
 
     const lenNonNeg = len.ge(ctx.Int.val(0));
-    return ctx.And(lenNonNeg, ctx.ForAll([i], ctx.Implies(inRange, bounded)));
+    return ctx.And(lenNonNeg, ctx.ForAll!([i], ctx.Implies(inRange, bounded)));
 }
 
 /**
@@ -170,7 +173,7 @@ function translateLengthPreserved(tctx: TranslationContext, targetLen: any, args
  * args = [sourceName]
  */
 function translatePermutationOf(
-    ctx: Z3Context,
+    ctx: SolverContext,
     tctx: TranslationContext,
     _targetArr: any,
     targetLen: any,
@@ -181,13 +184,13 @@ function translatePermutationOf(
     const sourceLen = getOrCreateLength(tctx, args[0]!);
 
     // Use uninterpreted functions for element counts
-    const targetCount = ctx.Function.declare(
+    const targetCount = ctx.Function!.declare(
         `__count_${_targetArr}`,
         ctx.Int.sort(),
         ctx.Int.sort(),
     );
     const sourceArr = getOrCreateArray(tctx, args[0]!);
-    const sourceCount = ctx.Function.declare(
+    const sourceCount = ctx.Function!.declare(
         `__count_${sourceArr}`,
         ctx.Int.sort(),
         ctx.Int.sort(),
@@ -198,7 +201,7 @@ function translatePermutationOf(
     // Same length AND same element counts
     return ctx.And(
         targetLen.eq(sourceLen),
-        ctx.ForAll([x], targetCount.call(x).eq(sourceCount.call(x))),
+        ctx.ForAll!([x], targetCount.call(x).eq(sourceCount.call(x))),
     );
 }
 
@@ -207,7 +210,7 @@ function translatePermutationOf(
  * args = [sourceName]
  */
 function translateSubsetOf(
-    ctx: Z3Context,
+    ctx: SolverContext,
     tctx: TranslationContext,
     targetArr: any,
     targetLen: any,
@@ -224,10 +227,10 @@ function translateSubsetOf(
     const iInRange = ctx.And(i.ge(ctx.Int.val(0)), i.lt(targetLen));
     const jInRange = ctx.And(j.ge(ctx.Int.val(0)), j.lt(sourceLen));
 
-    const exists = ctx.Exists([j], ctx.And(jInRange, targetArr.select(i).eq(sourceArr.select(j))));
+    const exists = ctx.Exists!([j], ctx.And(jInRange, targetArr.select(i).eq(sourceArr.select(j))));
 
     const lenNonNeg = ctx.And(targetLen.ge(ctx.Int.val(0)), sourceLen.ge(ctx.Int.val(0)));
-    return ctx.And(lenNonNeg, ctx.ForAll([i], ctx.Implies(iInRange, exists)));
+    return ctx.And(lenNonNeg, ctx.ForAll!([i], ctx.Implies(iInRange, exists)));
 }
 
 /**
@@ -236,7 +239,7 @@ function translateSubsetOf(
  * args = [sourceName]
  */
 function translateSumPreserved(
-    ctx: Z3Context,
+    ctx: SolverContext,
     tctx: TranslationContext,
     targetArr: any,
     targetLen: any,
@@ -248,11 +251,11 @@ function translateSumPreserved(
     const sourceLen = getOrCreateLength(tctx, args[0]!);
 
     // Use uninterpreted functions for array sums
-    const targetSum = ctx.Function.declare(
+    const targetSum = ctx.Function!.declare(
         `__sum_${targetArr}`,
         ctx.Int.sort(),
     );
-    const sourceSum = ctx.Function.declare(
+    const sourceSum = ctx.Function!.declare(
         `__sum_${sourceArr}`,
         ctx.Int.sort(),
     );

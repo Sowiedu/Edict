@@ -5,17 +5,11 @@
 // Unsupported expression kinds return null and push a TranslationError.
 
 import type { Expression, Param, EdictModule, FunctionDef } from "../ast/nodes.js";
-import type { Context } from "z3-solver";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type Z3Context = Context<"main">;
+import type { SolverContext } from "./solver-context.js";
 
 export interface TranslationContext {
-    /** Z3 context with high-level API (Int, Bool, Real, Solver, Not, And, Or, ...) */
-    ctx: Z3Context;
+    /** Solver context with high-level API (Int, Bool, Real, Solver, Not, And, Or, ...) */
+    ctx: SolverContext;
     /** name → Z3 variable */
     variables: Map<string, any>;
     errors: TranslationError[];
@@ -567,10 +561,12 @@ function translateQuantifier(
     if (expr.kind === "forall") {
         // ∀ variable ∈ [from, to) → body
         // Encoded as: ForAll([variable], range => body)
+        if (!ctx.ForAll) return null; // Built-in solver lacks quantifier support
         return ctx.ForAll([boundVar], ctx.Implies(rangeConstraint, bodyZ3));
     } else {
         // ∃ variable ∈ [from, to) ∧ body
         // Encoded as: Exists([variable], range ∧ body)
+        if (!ctx.Exists) return null; // Built-in solver lacks quantifier support
         return ctx.Exists([boundVar], ctx.And(rangeConstraint, bodyZ3));
     }
 }

@@ -28,7 +28,7 @@ export * from "./browser.js";
 // ---------------------------------------------------------------------------
 export { contractVerify, clearVerificationCache } from "./contracts/verify.js";
 export type { ContractVerifyResult, ContractVerifyOptions } from "./contracts/verify.js";
-export { getZ3, resetZ3 } from "./contracts/z3-context.js";
+export { getZ3, getSolver, resetZ3 } from "./contracts/z3-context.js";
 
 // ---------------------------------------------------------------------------
 // Phase 5 — Code Generation: WASM compilation via pure-JS encoder

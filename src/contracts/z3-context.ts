@@ -3,6 +3,8 @@
 // =============================================================================
 
 import { init, type Context } from "z3-solver";
+import type { SolverContext } from "./solver-context.js";
+import { createBuiltinSolver } from "./solver/index.js";
 
 type Z3Context = Context<"main">;
 
@@ -23,7 +25,21 @@ export async function getZ3(): Promise<Z3Context> {
     return z3Ctx;
 }
 
+/**
+ * Get a solver context — the abstract interface for SMT solving.
+ *
+ * @param options.useZ3 - Use Z3 solver (default: false — uses built-in QF-LIA solver)
+ * @returns SolverContext instance
+ */
+export async function getSolver(options?: { useZ3?: boolean }): Promise<SolverContext> {
+    if (options?.useZ3) {
+        return await getZ3() as unknown as SolverContext;
+    }
+    return createBuiltinSolver();
+}
+
 /** Reset the Z3 context (used by tests). */
 export function resetZ3(): void {
     z3Ctx = null;
 }
+

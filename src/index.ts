@@ -54,7 +54,7 @@ export type { CallEdge, CallGraph, EffectSource } from "./effects/call-graph.js"
 // ---------------------------------------------------------------------------
 export { contractVerify, clearVerificationCache, type ContractVerifyOptions } from "./contracts/verify.js";
 export type { ContractVerifyResult } from "./contracts/verify.js";
-export { getZ3, resetZ3 } from "./contracts/z3-context.js";
+export { getZ3, getSolver, resetZ3 } from "./contracts/z3-context.js";
 export { translateExpr, translateExprList, createParamVariables } from "./contracts/translate.js";
 export type { TranslationContext, TranslationError } from "./contracts/translate.js";
 export { computeVerificationHash } from "./contracts/hash.js";
@@ -462,3 +462,9 @@ export type {
 // IR Codegen: compile IR expressions → WASM (parallel path to AST codegen)
 // ---------------------------------------------------------------------------
 export { compileIRExpr, irExprWasmType } from "./codegen/compile-ir-expr.js";
+
+// ---------------------------------------------------------------------------
+// MCP Server: factory and Smithery registry integration
+// ---------------------------------------------------------------------------
+export { createEdictServer } from "./mcp/create-server.js";
+export { createSandboxServer } from "./mcp/server.js";
