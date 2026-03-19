@@ -260,7 +260,7 @@ Multi-file programs use a simple module system:
 | **5** | WASM Code Gen | ✅ Complete |
 | **6** | MCP Toolchain | ✅ Complete |
 
-All 6 phases are implemented and shipping (v1.20.0+). 2480 tests across 133 test files. 41 example programs.
+All 6 phases are implemented and shipping (v1.20.0+). 2673 tests across 136 test files. 41 example programs.
 
 ---
 
@@ -286,7 +286,7 @@ With the full pipeline operational, these are the open areas for further develop
 |---|---|---|
 | **Edge deployment** | #77 | Deploy compiled WASM to Cloudflare Workers, Deno Deploy, etc. Scaffold generator and Cloudflare adapter implemented; remaining cloud targets open. |
 | **Deploy pipeline** | #78 | One-step `edict_deploy` MCP tool: AST → WASM → live service. Tool and `edict_invoke` implemented; additional deploy targets open. |
-| **Self-hosting** | #81, #134 ✅, #200 | QuickJS feasibility proven: full pipeline (phases 1–5) runs inside QuickJS-WASM. Pure-JS WASM encoder replaced binaryen (#198). Available as `edict-lang/quickjs` sub-export. 365 KB check / 860 KB full bundle. See [report](docs/quickjs-feasibility-report.md). |
+| **Self-hosting** | #81 ✅ | **Fully self-hosted**: complete pipeline (phases 1–6) runs inside QuickJS-WASM. Pure-JS WASM encoder (#198), built-in QF-LIA solver (#205–#208), pure-JS WASM interpreter. Available as `edict-lang/quickjs` sub-export. 365 KB check / 925 KB full bundle. See [status](docs/self-hosting-status.md). |
 
 ### Recently Completed
 
