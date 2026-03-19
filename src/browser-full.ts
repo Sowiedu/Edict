@@ -57,6 +57,12 @@ export type { BrowserRunLimits } from "./codegen/browser-runner.js";
 export type { RunResult } from "./codegen/runner.js";
 
 // ---------------------------------------------------------------------------
+// Phase 6 — Execution: pure-JS WASM interpreter (QuickJS-compatible)
+// ---------------------------------------------------------------------------
+export { wasmInstantiate } from "./codegen/wasm-interpreter.js";
+export type { WasmInstance, WasmInterpreterResult, WasmInterpreterOptions } from "./codegen/wasm-interpreter.js";
+
+// ---------------------------------------------------------------------------
 // Host Adapters
 // ---------------------------------------------------------------------------
 export type { EdictHostAdapter } from "./codegen/host-adapter.js";
@@ -216,4 +222,162 @@ export function compileBrowser(ast: unknown): CompileBrowserResult {
         typeInfo: checkResult.typeInfo,
         diagnostics: checkResult.diagnostics,
     };
+}
+
+// ---------------------------------------------------------------------------
+// Interpreted WASM execution — for QuickJS self-hosting
+// ---------------------------------------------------------------------------
+// This function provides a self-contained WASM execution capability using
+// the pure-JS interpreter, with minimal inline host imports.
+// Used by EdictQuickJS.run() via Edict.runInterpreted() in the IIFE bundle.
+
+import { wasmInstantiate } from "./codegen/wasm-interpreter.js";
+
+/** Result of interpreted WASM execution. */
+export interface InterpretedRunResult {
+    output: string;
+    exitCode: number;
+    returnValue?: number;
+    error?: string;
+}
+
+/**
+ * Execute WASM bytes using the pure-JS interpreter with minimal host imports.
+ *
+ * @param wasmBytes - Array of byte values (not Uint8Array, for JSON transport)
+ * @param entryFn - Function name to call (default: "main")
+ * @param maxSteps - Max instructions (default: 10_000_000)
+ * @returns InterpretedRunResult with output, exitCode, returnValue
+ */
+export function runInterpreted(
+    wasmBytes: number[],
+    entryFn: string = "main",
+    maxSteps: number = 10_000_000,
+): InterpretedRunResult {
+    const bytes = new Uint8Array(wasmBytes);
+    const outputParts: string[] = [];
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    let wasmExports: Record<string, unknown> = {};
+
+    function readString(ptr: number): string {
+        const mem = wasmExports.memory as { buffer: ArrayBuffer };
+        const view = new DataView(mem.buffer);
+        const len = view.getInt32(ptr, true);
+        const u8 = new Uint8Array(mem.buffer, ptr + 4, len);
+        return decoder.decode(u8);
+    }
+
+    function allocateHeap(size: number): number {
+        const getPtr = wasmExports.__get_heap_ptr as () => number;
+        const setPtr = wasmExports.__set_heap_ptr as (p: number) => void;
+        const ptr = getPtr();
+        const aligned = Math.ceil(size / 8) * 8;
+        setPtr(ptr + aligned);
+        return ptr;
+    }
+
+    function writeString(str: string): number {
+        const encoded = encoder.encode(str);
+        const totalSize = 4 + encoded.length;
+        const resultPtr = allocateHeap(totalSize);
+        const mem = wasmExports.memory as { buffer: ArrayBuffer };
+        const view = new DataView(mem.buffer);
+        view.setInt32(resultPtr, encoded.length, true);
+        new Uint8Array(mem.buffer, resultPtr + 4, encoded.length).set(encoded);
+        return resultPtr;
+    }
+
+    // Minimal host imports — matches browser worker set
+    const hostFunctions: Record<string, Function> = {
+        print: (ptr: number) => { outputParts.push(readString(ptr)); return ptr; },
+        println: (ptr: number) => { outputParts.push(readString(ptr) + "\n"); return ptr; },
+        int_to_string: (n: number) => writeString(String(n)),
+        float_to_string: (n: number) => writeString(String(n)),
+        string_length: (ptr: number) => {
+            const mem = wasmExports.memory as { buffer: ArrayBuffer };
+            return new DataView(mem.buffer).getInt32(ptr, true);
+        },
+        string_concat: (a: number, b: number) => writeString(readString(a) + readString(b)),
+        string_eq: (a: number, b: number) => readString(a) === readString(b) ? 1 : 0,
+        string_replace: (sPtr: number, fromPtr: number, toPtr: number) => {
+            const s = readString(sPtr), from = readString(fromPtr), to = readString(toPtr);
+            return writeString(s.split(from).join(to));
+        },
+        string_contains: (sPtr: number, subPtr: number) => {
+            return readString(sPtr).includes(readString(subPtr)) ? 1 : 0;
+        },
+        string_slice: (sPtr: number, start: number, end: number) => {
+            return writeString(readString(sPtr).slice(start, end));
+        },
+        substring: (sPtr: number, start: number, end: number) => {
+            return writeString(readString(sPtr).substring(start, end));
+        },
+        char_at: (sPtr: number, idx: number) => {
+            const s = readString(sPtr);
+            return idx >= 0 && idx < s.length ? writeString(s[idx]!) : writeString("");
+        },
+        string_index_of: (sPtr: number, subPtr: number) => {
+            return readString(sPtr).indexOf(readString(subPtr));
+        },
+        string_upper: (sPtr: number) => writeString(readString(sPtr).toUpperCase()),
+        string_lower: (sPtr: number) => writeString(readString(sPtr).toLowerCase()),
+        string_trim: (sPtr: number) => writeString(readString(sPtr).trim()),
+        string_starts_with: (sPtr: number, prefPtr: number) => {
+            return readString(sPtr).startsWith(readString(prefPtr)) ? 1 : 0;
+        },
+        string_ends_with: (sPtr: number, sufPtr: number) => {
+            return readString(sPtr).endsWith(readString(sufPtr)) ? 1 : 0;
+        },
+        string_repeat: (sPtr: number, n: number) => writeString(readString(sPtr).repeat(n)),
+        string_reverse: (sPtr: number) => writeString([...readString(sPtr)].reverse().join("")),
+        panic: (ptr: number) => { throw new Error("edict_panic: " + readString(ptr)); },
+        exit: (code: number) => { throw new Error("edict_exit:" + code); },
+        random_int: (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min,
+        time_now: () => Date.now(),
+    };
+
+    // Wrap with Proxy so unknown host builtins produce a clear error at call time
+    // rather than a generic wasm_link error at instantiation time
+    const hostProxy = new Proxy(hostFunctions, {
+        get(target, prop) {
+            if (typeof prop === "string" && !(prop in target)) {
+                return (..._args: unknown[]) => {
+                    throw new Error("wasm_trap: unimplemented host builtin '" + prop + "'");
+                };
+            }
+            return target[prop as string];
+        },
+    });
+
+    try {
+        const { instance } = wasmInstantiate(bytes, { host: hostProxy }, { maxSteps });
+        wasmExports = instance.exports as Record<string, unknown>;
+        const mainFn = instance.exports[entryFn] as ((...args: unknown[]) => number) | undefined;
+
+        if (!mainFn || typeof mainFn !== "function") {
+            return { output: "", exitCode: 1, error: "entry function not found: " + entryFn };
+        }
+
+        let exitCode = 0;
+        let returnValue: number | undefined;
+        try {
+            returnValue = mainFn();
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            const exitMatch = msg.match(/^edict_exit:(\d+)$/);
+            if (exitMatch) {
+                exitCode = parseInt(exitMatch[1]!, 10);
+            } else {
+                outputParts.push("Runtime error: " + msg);
+                exitCode = 1;
+            }
+        }
+
+        return { output: outputParts.join(""), exitCode, returnValue };
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return { output: "", exitCode: 1, error: msg };
+    }
 }

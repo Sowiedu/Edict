@@ -270,6 +270,91 @@ export class EdictQuickJS {
     }
 
     /**
+     * Execute WASM bytes using the pure-JS interpreter inside QuickJS.
+     * Requires the full bundle — create with `EdictQuickJS.createFull()`.
+     *
+     * @param wasm - WASM binary bytes
+     * @param options - Entry function name and step limit
+     */
+    run(wasm: Uint8Array, options?: QuickJSRunOptions): QuickJSRunResult {
+        if (this.disposed) {
+            throw new Error("EdictQuickJS instance has been disposed");
+        }
+
+        if (!this.hasCompile) {
+            return {
+                ok: false,
+                output: "",
+                exitCode: 1,
+                errors: [quickjsRuntimeError(
+                    "run() requires the full bundle. Use EdictQuickJS.createFull() instead of EdictQuickJS.create().",
+                )],
+            };
+        }
+
+        const entryFn = options?.entryFn ?? "main";
+        const maxSteps = options?.maxSteps ?? 10_000_000;
+        const wasmArray = JSON.stringify(Array.from(wasm));
+
+        const code = `(function() {
+            var r = Edict.runInterpreted(${wasmArray}, ${JSON.stringify(entryFn)}, ${maxSteps});
+            return JSON.stringify(r);
+        })()`;
+        const result = this.vm.evalCode(code, "run.js");
+
+        if (result.error) {
+            const err = this.vm.dump(result.error);
+            result.error.dispose();
+            const message = typeof err === "object" && err !== null && "message" in err
+                ? (err as { message: string }).message
+                : JSON.stringify(err);
+            return {
+                ok: false,
+                output: "",
+                exitCode: 1,
+                errors: [quickjsRuntimeError(message)],
+            };
+        }
+
+        const json = this.vm.getString(result.value);
+        result.value.dispose();
+        const parsed = JSON.parse(json) as {
+            output: string;
+            exitCode: number;
+            returnValue?: number;
+            error?: string;
+        };
+
+        return {
+            ok: parsed.exitCode === 0 && !parsed.error,
+            output: parsed.output,
+            exitCode: parsed.exitCode,
+            returnValue: parsed.returnValue,
+            errors: parsed.error ? [quickjsRuntimeError(parsed.error)] : [],
+        };
+    }
+
+    /**
+     * Compile an Edict AST and immediately execute the resulting WASM,
+     * all within the QuickJS sandbox.
+     *
+     * This is the full self-hosted loop: JSON AST → check → compile → execute.
+     * Requires the full bundle — create with `EdictQuickJS.createFull()`.
+     */
+    compileAndRun(ast: unknown, options?: QuickJSRunOptions): QuickJSRunResult {
+        const compiled = this.compile(ast);
+        if (!compiled.ok || !compiled.wasm) {
+            return {
+                ok: false,
+                output: "",
+                exitCode: 1,
+                errors: compiled.errors,
+            };
+        }
+        return this.run(compiled.wasm, options);
+    }
+
+    /**
      * Dispose the QuickJS context and runtime.
      * Must be called when done to free WASM memory.
      */
@@ -280,4 +365,21 @@ export class EdictQuickJS {
             this.disposed = true;
         }
     }
+}
+
+/** Options for interpreted WASM execution inside QuickJS. */
+export interface QuickJSRunOptions {
+    /** Function to call (default: "main") */
+    entryFn?: string;
+    /** Max instructions before aborting (default: 10_000_000) */
+    maxSteps?: number;
+}
+
+/** Result of interpreted WASM execution inside QuickJS. */
+export interface QuickJSRunResult {
+    ok: boolean;
+    output: string;
+    exitCode: number;
+    returnValue?: number;
+    errors: StructuredError[];
 }

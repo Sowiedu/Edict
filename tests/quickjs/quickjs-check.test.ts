@@ -364,6 +364,70 @@ describe("QuickJS error paths", () => {
     }, 30_000);
 });
 
+// ===========================================================================
+// End-to-end execution inside QuickJS (compile + run = full self-hosting)
+// ===========================================================================
+
+describe("EdictQuickJS — compileAndRun() (full self-hosted execution)", () => {
+    let edict: InstanceType<typeof EdictQuickJS>;
+
+    beforeAll(async () => {
+        edict = await EdictQuickJS.createFull();
+    }, 30_000);
+
+    afterAll(() => {
+        edict.dispose();
+    });
+
+    it("arithmetic: compileAndRun returns 7 (3+4)", () => {
+        const ast = loadExample("arithmetic.edict.json");
+        const result = edict.compileAndRun(ast);
+        expect(result.ok).toBe(true);
+        expect(result.exitCode).toBe(0);
+        expect(result.returnValue).toBe(7);
+    }, 30_000);
+
+    it("fibonacci: compileAndRun returns 55", () => {
+        const ast = loadExample("fibonacci.edict.json");
+        const result = edict.compileAndRun(ast);
+        expect(result.ok).toBe(true);
+        expect(result.exitCode).toBe(0);
+        expect(result.returnValue).toBe(55);
+    }, 30_000);
+
+    it("hello: compileAndRun captures printed output", () => {
+        const ast = loadExample("hello.edict.json");
+        const result = edict.compileAndRun(ast);
+        expect(result.ok).toBe(true);
+        expect(result.output).toContain("Hello");
+    }, 30_000);
+
+    it("constants: compileAndRun returns 85", () => {
+        const ast = loadExample("constants.edict.json");
+        const result = edict.compileAndRun(ast);
+        expect(result.ok).toBe(true);
+        expect(result.exitCode).toBe(0);
+        expect(result.returnValue).toBe(85);
+    }, 30_000);
+
+    it("closures: compileAndRun reports missing array builtins", () => {
+        // closures.edict.json uses arrays, which require array builtins (array_get, etc.)
+        // not included in the minimal runInterpreted() host set.
+        // This test verifies the error is clear and actionable.
+        const ast = loadExample("closures.edict.json");
+        const result = edict.compileAndRun(ast);
+        expect(result.ok).toBe(false);
+        expect(result.output).toContain("unimplemented host builtin");
+    }, 30_000);
+
+    it("compile errors propagate through compileAndRun", () => {
+        const badAst = { version: "1.0.0", module: "bad", body: [{ node: "return", id: "r1", value: { node: "ref", id: "r2", name: "nonexistent" } }] };
+        const result = edict.compileAndRun(badAst);
+        expect(result.ok).toBe(false);
+        expect(result.errors.length).toBeGreaterThan(0);
+    }, 30_000);
+});
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
