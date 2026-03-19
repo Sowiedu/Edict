@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.22.0](https://github.com/Sowiedu/Edict/compare/v1.21.0...v1.22.0) (2026-03-19)
+
+
+### Features
+
+* **contracts:** add pure-JS QF-LIA solver for self-hosting ([#206](https://github.com/Sowiedu/Edict/issues/206)) ([0bb539f](https://github.com/Sowiedu/Edict/commit/0bb539fe1b12bce7f5e6d19c228b3f38387e140b))
+* **contracts:** extract SolverContext interface from Z3 coupling ([#205](https://github.com/Sowiedu/Edict/issues/205)) ([ebd6d4b](https://github.com/Sowiedu/Edict/commit/ebd6d4b9d85b0639e33cddbe896731bfe4fd3970))
+* **mcp:** add Smithery sandbox support for registry listing ([4b903fa](https://github.com/Sowiedu/Edict/commit/4b903fa6c07c45231f21d2213a0483aba2fd5ec6))
+* pure-JS WASM interpreter for QuickJS self-hosted execution ([#81](https://github.com/Sowiedu/Edict/issues/81)) ([8a5ebb8](https://github.com/Sowiedu/Edict/commit/8a5ebb8fc1eac8a16f3b6805d0bcb064fdb407cd))
+* **quickjs:** integrate built-in QF-LIA solver into QuickJS bundle ([#208](https://github.com/Sowiedu/Edict/issues/208)) ([5c6df0f](https://github.com/Sowiedu/Edict/commit/5c6df0f401ffce40dd59aa361d1ca77a4b858f3b))
+
 ## [1.21.0](https://github.com/Sowiedu/Edict/compare/v1.20.0...v1.21.0) (2026-03-18)
 
 
