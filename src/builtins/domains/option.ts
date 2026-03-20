@@ -3,13 +3,13 @@
 // =============================================================================
 
 import type { BuiltinDef } from "../builtin-types.js";
-import { INT_TYPE, BOOL_TYPE, OPTION_INT_TYPE } from "../../ast/type-constants.js";
+import { T_TYPE, BOOL_TYPE, OPTION_T_TYPE } from "../../ast/type-constants.js";
 import { getMemoryBuffer, type HostContext } from "../host-helpers.js";
 
 export const OPTION_BUILTINS: BuiltinDef[] = [
     {
         name: "isSome",
-        type: { kind: "fn_type", params: [OPTION_INT_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
+        type: { kind: "fn_type", params: [OPTION_T_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
         impl: {
             kind: "host",
             factory: (ctx: HostContext) => (ptr: number): number => {
@@ -19,7 +19,7 @@ export const OPTION_BUILTINS: BuiltinDef[] = [
     },
     {
         name: "isNone",
-        type: { kind: "fn_type", params: [OPTION_INT_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
+        type: { kind: "fn_type", params: [OPTION_T_TYPE], effects: ["pure"], returnType: BOOL_TYPE },
         impl: {
             kind: "host",
             factory: (ctx: HostContext) => (ptr: number): number => {
@@ -29,7 +29,7 @@ export const OPTION_BUILTINS: BuiltinDef[] = [
     },
     {
         name: "unwrap",
-        type: { kind: "fn_type", params: [OPTION_INT_TYPE], effects: ["fails"], returnType: INT_TYPE },
+        type: { kind: "fn_type", params: [OPTION_T_TYPE], effects: ["fails"], returnType: T_TYPE },
         impl: {
             kind: "host",
             factory: (ctx: HostContext) => (ptr: number): number => {
@@ -42,7 +42,7 @@ export const OPTION_BUILTINS: BuiltinDef[] = [
     },
     {
         name: "unwrapOr",
-        type: { kind: "fn_type", params: [OPTION_INT_TYPE, INT_TYPE], effects: ["pure"], returnType: INT_TYPE },
+        type: { kind: "fn_type", params: [OPTION_T_TYPE, T_TYPE], effects: ["pure"], returnType: T_TYPE },
         impl: {
             kind: "host",
             factory: (ctx: HostContext) => (ptr: number, defaultVal: number): number => {

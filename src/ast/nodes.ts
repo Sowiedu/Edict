@@ -680,6 +680,7 @@ export const VALID_TYPE_KINDS = [
     "provenance",
     "capability",
     "fresh",
+    "type_var",
 ] as const;
 
 export const VALID_PATTERN_KINDS = [

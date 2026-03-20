@@ -194,3 +194,9 @@ New MCP modules that import from `tools/index.ts` create cycles if they're also 
 
 ## 65. Mental Review ≠ /review Workflow
 Thinking through the /review checklist in your head does NOT satisfy the process rule. You must run the actual `/review` workflow steps explicitly, document findings, fix them, then run a second pass. The process rule is: "Run `/review` at least twice on every implementation plan before presenting to the user." No shortcuts.
+
+## 66. No Loops or Mutation in Edict — By Design
+`while` loops and mutable `assign` violate Edict's core design: (1) contract verification needs loop invariants (intractable for Z3), (2) `maxCallDepth` bounds recursion but loops have no static termination guarantee, (3) recursion already handles all iteration ("one canonical form"), (4) immutable `let` bindings keep the type checker and contract verifier tractable, (5) agents don't find loops easier than recursion (agent-first razor). Never propose adding loops or mutation.
+
+## 67. Use Proper TypeExpr Kinds, Not Magic Strings
+When adding type-level features, create a new `kind` in `TypeExpr` (e.g., `type_var`) rather than overloading existing kinds with magic strings (e.g., `{ kind: "named", name: "__T" }`). Proper kinds give `kind` switch discrimination, no prefix-checking heuristics, and natural extensibility. This matches how `confidence`, `provenance`, `capability`, and `fresh` are already handled.

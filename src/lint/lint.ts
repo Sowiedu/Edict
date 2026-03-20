@@ -865,6 +865,31 @@ function getSupportedContainers(): Map<string, TypeExpr[]> {
 }
 
 /**
+ * Check if a concrete container type matches a supported container type.
+ * type_var in the supported type acts as a wildcard — matches any concrete type.
+ */
+function containerMatchesSupported(concrete: TypeExpr, supported: TypeExpr): boolean {
+    if (supported.kind === "type_var") return true;
+    if (concrete.kind !== supported.kind) return false;
+
+    switch (concrete.kind) {
+        case "array":
+            return supported.kind === "array" && containerMatchesSupported(concrete.element, supported.element);
+        case "option":
+            return supported.kind === "option" && containerMatchesSupported(concrete.inner, supported.inner);
+        case "result":
+            return (
+                supported.kind === "result" &&
+                containerMatchesSupported(concrete.ok, supported.ok) &&
+                containerMatchesSupported(concrete.err, supported.err)
+            );
+        default:
+            // For non-container leaf types, use JSON comparison
+            return JSON.stringify(concrete) === JSON.stringify(supported);
+    }
+}
+
+/**
  * Check all type annotations in the module for container types not supported
  * by any builtin. Warns on Array<T>, Option<T>, Result<T,E> where the concrete
  * instantiation doesn't appear in the builtin registry.
@@ -876,8 +901,7 @@ function checkMonomorphicContainers(module: EdictModule, warnings: LintWarning[]
         if (!type || !type.kind) return; // defensive: skip malformed types
         if (type.kind === "array" || type.kind === "option" || type.kind === "result") {
             const supportedList = supported.get(type.kind) ?? [];
-            const key = JSON.stringify(type);
-            if (!supportedList.some(t => JSON.stringify(t) === key)) {
+            if (!supportedList.some(t => containerMatchesSupported(type, t))) {
                 const suggestion = supportedList.length > 0
                     ? { nodeId, field: "type", value: supportedList[0] }
                     : undefined;

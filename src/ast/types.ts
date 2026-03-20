@@ -20,7 +20,8 @@ export type TypeExpr =
     | ConfidenceType
     | ProvenanceType
     | CapabilityType
-    | FreshnessType;
+    | FreshnessType
+    | TypeVarType;
 
 /**
  * Primitive types.
@@ -146,6 +147,17 @@ export interface FreshnessType {
     kind: "fresh";
     base: TypeExpr;
     maxAge: string; // duration: "30s", "5m", "1h", "200ms"
+}
+
+/**
+ * Type variable — placeholder for a concrete type, resolved at call sites.
+ * Used in polymorphic builtin signatures (e.g., array_get: Array<T> → T).
+ * Compile-time only — erased during type checking (unified with concrete types).
+ * Never appears in user-written ASTs; only in builtin type definitions.
+ */
+export interface TypeVarType {
+    kind: "type_var";
+    name: string; // "T", "E", etc.
 }
 
 // Circular import workaround: these are defined in nodes.ts but needed here.

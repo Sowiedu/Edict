@@ -38,6 +38,7 @@ import { TypeEnv } from "./type-env.js";
 import { typesEqual, isUnknown, resolveType } from "./types-equal.js";
 import { BUILTIN_FUNCTIONS } from "../builtins/builtins.js";
 import { OPTION_ENUM_DEF, RESULT_ENUM_DEF } from "../builtins/builtin-enums.js";
+import { unifyTypeVars, substituteTypeVars, containsTypeVars } from "./unify.js";
 
 /**
  * Side-table of inferred types produced by the type checker.
@@ -563,14 +564,43 @@ function inferCall(
         }
     }
 
+    // --- Type variable unification for polymorphic builtins ---
+    // If the callee's fn_type contains type_var nodes (e.g., array_get: Array<T> → T),
+    // unify them with actual arg types to compute the concrete return type.
+    const hasTypeVars = containsTypeVars(resolved.returnType)
+        || resolved.params.some(containsTypeVars);
+    const typeVarBindings = hasTypeVars
+        ? unifyTypeVars(resolved.params, argTypes)
+        : null;
+
+    // Re-check arg types with substituted param types when type vars are present.
+    // The initial check (line above) used raw type_var params which would always match,
+    // but we need to verify that unified types are consistent.
+    if (typeVarBindings && typeVarBindings.size > 0) {
+        for (let i = 0; i < checkCount; i++) {
+            const rawParam = resolved.params[i]!;
+            if (!containsTypeVars(rawParam)) continue; // skip params without type vars
+            const concreteParam = substituteTypeVars(rawParam, typeVarBindings);
+            const argType = argTypes[i]!;
+            if (!isUnknown(argType)) {
+                checkExpectedType(argType, concreteParam, expr.args[i]!.id, env, errors);
+            }
+        }
+    }
+
+    // Compute the concrete return type
+    const concreteReturnType = (typeVarBindings && typeVarBindings.size > 0)
+        ? substituteTypeVars(resolved.returnType, typeVarBindings)
+        : resolved.returnType;
+
     // Auto-annotate provenance for builtins with a provenance source tag
     if (expr.fn.kind === "ident") {
         const builtin = BUILTIN_FUNCTIONS.get(expr.fn.name);
         if (builtin?.provenance) {
-            return { kind: "provenance", base: resolved.returnType, sources: [builtin.provenance] };
+            return { kind: "provenance", base: concreteReturnType, sources: [builtin.provenance] };
         }
     }
-    return resolved.returnType;
+    return concreteReturnType;
 }
 
 function inferIf(

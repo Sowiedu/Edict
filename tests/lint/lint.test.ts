@@ -1084,7 +1084,7 @@ describe("lint", () => {
         const RESULT_INT_INT = { kind: "result" as const, ok: INT, err: INT };
         const RESULT_STRING_STRING = { kind: "result" as const, ok: STRING, err: STRING };
 
-        it("warns on Array<String> param type", () => {
+        it("does not warn on Array<String> param type (polymorphic builtins)", () => {
             const m = mod([{
                 kind: "fn", id: "fn-001", name: "main", params: [
                     { kind: "param", id: "p-001", name: "data", type: ARRAY_STRING },
@@ -1094,17 +1094,10 @@ describe("lint", () => {
             }]);
             const warnings = lint(m);
             const uc = warnings.filter(w => w.warning === "unsupported_container");
-            expect(uc).toHaveLength(1);
-            expect(uc[0]).toMatchObject({
-                warning: "unsupported_container",
-                nodeId: "fn-001",
-                location: "param data",
-                containerKind: "array",
-            });
-            expect((uc[0] as any).supportedTypes.length).toBeGreaterThan(0);
+            expect(uc).toHaveLength(0);
         });
 
-        it("warns on Option<Float> return type", () => {
+        it("does not warn on Option<Float> return type (polymorphic builtins)", () => {
             const m = mod([{
                 kind: "fn", id: "fn-001", name: "main", params: [],
                 effects: ["pure"],
@@ -1113,26 +1106,17 @@ describe("lint", () => {
             }]);
             const warnings = lint(m);
             const uc = warnings.filter(w => w.warning === "unsupported_container");
-            expect(uc).toHaveLength(1);
-            expect(uc[0]).toMatchObject({
-                warning: "unsupported_container",
-                containerKind: "option",
-                location: "returnType",
-            });
+            expect(uc).toHaveLength(0);
         });
 
-        it("warns on Array<Bool> in record field", () => {
+        it("does not warn on Array<Bool> in record field (polymorphic builtins)", () => {
             const m = mod([{
                 kind: "record", id: "rec-001", name: "Config",
                 fields: [{ name: "flags", type: { kind: "array" as const, element: BOOL } }],
             }]);
             const warnings = lint(m);
             const uc = warnings.filter(w => w.warning === "unsupported_container");
-            expect(uc).toHaveLength(1);
-            expect(uc[0]).toMatchObject({
-                containerKind: "array",
-                location: "field flags",
-            });
+            expect(uc).toHaveLength(0);
         });
 
         it("does not warn on Array<Int>", () => {

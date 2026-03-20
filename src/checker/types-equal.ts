@@ -18,6 +18,10 @@ export function typesEqual(a: TypeExpr, b: TypeExpr, env: TypeEnv): boolean {
     // unknown propagation — always compatible
     if (isUnknown(ra) || isUnknown(rb)) return true;
 
+    // type_var is a wildcard — compatible with any type.
+    // Real type checking happens after unification substitutes concrete types.
+    if (ra.kind === "type_var" || rb.kind === "type_var") return true;
+
     // Same kind check
     if (ra.kind !== rb.kind) return false;
 
