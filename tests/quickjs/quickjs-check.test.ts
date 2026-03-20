@@ -368,7 +368,7 @@ describe("QuickJS error paths", () => {
 // End-to-end execution inside QuickJS (compile + run = full self-hosting)
 // ===========================================================================
 
-describe("EdictQuickJS — compileAndRun() (full self-hosted execution)", () => {
+describe.skipIf(!fullBundleExists)("EdictQuickJS — compileAndRun() (full self-hosted execution)", () => {
     let edict: InstanceType<typeof EdictQuickJS>;
 
     beforeAll(async () => {
@@ -376,7 +376,7 @@ describe("EdictQuickJS — compileAndRun() (full self-hosted execution)", () => 
     }, 30_000);
 
     afterAll(() => {
-        edict.dispose();
+        edict?.dispose();
     });
 
     it("arithmetic: compileAndRun returns 7 (3+4)", () => {
