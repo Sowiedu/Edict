@@ -115,6 +115,7 @@ export interface MissingFieldError {
     nodeId: string | null;
     field: string;
     expectedFormat: string;
+    hint: string;
     suggestion?: FixSuggestion;
 }
 
@@ -283,7 +284,7 @@ export function missingField(
     expectedFormat: string,
     suggestion?: FixSuggestion,
 ): MissingFieldError {
-    const result: MissingFieldError = { error: "missing_field", path, nodeId, field, expectedFormat };
+    const result: MissingFieldError = { error: "missing_field", path, nodeId, field, expectedFormat, hint: "use edict_explain for repair context" };
     if (suggestion) result.suggestion = suggestion;
     return result;
 }

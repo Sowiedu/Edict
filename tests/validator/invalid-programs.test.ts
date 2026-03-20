@@ -82,6 +82,15 @@ describe("invalid programs", () => {
         );
     });
 
+    it("missing_field includes edict_explain hint", () => {
+        const errors = expectErrors(
+            { kind: "module", id: "m1", name: "test", imports: [] },
+            { error: "missing_field", field: "definitions" },
+        );
+        const mf = errors.find(e => e.error === "missing_field" && e.field === "definitions");
+        expect(mf).toHaveProperty("hint", "use edict_explain for repair context");
+    });
+
     it("rejects module with non-array imports", () => {
         expectErrors(
             { kind: "module", id: "m1", name: "test", imports: "bad", definitions: [] },
