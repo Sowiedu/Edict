@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.1](https://github.com/Sowiedu/Edict/compare/v1.22.0...v1.22.1) (2026-03-20)
+
+
+### Bug Fixes
+
+* guard compileAndRun tests with skipIf and fix CI build order ([c236fb6](https://github.com/Sowiedu/Edict/commit/c236fb6f752342d42cd4af5b28591d9416230ecf))
+
 ## [1.22.0](https://github.com/Sowiedu/Edict/compare/v1.21.0...v1.22.0) (2026-03-19)
 
 
