@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.23.0](https://github.com/Sowiedu/Edict/compare/v1.22.1...v1.23.0) (2026-03-20)
+
+
+### Features
+
+* **errors:** add edict_explain hint to missing_field responses ([2b94f7c](https://github.com/Sowiedu/Edict/commit/2b94f7cd51a0b933598ed3df90dc424d9ed6fc11))
+* polymorphic containers — type_var unification for Array&lt;T&gt;, Option&lt;T&gt;, Result&lt;T,E&gt; ([c813f0e](https://github.com/Sowiedu/Edict/commit/c813f0eccbdbbf8dd3bee03c67ac8299358de2f4))
+
 ## [1.22.1](https://github.com/Sowiedu/Edict/compare/v1.22.0...v1.22.1) (2026-03-20)
 
 
