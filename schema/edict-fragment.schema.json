@@ -183,6 +183,9 @@
             },
             {
               "$ref": "#/definitions/FreshnessType"
+            },
+            {
+              "$ref": "#/definitions/TypeVarType"
             }
           ]
         },
@@ -280,6 +283,9 @@
             },
             {
               "$ref": "#/definitions/FreshnessType"
+            },
+            {
+              "$ref": "#/definitions/TypeVarType"
             }
           ]
         }
@@ -372,6 +378,9 @@
         },
         {
           "$ref": "#/definitions/FreshnessType"
+        },
+        {
+          "$ref": "#/definitions/TypeVarType"
         }
       ],
       "properties": {
@@ -390,7 +399,8 @@
             "confidence",
             "provenance",
             "capability",
-            "fresh"
+            "fresh",
+            "type_var"
           ]
         }
       }
@@ -632,6 +642,9 @@
             },
             {
               "$ref": "#/definitions/FreshnessType"
+            },
+            {
+              "$ref": "#/definitions/TypeVarType"
             }
           ]
         }
@@ -829,6 +842,23 @@
         "base",
         "kind",
         "maxAge"
+      ]
+    },
+    "TypeVarType": {
+      "description": "Type variable — placeholder for a concrete type, resolved at call sites.\nUsed in polymorphic builtin signatures (e.g., array_get: Array<T> → T).\nCompile-time only — erased during type checking (unified with concrete types).\nNever appears in user-written ASTs; only in builtin type definitions.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "type_var"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
       ]
     },
     "Identifier": {
@@ -1043,6 +1073,9 @@
             },
             {
               "$ref": "#/definitions/FreshnessType"
+            },
+            {
+              "$ref": "#/definitions/TypeVarType"
             }
           ]
         },
