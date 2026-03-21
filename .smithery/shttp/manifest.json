@@ -1,0 +1,913 @@
+{
+  "payload": {
+    "type": "hosted",
+    "stateful": false,
+    "hasAuthAdapter": false,
+    "serverCard": {
+      "serverInfo": {
+        "name": "edict-compiler",
+        "version": "0.0.0"
+      },
+      "tools": [
+        {
+          "name": "edict_schema",
+          "description": "Return the JSON Schema defining valid Edict AST programs. Use format 'agent' for one-call bootstrapping (minimal schema + compact maps + builtins + effects).",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "format": {
+                "default": "full",
+                "description": "Schema format: 'full' (default, with descriptions), 'minimal' (stripped for token efficiency), 'compact' (compact key/kind mapping reference), or 'agent' (recommended: one-call bootstrap with minimal schema + compact maps + builtins + effects)",
+                "type": "string",
+                "enum": [
+                  "full",
+                  "minimal",
+                  "compact",
+                  "agent"
+                ]
+              }
+            },
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_version",
+          "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_examples",
+          "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_validate",
+          "description": "Validate an Edict AST against the compiler's JSON schema without typing or compiling. Use this as a first pass.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The Edict JSON AST to validate"
+              }
+            },
+            "required": [
+              "ast"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_check",
+          "description": "Run the full semantic checker (name resolution, type checking, effect checking, contract verification) on an AST. Supports single module (ast) or multi-module (modules array) input.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The Edict JSON AST to check (single module)"
+              },
+              "modules": {
+                "description": "Array of Edict module ASTs to check together (multi-module). Cross-module imports are resolved automatically.",
+                "type": "array",
+                "items": {}
+              }
+            },
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_compile",
+          "description": "Compile a semantically valid Edict AST into a WebAssembly module. Returns the WASM binary encoded as a base64 string. Supports single module (ast) or multi-module (modules array) input.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The Edict JSON AST to compile (single module)"
+              },
+              "modules": {
+                "description": "Array of Edict module ASTs to compile together (multi-module). Cross-module imports are resolved automatically.",
+                "type": "array",
+                "items": {}
+              }
+            },
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_run",
+          "description": "Execute a compiled WebAssembly module (provided as base64) in a sandboxed runtime. The WASM VM has no ambient authority — filesystem, network, and crypto access are provided exclusively through host adapters. Returns standard output, exit code, and any sandbox limit errors. Supports optional execution limits (timeout, memory, sandbox directory) and external WASM modules for import interop. Set record: true to capture all non-deterministic host responses in a replay token for deterministic reproduction.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "wasmBase64": {
+                "type": "string",
+                "description": "The base64 encoded WebAssembly module to execute"
+              },
+              "limits": {
+                "description": "Optional execution sandbox limits",
+                "type": "object",
+                "properties": {
+                  "timeoutMs": {
+                    "description": "Max execution time in milliseconds (default: 15000, min: 100)",
+                    "type": "number"
+                  },
+                  "maxMemoryMb": {
+                    "description": "Max WASM memory in MB (compile-time limit, default: 1)",
+                    "type": "number"
+                  }
+                }
+              },
+              "externalModules": {
+                "description": "External WASM modules keyed by import namespace (base64-encoded). Edict programs can import functions from these modules.",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "record": {
+                "description": "When true, capture all non-deterministic host responses (random, time, IO, HTTP) in a replay token. The token is included in the response and can be passed to edict_replay for exact reproduction.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "wasmBase64"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_patch",
+          "description": "Apply surgical patches to an Edict AST by nodeId, then run the full check pipeline. Use this to fix errors without resubmitting the entire AST. Each patch specifies a nodeId, an operation (replace/delete/insert), and the relevant field/value.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The base Edict JSON AST to patch"
+              },
+              "patches": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "nodeId": {
+                      "type": "string",
+                      "description": "ID of the target AST node"
+                    },
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "replace",
+                        "delete",
+                        "insert"
+                      ],
+                      "description": "Operation: replace a field, delete a node, or insert into an array"
+                    },
+                    "field": {
+                      "description": "Field name (required for replace/insert)",
+                      "type": "string"
+                    },
+                    "value": {
+                      "description": "New value (required for replace/insert)"
+                    },
+                    "index": {
+                      "description": "Array index for insert (defaults to end)",
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "nodeId",
+                    "op"
+                  ]
+                },
+                "description": "Array of patches to apply"
+              },
+              "returnAst": {
+                "default": false,
+                "description": "Include the patched AST in the response (costs tokens, off by default)",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ast",
+              "patches"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_errors",
+          "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_lint",
+          "description": "Run non-blocking lint analysis on an Edict AST. Returns quality warnings (unused variables, missing contracts, oversized functions, redundant effects, etc.) without blocking compilation. Warnings use the same structured format as errors but with severity: 'warning'.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The Edict JSON AST to lint"
+              }
+            },
+            "required": [
+              "ast"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_compose",
+          "description": "Compose multiple Edict program fragments into a single module. Fragments declare what they provide and require, enabling independent validation and incremental program generation.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "fragments": {
+                "type": "array",
+                "items": {},
+                "description": "Array of Edict fragment ASTs to compose"
+              },
+              "moduleName": {
+                "description": "Name for the composed module (default: 'composed')",
+                "type": "string"
+              },
+              "moduleId": {
+                "description": "ID for the composed module (default: 'mod-composed-001')",
+                "type": "string"
+              },
+              "check": {
+                "description": "If true, run the full type/effect/contract pipeline on the composed module",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "fragments"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_debug",
+          "description": "Execute an Edict program with debug instrumentation. Compiles the AST with call-stack tracing, runs it, and returns structured crash diagnostics including call stack at crash time, crash location with nodeId, and step count. Use this instead of edict_compile + edict_run when debugging runtime failures — the crash location and call stack enable targeted fixes without guessing.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The Edict program AST (module) to debug — same format as edict_compile"
+              },
+              "options": {
+                "description": "Optional debug execution options",
+                "type": "object",
+                "properties": {
+                  "maxSteps": {
+                    "description": "Maximum function entries before stopping execution (default: 10000). Prevents infinite loops from consuming resources.",
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "required": [
+              "ast"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_export",
+          "description": "Export an Edict AST as a portable WASM skill package with validation and manifest generation.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The Edict JSON AST to compile and export"
+              },
+              "metadata": {
+                "description": "Optional metadata for the exported skill package",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "default": "unknown_skill",
+                    "type": "string"
+                  },
+                  "version": {
+                    "default": "1.0.0",
+                    "type": "string"
+                  },
+                  "description": {
+                    "default": "",
+                    "type": "string"
+                  },
+                  "author": {
+                    "default": "unknown",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "required": [
+              "ast"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_import_skill",
+          "description": "Import and execute a compiled Edict WASM skill package, validating its checksum.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "skill": {
+                "type": "object",
+                "properties": {
+                  "uasf": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "author": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": {}
+                  },
+                  "interface": {
+                    "type": "object",
+                    "properties": {
+                      "entryPoint": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": {}
+                  },
+                  "binary": {
+                    "type": "object",
+                    "properties": {
+                      "wasm": {
+                        "type": "string"
+                      },
+                      "wasmSize": {
+                        "type": "number"
+                      },
+                      "checksum": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "wasm",
+                      "checksum"
+                    ],
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "binary"
+                ],
+                "additionalProperties": {},
+                "description": "The skill package JSON object (produced by edict_export)"
+              },
+              "limits": {
+                "description": "Optional execution sandbox limits",
+                "type": "object",
+                "properties": {
+                  "timeoutMs": {
+                    "description": "Max execution time in milliseconds (default: 15000, min: 100)",
+                    "type": "number"
+                  },
+                  "maxMemoryMb": {
+                    "description": "Max WASM memory in MB (compile-time limit, default: 1)",
+                    "type": "number"
+                  },
+                  "sandboxDir": {
+                    "description": "Sandbox directory for file IO builtins",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "required": [
+              "skill"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_package",
+          "description": "Package a compiled Edict module + WASM binary into a portable SkillPackage. Input: the module AST (same one sent to edict_compile) + the base64 WASM string returned by edict_compile. Output: a SkillPackage JSON with interface metadata, verification info, integrity checksum, and the embedded WASM.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The Edict module AST (the same JSON sent to edict_compile)"
+              },
+              "wasm": {
+                "type": "string",
+                "description": "Base64-encoded WASM binary (from edict_compile result)"
+              },
+              "metadata": {
+                "description": "Optional metadata to embed in the skill package",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "Skill name",
+                    "type": "string"
+                  },
+                  "version": {
+                    "description": "Skill version",
+                    "type": "string"
+                  },
+                  "description": {
+                    "description": "Skill description",
+                    "type": "string"
+                  },
+                  "author": {
+                    "description": "Skill author",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "required": [
+              "ast",
+              "wasm"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_invoke_skill",
+          "description": "Execute a packaged Edict skill — load WASM from a SkillPackage, verify integrity checksum, and run it. Returns structured output with exit code and return value.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "skill": {
+                "type": "object",
+                "properties": {
+                  "uasf": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "author": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": {}
+                  },
+                  "interface": {
+                    "type": "object",
+                    "properties": {
+                      "entryPoint": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": {}
+                  },
+                  "binary": {
+                    "type": "object",
+                    "properties": {
+                      "wasm": {
+                        "type": "string"
+                      },
+                      "wasmSize": {
+                        "type": "number"
+                      },
+                      "checksum": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "wasm",
+                      "checksum"
+                    ],
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "binary"
+                ],
+                "additionalProperties": {},
+                "description": "The SkillPackage JSON (produced by edict_package or edict_export)"
+              },
+              "limits": {
+                "description": "Optional execution sandbox limits",
+                "type": "object",
+                "properties": {
+                  "timeoutMs": {
+                    "description": "Max execution time in milliseconds (default: 15000, min: 100)",
+                    "type": "number"
+                  },
+                  "maxMemoryMb": {
+                    "description": "Max WASM memory in MB (compile-time limit, default: 1)",
+                    "type": "number"
+                  },
+                  "sandboxDir": {
+                    "description": "Sandbox directory for file IO builtins",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "required": [
+              "skill"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_generate_tests",
+          "description": "Auto-generate structured test cases from Z3-verified contracts. For proven contracts, extracts boundary input values and expected outputs from Z3 models. For failing contracts, extracts counterexample inputs as regression tests. Returns an array of GeneratedTest objects — each with function name, input values, expected output, and source (boundary/counterexample). Use this to get free tests from formal specifications without writing them manually.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The Edict program AST (module) — same format as edict_check"
+              }
+            },
+            "required": [
+              "ast"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_explain",
+          "description": "Given a structured error, returns enriched repair context: pipeline stage, field metadata, example ASTs, and repair strategy.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "description": "A structured error object from the compiler (must have an 'error' discriminator field)"
+              }
+            },
+            "required": [
+              "error"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_replay",
+          "description": "Re-execute a WASM module using a previously recorded replay token for deterministic reproduction of runtime behavior. All non-deterministic host responses (random values, timestamps, HTTP responses, file IO) are replayed from the token instead of calling real host functions. Use this to reproduce exact failures or verify fixes against known execution traces.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "wasmBase64": {
+                "type": "string",
+                "description": "The base64 encoded WebAssembly module to execute"
+              },
+              "replayToken": {
+                "type": "object",
+                "properties": {
+                  "responses": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string"
+                        },
+                        "args": {
+                          "type": "array",
+                          "items": {}
+                        },
+                        "result": {}
+                      },
+                      "required": [
+                        "kind",
+                        "args",
+                        "result"
+                      ]
+                    }
+                  },
+                  "recordedAt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "responses",
+                  "recordedAt"
+                ],
+                "description": "Replay token from a previous edict_run call with record: true"
+              },
+              "limits": {
+                "description": "Optional execution limits",
+                "type": "object",
+                "properties": {
+                  "timeoutMs": {
+                    "description": "Max execution time in milliseconds (default: 15000, min: 100)",
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "required": [
+              "wasmBase64",
+              "replayToken"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_support",
+          "description": "Returns structured sponsorship and support information for the Edict project",
+          "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_deploy",
+          "description": "Deploy an Edict program to a target. Runs the full pipeline (validate → check → compile) then packages for the specified target. Targets: 'wasm_binary' (returns WASM + metadata), 'cloudflare' (generates Worker bundle).",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "ast": {
+                "description": "The Edict JSON AST to deploy"
+              },
+              "target": {
+                "type": "string",
+                "description": "Deploy target: 'wasm_binary' or 'cloudflare'"
+              },
+              "config": {
+                "description": "Target-specific configuration",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "Deployment name (used as Worker name for cloudflare target)",
+                    "type": "string"
+                  },
+                  "route": {
+                    "description": "Route pattern for cloudflare target (e.g., '/api/process')",
+                    "type": "string"
+                  },
+                  "compatibilityDate": {
+                    "description": "Wrangler compatibility date for cloudflare target",
+                    "type": "string"
+                  },
+                  "kvNamespaces": {
+                    "description": "KV namespace bindings for cloudflare target",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "binding": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "binding",
+                        "id"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "required": [
+              "ast",
+              "target"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "edict_invoke",
+          "description": "Invoke a deployed Edict WASM service via HTTP. Sends a request to the given URL with optional input and returns the structured result. Completes the deploy → invoke round-trip.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "description": "URL of the deployed Edict service to invoke"
+              },
+              "input": {
+                "description": "Request body to send to the service",
+                "type": "string"
+              },
+              "method": {
+                "description": "HTTP method (default: POST)",
+                "type": "string"
+              },
+              "timeoutMs": {
+                "description": "Request timeout in milliseconds (default: 10000)",
+                "type": "number"
+              },
+              "headers": {
+                "description": "Additional HTTP headers to send",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        }
+      ],
+      "resources": [
+        {
+          "name": "schema",
+          "uri": "edict://schema",
+          "description": "The full JSON Schema defining valid Edict AST programs",
+          "mimeType": "application/json"
+        },
+        {
+          "name": "schema-minimal",
+          "uri": "edict://schema/minimal",
+          "description": "Token-optimized JSON Schema (descriptions stripped) for minimal context window usage",
+          "mimeType": "application/json"
+        },
+        {
+          "name": "examples",
+          "uri": "edict://examples",
+          "description": "10 example Edict programs as JSON ASTs",
+          "mimeType": "application/json"
+        },
+        {
+          "name": "errors",
+          "uri": "edict://errors",
+          "description": "Machine-readable catalog of all structured error types with fields, pipeline stages, and example cause/fix ASTs",
+          "mimeType": "application/json"
+        },
+        {
+          "name": "schema-patch",
+          "uri": "edict://schema/patch",
+          "description": "JSON Schema defining the AST diff/patch protocol for the edict_patch tool (replace, insert, delete operations)",
+          "mimeType": "application/json"
+        },
+        {
+          "name": "support",
+          "uri": "edict://support",
+          "description": "Sponsorship and support information for the Edict project",
+          "mimeType": "application/json"
+        },
+        {
+          "name": "guide",
+          "uri": "edict://guide",
+          "description": "Agent bootstrap guide — workflow, template, error recovery, builtins, tool reference",
+          "mimeType": "application/json"
+        }
+      ],
+      "prompts": [
+        {
+          "name": "write_program",
+          "description": "System prompt for writing a new Edict program from a task description. Includes minimal schema, example, and builtin list.",
+          "arguments": [
+            {
+              "name": "task",
+              "description": "Description of what the program should do",
+              "required": true
+            }
+          ]
+        },
+        {
+          "name": "fix_error",
+          "description": "Prompt for fixing a structured Edict compiler error. Includes error taxonomy and fix strategy.",
+          "arguments": [
+            {
+              "name": "error",
+              "description": "The structured error JSON from the compiler",
+              "required": true
+            }
+          ]
+        },
+        {
+          "name": "add_contracts",
+          "description": "Prompt for adding pre/postcondition contracts to existing Edict functions for Z3 formal verification.",
+          "arguments": [
+            {
+              "name": "ast",
+              "description": "The Edict JSON AST to add contracts to",
+              "required": true
+            }
+          ]
+        },
+        {
+          "name": "review_ast",
+          "description": "Prompt for reviewing an Edict AST for quality issues (unused variables, missing effects, dead code, etc.).",
+          "arguments": [
+            {
+              "name": "ast",
+              "description": "The Edict JSON AST to review",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    "source": {
+      "commit": "1e88e53c8fd6b71189288a60a0d0ef4403c938be",
+      "branch": "main"
+    }
+  },
+  "artifacts": {
+    "module": "module.js",
+    "sourcemap": "module.js.map"
+  }
+}

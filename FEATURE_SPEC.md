@@ -1,6 +1,6 @@
 # Edict Feature Specification v1
 
-> **Status**: All phases implemented (v1.8.0) — AST → Validate → Resolve → Type Check → Effect Check → Contracts → Codegen → Execute
+> **Status**: All phases implemented (v1.22.1) — AST → Validate → Resolve → Type Check → Effect Check → Contracts → Codegen → Execute
 > **Implementation**: TypeScript · **Pipeline**: AST-first · **Users**: Agents only
 > **Canonical format**: JSON AST · **Interface**: MCP structured output
 
@@ -955,7 +955,7 @@ Edict uses **monomorphic containers**. The AST schema allows generic container t
 | **5** | WASM Code Generator | ✅ Complete |
 | **6** | MCP Toolchain | ✅ Complete |
 
-All 6 phases are implemented and shipping (v1.8.0+). The full pipeline is operational: agents write JSON AST, the compiler validates, type-checks, effect-checks, verifies contracts via Z3, compiles to WASM, and executes — all via MCP tool calls.
+All 6 phases are implemented and shipping (v1.22.1+). The full pipeline is operational: agents write JSON AST, the compiler validates, type-checks, effect-checks, verifies contracts via Z3, compiles to WASM, and executes — all via MCP tool calls.
 
 ---
 
@@ -971,9 +971,9 @@ All pipeline phases are complete and verified:
 - [x] Effect checking (Phase 3) — call-graph propagation, fixed-point analysis
 - [x] Contract verification (Phase 4) — Z3/SMT with counterexamples, caching, worker offloading
 - [x] WASM code generation (Phase 5) — pure-JS WASM encoder, closures, HOFs, records, enums, strings
-- [x] MCP toolchain (Phase 6) — 17 MCP tools, 5 resources, schema/examples/errors access
-- [x] 38 example programs covering all language features (beginner → advanced)
-- [x] 1800+ tests across 105 test files
+- [x] MCP toolchain (Phase 6) — 22 MCP tools, 7 resources, schema/examples/errors access
+- [x] 41 example programs covering all language features (beginner → advanced)
+- [x] 2675 tests across 136 test files
 - [x] End-to-end smoke test: agent produces AST → compile → run via MCP
 
 ---

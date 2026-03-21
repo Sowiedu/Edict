@@ -71,7 +71,7 @@ src/
 ├── patch/         # Surgical AST patching by nodeId
 ├── migration/     # Schema version migration (auto-upgrade older ASTs)
 ├── skills/        # Skill packaging and invocation
-├── mcp/           # MCP server (tools + resources)
+├── mcp/           # MCP server (tools + resources + prompts)
 └── errors/        # Structured error types
 
 tests/             # 2675 tests across 136 files

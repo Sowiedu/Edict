@@ -1,6 +1,6 @@
 # Contract Verification Coverage
 
-> Baseline established: 2026-03-08 · Corpus: 55 contracts · Edict v1.7.0+
+> Baseline established: 2026-03-08 · Corpus: 55 contracts · Edict v1.22.1+
 
 ## Summary
 

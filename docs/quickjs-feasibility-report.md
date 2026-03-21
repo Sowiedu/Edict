@@ -27,7 +27,7 @@ The **remaining blockers have been resolved**: contract verification (phase 4) n
 | Bundle | Entry Point | Size | Contents |
 |--------|-------------|------|----------|
 | Check-only | `dist/edict-quickjs-check.js` | **365.7 KB** | Phases 1–3: validate, resolve, typeCheck, effectCheck, lint, patch, compose |
-| Full (compile) | `dist/edict-quickjs-full.js` | **860.5 KB** | Phases 1–5: check + WASM codegen via pure-JS encoder |
+| Full (compile) | `dist/edict-quickjs-full.js` | **932 KB** | Phases 1–5: check + WASM codegen via pure-JS encoder |
 
 Both bundles use IIFE format (QuickJS doesn't support ESM `import`). Node.js modules are shimmed to empty stubs via esbuild. Z3 is excluded.
 

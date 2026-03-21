@@ -22,7 +22,7 @@ The `EdictQuickJS` class provides three modes:
 - **Full compile** (phases 1–5): check + WASM codegen + contract verification (QF-LIA) in a **925 KB** bundle.
 - **Compile and run** (phases 1–6): full self-hosting loop — JSON AST → check → compile → execute, all inside QuickJS.
 
-Available as `edict-lang/quickjs` sub-export (#200). 2673 tests across 136 files.
+Available as `edict-lang/quickjs` sub-export (#200). 2675 tests across 136 files.
 
 ---
 

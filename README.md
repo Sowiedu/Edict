@@ -120,8 +120,8 @@ The Edict compiler also runs inside [QuickJS](https://bellard.org/quickjs/) WASM
 
 | Bundle | Size | Phases | Slowdown vs Node.js |
 |---|---|---|---|
-| `dist/edict-quickjs-check.js` | 365 KB | 1–3 (validate, resolve, typecheck, effects) | ~3.7x |
-| `dist/edict-quickjs-full.js` | 860 KB | 1–5 (check + WASM compile) | ~3.7x |
+| `dist/edict-quickjs-check.js` | 373 KB | 1–3 (validate, resolve, typecheck, effects) | ~3.7x |
+| `dist/edict-quickjs-full.js` | 932 KB | 1–5 (check + WASM compile) | ~3.7x |
 
 ```typescript
 import { EdictQuickJS } from "edict-lang/quickjs";
@@ -256,6 +256,8 @@ src/
 │   ├── host-adapter.ts  # EdictHostAdapter interface + platform adapters
 │   ├── closures.ts      # Closure capture and compilation
 │   ├── hof-generators.ts # Higher-order function WASM generators
+│   ├── wasm-encoder.ts  # Pure-JS WASM binary encoder (replaced binaryen)
+│   ├── wasm-interpreter.ts # Pure-JS WASM interpreter (no WebAssembly API needed)
 │   ├── recording-adapter.ts # Execution recording for replay
 │   ├── replay-adapter.ts  # Deterministic replay from recorded traces
 │   └── string-table.ts  # String interning for WASM memory

@@ -6,12 +6,12 @@
     "url": "https://github.com/Sowiedu/Edict",
     "source": "github"
   },
-  "version": "1.22.0",
+  "version": "1.22.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "edict-lang",
-      "version": "1.22.0",
+      "version": "1.22.1",
       "transport": {
         "type": "stdio"
       }
