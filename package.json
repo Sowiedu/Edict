@@ -99,7 +99,7 @@
     "fast-check": "^4.5.3",
     "miniflare": "^4.20260312.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
+    "typescript": "^6.0.2",
     "typescript-json-schema": "^0.67.1",
     "vitest": "^4.0.18"
   },
