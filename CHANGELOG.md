@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.1](https://github.com/Sowiedu/Edict/compare/v1.23.0...v1.23.1) (2026-03-29)
+
+
+### Bug Fixes
+
+* sync server.json version to match package.json (1.22.1 → 1.23.0) ([a33796c](https://github.com/Sowiedu/Edict/commit/a33796ca36d1bb7f1f8df31a4bc572ad3854a14e))
+
 ## [1.23.0](https://github.com/Sowiedu/Edict/compare/v1.22.1...v1.23.0) (2026-03-20)
 
 
