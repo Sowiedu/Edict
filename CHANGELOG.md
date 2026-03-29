@@ -1,15 +1,5 @@
 # Changelog
 
-## [1.23.1](https://github.com/Sowiedu/Edict/compare/v1.23.0...v1.23.1) (2026-03-29)
-
-
-### Dependencies
-
-* **deps-dev:** bump typescript from 5.9.3 to 6.0.2 ([#215](https://github.com/Sowiedu/Edict/pull/215))
-* **deps:** bump @modelcontextprotocol/sdk from 1.27.1 to 1.28.0 ([#214](https://github.com/Sowiedu/Edict/pull/214))
-* **deps-dev:** bump vitest and @vitest/coverage-v8 from 4.1.0 to 4.1.2 ([#214](https://github.com/Sowiedu/Edict/pull/214))
-* **deps-dev:** bump miniflare from 4.20260317.1 to 4.20260317.3 ([#214](https://github.com/Sowiedu/Edict/pull/214))
-
 ## [1.23.0](https://github.com/Sowiedu/Edict/compare/v1.22.1...v1.23.0) (2026-03-20)
 
 
