@@ -42,7 +42,7 @@ jobs:
 
       - name: Run tests
         id: tests
-        run: npx vitest run --coverage --reporter=default --reporter=json --outputFile=test-results.json
+        run: npx vitest run --coverage
 
       - name: Verify all examples compile
         run: npm run validate-examples
