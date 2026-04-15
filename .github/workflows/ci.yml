@@ -37,6 +37,9 @@ jobs:
           npm run generate-schema
           git diff --exit-code -- schema/edict.schema.json
 
+      - name: Build project
+        run: npm run build
+
       - name: Run tests
         id: tests
         run: npx vitest run --coverage --reporter=default --reporter=json --outputFile=test-results.json
@@ -46,7 +49,7 @@ jobs:
 
       - name: Post structured CI feedback
         if: always()
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
