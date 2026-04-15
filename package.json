@@ -98,6 +98,7 @@
     "esbuild": "^0.27.4",
     "fast-check": "^4.5.3",
     "miniflare": "^4.20260312.0",
+    "quickjs-emscripten": "^0.32.0",
     "tsx": "^4.19.0",
     "typescript": "^6.0.2",
     "typescript-json-schema": "^0.67.1",
@@ -107,8 +108,8 @@
     "node": ">=20.0.0"
   },
   "peerDependencies": {
-    "tsx": ">=4.0.0",
-    "quickjs-emscripten": ">=0.32.0"
+    "quickjs-emscripten": ">=0.32.0",
+    "tsx": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "tsx": {
