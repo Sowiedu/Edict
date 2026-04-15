@@ -200,3 +200,6 @@ Thinking through the /review checklist in your head does NOT satisfy the process
 
 ## 67. Use Proper TypeExpr Kinds, Not Magic Strings
 When adding type-level features, create a new `kind` in `TypeExpr` (e.g., `type_var`) rather than overloading existing kinds with magic strings (e.g., `{ kind: "named", name: "__T" }`). Proper kinds give `kind` switch discrimination, no prefix-checking heuristics, and natural extensibility. This matches how `confidence`, `provenance`, `capability`, and `fresh` are already handled.
+
+## 68. Use GitHub MCP Server, Never `gh` CLI
+Always use MCP server tools (`mcp_github-mcp-server_*`) for GitHub operations. Never fall back to `gh` CLI commands. If the MCP server lacks a tool (e.g., `create_release`), use `push_files`/`create_or_update_file` to commit changes that trigger the desired GitHub Actions workflow.

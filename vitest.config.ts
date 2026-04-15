@@ -123,6 +123,7 @@ export default defineConfig({
                 // Remaining uncovered branches are rare lowering paths (closures, HOFs).
                 "src/ir/lower.ts",
             ],
+            reporters: ["text", "html", "clover", "json", "json-summary"],
             thresholds: {
                 branches: 89,
                 functions: 98,
