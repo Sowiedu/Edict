@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.23.2](https://github.com/Sowiedu/Edict/compare/v1.23.1...v1.23.2) (2026-04-15)
+
+
+### Bug Fixes
+
+* add quickjs-emscripten to devDependencies for CI typecheck ([afc41ee](https://github.com/Sowiedu/Edict/commit/afc41eec32698957e5da4336dffff52f3ea3c312))
+* add quickjs-emscripten to devDependencies for CI typecheck ([17069e2](https://github.com/Sowiedu/Edict/commit/17069e29fb0a1591e69c1b0908c5028bbf306bbd))
+
 ## [1.23.1](https://github.com/Sowiedu/Edict/compare/v1.23.0...v1.23.1) (2026-03-29)
 
 
