@@ -100,7 +100,7 @@
     "miniflare": "^4.20260312.0",
     "quickjs-emscripten": "^0.32.0",
     "tsx": "^4.19.0",
-    "typescript": "^6.0.2",
+    "typescript": "^7.0.2",
     "typescript-json-schema": "^0.68.0",
     "vitest": "^4.0.18"
   },
