@@ -121,7 +121,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "z3-solver": "^4.15.8",
+    "z3-solver": "^5.2.0",
     "zod": "^4.3.6"
   }
 }
