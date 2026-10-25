@@ -12,7 +12,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Build — install all deps, generate schema, compile TypeScript
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS build
+FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS build
 
 WORKDIR /edict
 
@@ -34,7 +34,7 @@ RUN npx tsc
 # ---------------------------------------------------------------------------
 # Stage 2: Production — minimal runtime image
 # ---------------------------------------------------------------------------
-FROM node:20-alpine
+FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
 
 # OCI Labels (these will be enriched by GitHub Actions)
 LABEL org.opencontainers.image.title="Edict MCP Server"
