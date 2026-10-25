@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.23.3](https://github.com/Sowiedu/Edict/compare/v1.23.2...v1.23.3) (2026-10-25)
+
+
+### Bug Fixes
+
+* **deps:** move Docker image to patched Node for CVE-2026-111497 ([2dbed48](https://github.com/Sowiedu/Edict/commit/2dbed48beda84d43e746ebec8bc3d98bcdcc63b0))
+* **deps:** move Docker image to patched Node for CVE-2026-111497 ([cace202](https://github.com/Sowiedu/Edict/commit/cace202067923384926d9acfa757897cb3106307))
+
 ## [1.23.2](https://github.com/Sowiedu/Edict/compare/v1.23.1...v1.23.2) (2026-04-15)
 
 
